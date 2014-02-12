@@ -9,3 +9,9 @@ scalaVersion    := "2.10.3"
 retrieveManaged := true
 
 scalacOptions   := Seq("-deprecation", "-unchecked", "-feature")
+
+libraryDependencies ++= Seq(
+  // "de.sciss" %% "lucreevent" % "2.5.+",
+  "de.sciss" %% "lucresynth-expr" % "2.1.1+",
+  "edu.ucar" %  "netcdf"          % "4.3.20"
+)
