@@ -28,4 +28,8 @@ object Implicits {
 
     def newVar[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix[S] = Impl.newVar(init)
   }
+
+  implicit class MatrixOps[S <: Sys[S]](val `this`: Matrix[S]) extends AnyVal {
+    def slice(dim: Int, index: Int): Matrix[S] = ???
+  }
 }

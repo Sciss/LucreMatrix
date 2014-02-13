@@ -21,13 +21,18 @@ import de.sciss.lucre.expr.Expr
 object Matrix {
   trait Var[S <: Sys[S]] extends Matrix[S] with stm.Sink[S, Matrix[S]] with stm.Source[S, Matrix[S]]
 
-  trait Update[S <: Sys[S]]
+  // object Update {
+  //
+  // }
+  trait Update[S <: Sys[S]] {
+    def matrix: Matrix[S]
+  }
   // ...
 }
 trait Matrix[S <: Sys[S]] extends Publisher[S, Matrix.Update[S]] {
   def name: Expr[S, String]
 
-  def rank: Expr[S, Int]
+  def rank: Expr[S, Int ]
   def size: Expr[S, Long]
 
   def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?

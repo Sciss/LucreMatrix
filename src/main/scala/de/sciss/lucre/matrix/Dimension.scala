@@ -12,14 +12,28 @@
  *	contact@sciss.de
  */
 
-package de.sciss.lucre.matrix
+package de.sciss.lucre
+package matrix
 
 import de.sciss.lucre.event.Publisher
 import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.stm
 
 object Dimension {
-  trait Var[S <: Sys[S]] extends Dimension[S] with stm.Sink[S, Dimension[S]] with stm.Source[S, Dimension[S]]
+  trait Var[S <: Sys[S]] extends Dimension[S] with matrix.Var[S, Dimension[S]]
+
+  object Selection {
+    trait Index[S <: Sys[S]] extends Selection[S] {
+      def expr: Expr[S, Int]
+    }
+
+    trait Name[S <: Sys[S]] extends Selection[S] {
+      def expr: Expr[S, String]
+    }
+
+    trait Var[S <: Sys[S]] extends Selection[S] with matrix.Var[S, Selection[S]]
+  }
+  sealed trait Selection[S <: Sys[S]]
 
   trait Update[S <: Sys[S]]
 }
