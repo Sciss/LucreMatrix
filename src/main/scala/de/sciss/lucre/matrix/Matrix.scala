@@ -17,6 +17,8 @@ package de.sciss.lucre.matrix
 import de.sciss.lucre.stm
 import de.sciss.lucre.event.Publisher
 import de.sciss.lucre.expr.Expr
+import de.sciss.serial.Writable
+import stm.Disposable
 
 object Matrix {
   trait Var[S <: Sys[S]] extends Matrix[S] with stm.Sink[S, Matrix[S]] with stm.Source[S, Matrix[S]]
@@ -29,11 +31,11 @@ object Matrix {
   }
   // ...
 }
-trait Matrix[S <: Sys[S]] extends Publisher[S, Matrix.Update[S]] {
+trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
   def name: Expr[S, String]
 
-  def rank: Expr[S, Int ]
-  def size: Expr[S, Long]
+  def rank: Expr[S, Int   ]
+  def size: Expr[S, Long  ]
 
   def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?
 

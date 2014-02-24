@@ -6,12 +6,12 @@ licenses        := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.tx
 
 scalaVersion    := "2.10.3"
 
-retrieveManaged := true
+// retrieveManaged := true
 
 scalacOptions   := Seq("-deprecation", "-unchecked", "-feature")
 
 libraryDependencies ++= Seq(
   // "de.sciss" %% "lucreevent" % "2.5.+",
-  "de.sciss" %% "lucresynth-expr" % "2.1.1+",
+  "de.sciss" %% "lucresynth-expr" % "2.2.+",
   "edu.ucar" %  "netcdf"          % "4.3.20"
 )

@@ -32,8 +32,10 @@ object Dimension {
     }
 
     trait Var[S <: Sys[S]] extends Selection[S] with matrix.Var[S, Selection[S]]
+
+    trait Update[S <: Sys[S]]
   }
-  sealed trait Selection[S <: Sys[S]]
+  sealed trait Selection[S <: Sys[S]] extends Publisher[S, Selection.Update[S]]
 
   trait Update[S <: Sys[S]]
 }

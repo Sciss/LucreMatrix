@@ -20,6 +20,7 @@ import de.sciss.lucre.{event => evt}
 import evt.EventLike
 import de.sciss.lucre.matrix.Matrix.Update
 import de.sciss.lucre.synth.expr.ExprImplicits
+import de.sciss.serial.DataOutput
 
 object ZeroMatrixImpl {
   def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] = {
@@ -40,7 +41,7 @@ object ZeroMatrixImpl {
   }
 
   private final class Impl[S <: Sys[S]](val name: Expr[S, String], val shape: Expr[S, Vec[Dimension[S]]],
-                                        val size: Expr[S, Long], val rank: Expr[S, Int])
+                                        val size: Expr[S, Long  ], val rank : Expr[S, Int])
     extends Matrix[S] {
 
     def changed: EventLike[S, Update[S]] = evt.Dummy.apply
@@ -51,5 +52,9 @@ object ZeroMatrixImpl {
       val szI = sz.toInt
       Vec.fill(szI)(0.0)
     }
+
+    def write(out: DataOutput): Unit = ???
+
+    def dispose()(implicit tx: S#Tx) = ()
   }
 }
