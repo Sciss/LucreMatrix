@@ -23,4 +23,8 @@ package object matrix {
 
   type Vec[+A]  = scala.collection.immutable.IndexedSeq[A]
   val  Vec      = scala.collection.immutable.IndexedSeq
+
+  def installTypes(): Unit = {
+    ???
+  }
 }

@@ -41,7 +41,7 @@ object Dimension {
 }
 trait Dimension[S <: Sys[S]] extends Publisher[S, Dimension.Update[S]] {
   def name: Expr[S, String]
-  def size: Expr[S, Int]
+  def size: Expr[S, Int   ]
 
   def flatten(implicit tx: S#Tx): Vec[Double]
 }
