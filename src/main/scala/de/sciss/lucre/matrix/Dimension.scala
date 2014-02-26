@@ -15,47 +15,58 @@
 package de.sciss.lucre
 package matrix
 
-import de.sciss.lucre.event.Publisher
+import de.sciss.lucre.{event => evt}
 import de.sciss.lucre.expr.Expr
-import de.sciss.lucre.stm
 import de.sciss.serial.{DataInput, Writable}
 import de.sciss.lucre.stm.Disposable
+import impl.{DimensionImpl => Impl}
 
 object Dimension {
-  trait Var[S <: Sys[S]] extends Dimension[S] with matrix.Var[S, Dimension[S]]
+  // trait Var[S <: Sys[S]] extends Dimension[S] with matrix.Var[S, Dimension[S]]
 
   object Selection {
-    def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection[S] = ???
+    final val typeID = 0x30003
+
+    def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection[S] =
+      serializer[S].read(in, access)
+
+    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Selection[S]] = Impl.selSerializer[S]
 
     object Index {
-      def apply[S <: Sys[S]](expr: Expr[S, Int])(implicit tx: S#Tx): Index[S] = ???
+      final val opID  = 0
+
+      def apply[S <: Sys[S]](expr: Expr[S, Int])(implicit tx: S#Tx): Index[S] = Impl.applySelIndex(expr)
     }
-    trait Index[S <: Sys[S]] extends Selection[S] {
+    trait Index[S <: Sys[S]] extends Selection[S] with evt.Node[S] {
       def expr: Expr[S, Int]
     }
 
     object Name {
-      def apply[S <: Sys[S]](expr: Expr[S, String])(implicit tx: S#Tx): Name[S] = ???
+      final val opID  = 1
+
+      def apply[S <: Sys[S]](expr: Expr[S, String])(implicit tx: S#Tx): Name[S] = Impl.applySelName(expr)
     }
-    trait Name[S <: Sys[S]] extends Selection[S] {
+    trait Name[S <: Sys[S]] extends Selection[S] with evt.Node[S] {
       def expr: Expr[S, String]
     }
 
     object Var {
-      def apply[S <: Sys[S]](init: Selection[S])(implicit tx: S#Tx): Var[S] = ???
+      def apply[S <: Sys[S]](init: Selection[S])(implicit tx: S#Tx): Var[S] = Impl.applySelVar(init)
+
+      implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Selection.Var[S]] = Impl.selVarSerializer[S]
     }
     trait Var[S <: Sys[S]] extends Selection[S] with matrix.Var[S, Selection[S]]
 
-    trait Update[S <: Sys[S]]
+    case class Update[S <: Sys[S]](selection: Selection[S])
   }
   sealed trait Selection[S <: Sys[S]]
-    extends Writable with Disposable[S#Tx] with Publisher[S, Selection.Update[S]]
+    extends Writable with Disposable[S#Tx] with evt.Publisher[S, Selection.Update[S]]
 
   case class Value(name: String, size: Int)
 }
-trait Dimension[S <: Sys[S]] extends Expr[S, Dimension.Value] {
-  def name: Expr[S, String]
-  def size: Expr[S, Int   ]
-
-  def flatten(implicit tx: S#Tx): Vec[Double]
-}
+//trait Dimension[S <: Sys[S]] extends Expr[S, Dimension.Value] {
+//  def name: Expr[S, String]
+//  def size: Expr[S, Int   ]
+//
+//  def flatten(implicit tx: S#Tx): Vec[Double]
+//}

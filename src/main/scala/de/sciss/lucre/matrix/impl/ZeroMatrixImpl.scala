@@ -39,7 +39,9 @@ object ZeroMatrixImpl {
   private final class Impl[S <: Sys[S]](shapeConst: Vec[Int])
     extends Matrix[S] {
 
-    def name(implicit tx: S#Tx): String = s"zeros${shape.mkString("[","][","]")}"
+    def name(implicit tx: S#Tx): String = toString
+
+    override def toString = s"zeros${shapeConst.mkString("[","][","]")}"
 
     def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
     def ranges    (implicit tx: S#Tx): Vec[Range]           = shape.map(0 until _)

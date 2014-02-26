@@ -18,9 +18,7 @@ package impl
 object MatrixFactoryImpl extends MatrixFactory {
   def zeros   [S <: Sys[S]](ns: Int*)(implicit tx: S#Tx): Matrix[S] = ZeroMatrixImpl(ns.toIndexedSeq)
 
-  def newConst[S <: Sys[S]](v1: Vec[Double])(implicit tx: S#Tx): Matrix[S] = ???
+  def newConst[S <: Sys[S]](v1: Vec[Double])(implicit tx: S#Tx): Matrix[S] =  ???
   def newConst[S <: Sys[S]](v1: Vec[Double], v2: Vec[Double])(implicit tx: S#Tx): Matrix[S] = ???
   def newConst[S <: Sys[S]](v1: Vec[Double], v2: Vec[Double], v3: Vec[Double])(implicit tx: S#Tx): Matrix[S] = ???
-
-  def newVar  [S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix[S] = ???
 }

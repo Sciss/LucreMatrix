@@ -17,8 +17,7 @@ package matrix
 
 import de.sciss.lucre.stm
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.event.{InMemory, Node, Targets, Publisher}
-import de.sciss.lucre.expr.Expr
+import evt.{InMemory, Publisher}
 import de.sciss.serial.{DataInput, Writable}
 import stm.Disposable
 import scala.annotation.switch
@@ -28,20 +27,23 @@ object Matrix {
   final val typeID = 0x30001
 
   object Var {
+    def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Var[S] = impl.MatrixVarImpl(init)
 
+    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer
   }
   trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]]
 
   case class Update[S <: Sys[S]](matrix: Matrix[S])
 
-  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] = anySer.asInstanceOf[Ser[S]]
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
+    anySer.asInstanceOf[Ser[S]]
 
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
 
   private val anySer = new Ser[InMemory]
 
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Matrix[S]] {
-    def read(in: DataInput, access: S#Acc, targets: Targets[S])(implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
+    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
       // 0 = var, 1 = op
       (in.readByte(): @switch) match {
         case 0      => readVar (in, access, targets)
@@ -50,9 +52,8 @@ object Matrix {
       }
     }
 
-    private def readVar(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Var[S] = {
-      ???
-    }
+    private def readVar(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Var[S] =
+      impl.MatrixVarImpl.readIdentified(in, access, targets)
 
     private def readNode(in: DataInput, access: S#Acc, targets: evt.Targets[S])
                         (implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {

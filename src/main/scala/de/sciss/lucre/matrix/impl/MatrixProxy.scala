@@ -18,7 +18,7 @@ package impl
 trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
   m =>
 
-  protected def matrixPeer: Matrix[S]
+  protected def matrixPeer(implicit tx: S#Tx): Matrix[S]
 
   import m.{matrixPeer => peer}
 
