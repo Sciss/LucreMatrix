@@ -20,40 +20,46 @@ import de.sciss.lucre.{event => evt}
 import evt.EventLike
 import de.sciss.lucre.matrix.Matrix.Update
 import de.sciss.lucre.synth.expr.ExprImplicits
-import de.sciss.serial.DataOutput
+import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
+import de.sciss.lucre.matrix.Dimension.Value
 
 object ZeroMatrixImpl {
-  def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] = {
-    val vec: Vec[Dimension[S]] = shape.zipWithIndex.map { case (sz, idx) =>
-      new RangeDimensionImpl[S](s"d$idx", 0 until sz)
-    }
-    val nameEx  = Strings.newConst[S](s"zeros${shape.mkString("[","][","]")}")
-    val shapeEx = DimensionVecType.newConst[S](vec)
-    //    val sizeEx: Expr[S, Long] = {
-    //      val identity: Expr[S, Long] = Longs.newConst(1L)
-    //      val imp = ExprImplicits[S]
-    //      import imp._
-    //      (identity /: shape.value)(_ * _.size)
-    //    }
-    val sizeEx  = Longs.newConst[S]((0L /: shape)(_ * _))
-    val rankEx  = Ints .newConst[S](shape.size)
-    new Impl(nameEx, shape = shapeEx, size = sizeEx, rank = rankEx)
+  final val opID = 0
+
+  def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] =
+    new Impl[S](shape)
+
+  private[matrix] def readIdentified[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+    val shape = intVecSer.read(in)
+    new Impl[S](shape)
   }
 
-  private final class Impl[S <: Sys[S]](val name: Expr[S, String], val shape: Expr[S, Vec[Dimension[S]]],
-                                        val size: Expr[S, Long  ], val rank : Expr[S, Int])
+  private val intVecSer = ImmutableSerializer.indexedSeq[Int]
+
+  private final class Impl[S <: Sys[S]](shapeConst: Vec[Int])
     extends Matrix[S] {
+
+    def name(implicit tx: S#Tx): String = s"zeros${shape.mkString("[","][","]")}"
+
+    def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
+    def ranges    (implicit tx: S#Tx): Vec[Range]           = shape.map(0 until _)
+    def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
+      shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
 
     def changed: EventLike[S, Update[S]] = evt.Dummy.apply
 
     def flatten(implicit tx: S#Tx): Vec[Double] = {
-      val sz = size.value
+      val sz = size
       require(sz <= 0x7FFFFFFF)
       val szI = sz.toInt
       Vec.fill(szI)(0.0)
     }
 
-    def write(out: DataOutput): Unit = ???
+    def write(out: DataOutput): Unit = {
+      out.writeByte(3)    // 'constant'
+      out.writeInt(opID)  // type
+      intVecSer.write(shapeConst, out)
+    }
 
     def dispose()(implicit tx: S#Tx) = ()
   }

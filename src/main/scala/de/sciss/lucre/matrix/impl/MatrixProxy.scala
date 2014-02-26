@@ -15,8 +15,6 @@
 package de.sciss.lucre.matrix
 package impl
 
-import de.sciss.lucre.expr.Expr
-
 trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
   m =>
 
@@ -26,9 +24,9 @@ trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
 
   def flatten(implicit tx: S#Tx): Vec[Double] = peer.flatten
 
-  def shape: Expr[S, Vec[Dimension[S]]] = peer.shape
+  def shape     (implicit tx: S#Tx): Vec[Int]             = peer.shape
+  def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = peer.dimensions
+  def ranges    (implicit tx: S#Tx): Vec[Range]           = peer.ranges
 
-  def size : Expr[S, Long  ] = peer.size
-  def rank : Expr[S, Int   ] = peer.rank
-  def name : Expr[S, String] = peer.name
+  def name(implicit tx: S#Tx): String = peer.name
 }

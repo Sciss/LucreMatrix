@@ -12,32 +12,93 @@
  *	contact@sciss.de
  */
 
-package de.sciss.lucre.matrix
+package de.sciss.lucre
+package matrix
 
 import de.sciss.lucre.stm
-import de.sciss.lucre.event.Publisher
+import de.sciss.lucre.{event => evt}
+import de.sciss.lucre.event.{InMemory, Node, Targets, Publisher}
 import de.sciss.lucre.expr.Expr
-import de.sciss.serial.Writable
+import de.sciss.serial.{DataInput, Writable}
 import stm.Disposable
+import scala.annotation.switch
+import de.sciss.serial.Serializer
 
 object Matrix {
-  trait Var[S <: Sys[S]] extends Matrix[S] with stm.Sink[S, Matrix[S]] with stm.Source[S, Matrix[S]]
+  final val typeID = 0x30001
 
-  // object Update {
-  //
-  // }
-  trait Update[S <: Sys[S]] {
-    def matrix: Matrix[S]
+  object Var {
+
   }
-  // ...
+  trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]]
+
+  case class Update[S <: Sys[S]](matrix: Matrix[S])
+
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] = anySer.asInstanceOf[Ser[S]]
+
+  def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
+
+  private val anySer = new Ser[InMemory]
+
+  private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Matrix[S]] {
+    def read(in: DataInput, access: S#Acc, targets: Targets[S])(implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
+      // 0 = var, 1 = op
+      (in.readByte(): @switch) match {
+        case 0      => readVar (in, access, targets)
+        case 1      => readNode(in, access, targets)
+        case other  => sys.error(s"Unexpected cookie $other")
+      }
+    }
+
+    private def readVar(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Var[S] = {
+      ???
+    }
+
+    private def readNode(in: DataInput, access: S#Acc, targets: evt.Targets[S])
+                        (implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
+      val tpe   = in.readInt()
+      require(tpe == typeID, s"Unexpected type (found $tpe, expected $typeID)")
+      val opID  = in.readInt()
+      (opID: @switch) match {
+        case Reduce.opID  => Reduce.readIdentified(in, access, targets)
+        case _            => sys.error("Unknown operator id $opID")
+      }
+    }
+
+    def readConstant(in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+      val opID = in.readInt()
+      (opID: @switch) match {
+        case impl.ZeroMatrixImpl.opID => impl.ZeroMatrixImpl.readIdentified(in)
+        case _                        => sys.error(s"Unexpected operator $opID")
+      }
+    }
+  }
 }
 trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
-  def name: Expr[S, String]
+  def name(implicit tx: S#Tx): String
 
-  def rank: Expr[S, Int   ]
-  def size: Expr[S, Long  ]
+  // def rank: Expr[S, Int   ]
+  // def size: Expr[S, Long  ]
 
-  def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?
+  def rank(implicit tx: S#Tx): Int    = shape.size
+  def size(implicit tx: S#Tx): Long   = (1L /: shape)(_ * _)
+
+  def shape(implicit tx: S#Tx): Vec[Int]
+
+  def dimensions(implicit tx: S#Tx): Vec[Dimension.Value]
+
+  def ranges(implicit tx: S#Tx): Vec[Range] // XXX TODO: this might get problematic with averaging reductions
+
+  def reducedRank      (implicit tx: S#Tx): Int                   = shape.count (_ > 1)
+  def reducedShape     (implicit tx: S#Tx): Vec[Int]              = shape.filter(_ > 1)
+  def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
+  def reducedRanges    (implicit tx: S#Tx): Vec[Range]            = reduce(ranges)
+
+  private def reduce[A](coll: Vec[A])(implicit tx: S#Tx): Vec[A] =
+    (coll zip shape).collect { case (x, sz) if sz > 1 => x }
+
+  // def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?
+  // def shape(implicit tx: S#Tx): Vec[Dimension.Value]
 
   def flatten(implicit tx: S#Tx): Vec[Double]
 
