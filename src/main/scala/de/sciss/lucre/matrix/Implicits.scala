@@ -20,13 +20,9 @@ object Implicits {
 
     def zeros[S <: Sys[S]](ns: Int*)(implicit tx: S#Tx): Matrix[S] = Impl.zeros(ns: _*)
 
-    def newConst[S <: Sys[S]](v1: Vec[Double])(implicit tx: S#Tx): Matrix[S] = Impl.newConst(v1)
-    def newConst[S <: Sys[S]](v1: Vec[Double], v2: Vec[Double])(implicit tx: S#Tx): Matrix[S] = Impl.newConst(v1, v2)
-
-    def newConst[S <: Sys[S]](v1: Vec[Double], v2: Vec[Double], v3: Vec[Double])(implicit tx: S#Tx): Matrix[S] =
-      Impl.newConst(v1, v2, v3)
-
-    // def newVar[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix[S] = Impl.newVar(init)
+    def newConst1D[S <: Sys[S]](v: Vec[        Double  ])(implicit tx: S#Tx): Matrix[S] = Impl.newConst1D(v)
+    def newConst2D[S <: Sys[S]](v: Vec[Vec[    Double ]])(implicit tx: S#Tx): Matrix[S] = Impl.newConst2D(v)
+    def newConst3D[S <: Sys[S]](v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = Impl.newConst3D(v)
   }
 
   implicit class MatrixOps[S <: Sys[S]](val `this`: Matrix[S]) extends AnyVal {

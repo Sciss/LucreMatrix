@@ -69,8 +69,9 @@ object Matrix {
     def readConstant(in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
       val opID = in.readInt()
       (opID: @switch) match {
-        case impl.ZeroMatrixImpl.opID => impl.ZeroMatrixImpl.readIdentified(in)
-        case _                        => sys.error(s"Unexpected operator $opID")
+        case impl.ZeroMatrixImpl .opID => impl.ZeroMatrixImpl .readIdentified(in)
+        case impl.ConstMatrixImpl.opID => impl.ConstMatrixImpl.readIdentified(in)
+        case _                         => sys.error(s"Unexpected operator $opID")
       }
     }
   }

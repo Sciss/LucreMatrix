@@ -15,13 +15,9 @@
 package de.sciss.lucre.matrix
 package impl
 
-import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.{event => evt}
 import evt.EventLike
-import de.sciss.lucre.matrix.Matrix.Update
-import de.sciss.lucre.synth.expr.ExprImplicits
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
-import de.sciss.lucre.matrix.Dimension.Value
 
 object ZeroMatrixImpl {
   final val opID = 0
@@ -48,7 +44,7 @@ object ZeroMatrixImpl {
     def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
       shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
 
-    def changed: EventLike[S, Update[S]] = evt.Dummy.apply
+    def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 
     def flatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size

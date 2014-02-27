@@ -26,7 +26,7 @@ import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
 
 object ReduceImpl {
-  final val opID = 1
+  final val opID = 2
   
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
     val targets = evt.Targets[S]
@@ -221,37 +221,102 @@ object ReduceImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
-    override def flatten(implicit tx: S#Tx): Vec[Double] = ???
+    override def flatten(implicit tx: S#Tx): Vec[Double] = {
+      val data  = in.flatten
+      val idx   = indexOfDim
+      if (idx == -1) return data
+
+      // currently support only `Apply` and `Slice`.
+      // Flat indices work as follows: dimensions are flatten from inside to outside,
+      // so the last dimension uses consecutive samples.
+      // (d0_0, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
+      // (d0_0, d1_1, d2_0), (d0_0, d1_1, d2_1), ... (d0_0, d1_1, d2_i),
+      // ...
+      // (d0_0, d1_j, d2_0), (d0_0, d1_j, d2_1), ... (d0_0, d1_j, d2_i),
+      // (d0_1, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
+      // ... ...
+      // ... ... (d0_k, d1_j, d2_i)
+
+      // therefore, if the selected dimension index is 0 <= si < rank,
+      // and the operator's start index is `lo` and the stop index is `hi` (exclusive),
+      // the copy operations is as follows:
+
+      // val num    = shape.take(si    ).product  // d0: 1, d1: k, d2: k * j
+      // val stride = shape.drop(si    ).product  // d0: k * j * i, d1: j * i, d2: i
+      // val block  = shape.drop(si + 1).product  // d0: j * i, d1: i, d2: 1
+      // for (x <- 0 until num) {
+      //   val offset = x * stride
+      //   copy `lo * block + offset` until `hi * block + offset`
+      // }
+
+      val (lo, hi) = rangeOfDim(idx)
+      val sz = hi - lo
+      if (sz <= 0) return Vec.empty  // or throw exception?
+
+      val sh      = shape
+      val num     = sh.take(idx    ).product
+      val block   = sh.drop(idx + 1).product
+      val stride  = block * sh(idx)
+      val szFull  = num * stride        // full size
+      val szRed   = num * block * sz    // reduced size
+
+      val b     = Vec.newBuilder[Double]
+      b.sizeHint(szRed)
+      for (x <- 0 until szFull by stride) {
+        for (y <- lo * block + x until hi * block + x) {
+          b += data(y)
+        }
+      }
+
+      b.result()
+    }
 
     override def shape(implicit tx: S#Tx): Vec[Int] = {
-      val sh = in.shape
+      val sh        = in.shape
       val (idx, sz) = indexAndSize
-      if (sz == 0) Vec.empty  // or throw exception?
+      if (idx == -1) return sh
+
+      if (sz <= 0) Vec.empty  // or throw exception?
       else sh.updated(idx, sz)
     }
 
-    private def indexAndSize(implicit tx: S#Tx): (Int, Int) = {
-      @tailrec def indexOfDim(sel: Selection[S]): Int = sel match {
+    private def validateIndex(idx: Int)(implicit tx: S#Tx): Int =
+      if (idx >= 0 && idx < in.rank) idx else -1
+
+    private def indexOfDim(implicit tx: S#Tx): Int = {
+      @tailrec def loop(sel: Selection[S])(implicit tx: S#Tx): Int = sel match {
         case si: Selection.Index[S] => si.expr.value
         case sn: Selection.Name [S] => in.dimensions.indexWhere(_.name == sn.expr.value)
-        case sv: Selection.Var  [S] => indexOfDim(sv())
+        case sv: Selection.Var  [S] => loop(sv())
       }
+      validateIndex(loop(dim))
+    }
 
-      val idx   = indexOfDim(dim)
-      val valid = idx >= 0 && idx < in.rank
-      if (!valid) return (-1, -1)   // or throw exception?
+    private def rangeOfDim(idx: Int)(implicit tx: S#Tx): (Int, Int) = {
+      @tailrec def loop(_op: Op[S]): (Int, Int) = _op match {
+        case oa: Op.Apply[S] =>
+          val _lo  = oa.index.value
+          val _hi  = _lo + 1
+          (_lo, _hi)
 
-      @tailrec def sizeOfDim(_op: Op[S]): Int = _op match {
-        case oa: Op.Apply[S] => 1
         case os: Op.Slice[S] =>
-          val lo  = math.max(0, os.from .value)
-          val hi  = math.min(in.shape.apply(idx), math.max(lo + 1, os.until.value))
-          hi - lo
+          val _lo = os.from .value
+          val _hi = os.until.value
+          (_lo, _hi)
 
-        case ov: Op.Var  [S] => sizeOfDim(ov())
+        case ov: Op.Var  [S] => loop(ov())
       }
 
-      val sz = sizeOfDim(op)
+      val (lo, hi) = loop(op)
+      (math.max(0, lo), math.min(in.shape.apply(idx), hi))
+    }
+
+    private def indexAndSize(implicit tx: S#Tx): (Int, Int) = {
+      val idx = indexOfDim
+      if (idx == -1) return (-1, -1)   // or throw exception?
+
+      val (lo, hi) = rangeOfDim(idx)
+      val sz = hi - lo
       (idx, sz)
     }
 

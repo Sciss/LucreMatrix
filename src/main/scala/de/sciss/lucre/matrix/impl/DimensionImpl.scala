@@ -1,3 +1,17 @@
+/*
+ *  DimensionImpl.scala
+ *  (LucreMatrix)
+ *
+ *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
+ *  Written by Hanns Holger Rutz.
+ *
+ *	This software is published under the GNU General Public License v2+
+ *
+ *
+ *	For further information, please contact Hanns Holger Rutz at
+ *	contact@sciss.de
+ */
+
 package de.sciss.lucre
 package matrix
 package impl
