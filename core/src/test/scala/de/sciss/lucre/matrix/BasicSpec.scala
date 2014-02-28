@@ -2,15 +2,21 @@ package de.sciss.lucre.matrix
 
 import org.scalatest.{fixture, Outcome, Matchers}
 import de.sciss.lucre.event.Durable
+import de.sciss.lucre.expr
+import expr.Expr
 import de.sciss.lucre.stm.store.BerkeleyDB
 import Implicits._
-import de.sciss.lucre.synth.expr.ExprImplicits
+import language.implicitConversions
 
+/*
+  to run only this test:
+  test-only de.sciss.lucre.matrix.BasicSpec
+ */
 class BasicSpec extends fixture.FlatSpec with Matchers {
-  final type S = Durable
-  final type FixtureParam = Durable
+  type S            = Durable
+  type FixtureParam = Durable
 
-  final def withFixture(test: OneArgTest): Outcome = {
+  def withFixture(test: OneArgTest): Outcome = {
     val system = Durable(BerkeleyDB.tmp())
     try {
       test(system)
@@ -19,6 +25,8 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       system.close()
     }
   }
+
+  implicit def mkConst(i: Int): Expr.Const[S, Int] = expr.Int.newConst(i)
 
   "A Zeros Matrix" should "sing while you sell" in { cursor =>
     val z = cursor.step { implicit tx =>
@@ -46,17 +54,14 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
   }
 
   "Matrix Reductions" should "be observable" in { cursor =>
-    val imp = ExprImplicits[S]
-    import imp._
-
     val (mv, si, sv, oi, ov) = cursor.step { implicit tx =>
       val _z  = Matrix.zeros(13, 21)
       val _mv = Matrix.Var(_z)
-      val _si = Ints.newVar[S](0)
+      val _si = expr.Int.newVar[S](0)
       val _sv = Dimension.Selection.Var(Dimension.Selection.Index(_si))
-      val _oi = Ints.newVar[S](0)
+      val _oi = expr.Int.newVar[S](0)
       val _ov = Reduce.Op.Var(Reduce.Op.Apply(_oi))
-      implicit val intVar = Ints.varSerializer[S]
+      import expr.Int.varSerializer
       (tx.newHandle(_mv), tx.newHandle(_si), tx.newHandle(_sv), tx.newHandle(_oi), tx.newHandle(_ov))
     }
 
@@ -71,9 +76,6 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
   }
 
   "Matrix Reductions" should "yield correct cell data" in { cursor =>
-    val imp = ExprImplicits[S]
-    import imp._
-
     cursor.step { implicit tx =>
       val m0 = Matrix.newConst3D(Vec(
         Vec(
@@ -90,22 +92,22 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
 
       assert (m0.flatten === (1 to 24))
 
-      val si  = Ints.newVar[S](0)
+      val si  = expr.Int.newVar[S](0)
       val sv  = Dimension.Selection.Var(Dimension.Selection.Index(si))
-      val oi  = Ints.newVar[S](0)
+      val oi  = expr.Int.newVar[S](0)
       val ov  = Reduce.Op.Var(Reduce.Op.Apply(oi))
       val m1  = Reduce(m0, sv, ov)
 
-      assert (m1.flatten === (1 to 12))
+      assert (m1.flatten === ( 1 to 12))
 
       oi() = 1
       assert (m1.flatten === (13 to 24))
 
       si() = 1
       oi() = 0
-      assert (m1.flatten === (1 to 4) ++ (13 to 16))
+      assert (m1.flatten === (1 to  4) ++ (13 to 16))
       oi() = 1
-      assert (m1.flatten === (5 to 8) ++ (17 to 20))
+      assert (m1.flatten === (5 to  8) ++ (17 to 20))
       oi() = 2
       assert (m1.flatten === (9 to 12) ++ (21 to 24))
 

@@ -84,12 +84,12 @@ object ReduceImpl {
       val opID  = in.readInt()
       (opID: @switch) match {
         case Op.Apply.opID =>
-          val index = Ints.readExpr(in, access)
+          val index = expr.Int.read(in, access)
           new OpApplyImpl[S](targets, index)
 
         case Op.Slice.opID =>
-          val from  = Ints.readExpr(in, access)
-          val until = Ints.readExpr(in, access)
+          val from  = expr.Int.read(in, access)
+          val until = expr.Int.read(in, access)
           new OpSliceImpl[S](targets, from, until)
 
         case _ => sys.error(s"Unsupported operator id $opID")

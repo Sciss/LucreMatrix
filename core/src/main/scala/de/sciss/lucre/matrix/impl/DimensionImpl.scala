@@ -65,12 +65,12 @@ object DimensionImpl {
       val opID = in.readInt()
       (opID: @switch) match {
         case Selection.Index.opID =>
-          val expr = Ints.readExpr(in, access)
-          new SelIndexImpl[S](targets, expr)
+          val ex = expr.Int.read(in, access)
+          new SelIndexImpl[S](targets, ex)
 
         case Selection.Name .opID =>
-          val expr = Strings.readExpr(in, access)
-          new SelNameImpl[S](targets, expr)
+          val ex = expr.String.read(in, access)
+          new SelNameImpl[S](targets, ex)
 
         case _ => sys.error(s"Unknown operation id $opID")
       }
