@@ -39,11 +39,19 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       tx.newHandle(_m1)
     }
 
+    cursor.step { implicit tx =>
+      z ().dispose()
+      m1().dispose()
+    }
+  }
+
+  "Matrix Reductions" should "be observable" in { cursor =>
     val imp = ExprImplicits[S]
     import imp._
 
     val (mv, si, sv, oi, ov) = cursor.step { implicit tx =>
-      val _mv = Matrix.Var(z())
+      val _z  = Matrix.zeros(13, 21)
+      val _mv = Matrix.Var(_z)
       val _si = Ints.newVar[S](0)
       val _sv = Dimension.Selection.Var(Dimension.Selection.Index(_si))
       val _oi = Ints.newVar[S](0)
@@ -58,9 +66,41 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     }
 
     cursor.step { implicit tx =>
-      z ().dispose()
-      m1().dispose()
       m2().dispose()
+    }
+  }
+
+  "Matrix Reductions" should "yield correct cell data" in { cursor =>
+    val imp = ExprImplicits[S]
+    import imp._
+
+    cursor.step { implicit tx =>
+      println("---1")
+
+      val m0 = Matrix.newConst3D(Vec(
+        Vec(
+          Vec( 1,  2 , 3,  4),
+          Vec( 5,  6,  7,  8),
+          Vec( 9, 10, 11, 12)
+        ),
+        Vec(
+          Vec(13, 14, 15, 16),
+          Vec(17, 18, 19, 20),
+          Vec(21, 22, 23, 24)
+        )
+      ))
+
+      println("---2")
+      assert (m0.flatten === (1 to 24))
+
+      val si  = Ints.newVar[S](0)
+      val sv  = Dimension.Selection.Var(Dimension.Selection.Index(si))
+      val oi  = Ints.newVar[S](0)
+      val ov  = Reduce.Op.Var(Reduce.Op.Apply(oi))
+      val m1  = Reduce(m0, sv, ov)
+
+      println("---3")
+      assert (m1.flatten === (1 to 12))
     }
   }
 }

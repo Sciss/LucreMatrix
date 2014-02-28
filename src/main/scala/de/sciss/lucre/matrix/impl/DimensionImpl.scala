@@ -104,7 +104,7 @@ object DimensionImpl {
                                               protected val ref: S#Var[Selection[S]])
     extends Selection.Var[S] with VarImpl[S, Selection[S], Selection.Update[S]] {
 
-    override def toString = s"Selection.Var$id"
+    override def toString() = s"Selection.Var$id"
 
     protected def mapUpdate(in: Selection.Update[S]): Selection.Update[S] = in.copy(selection = this)
 
@@ -148,7 +148,7 @@ object DimensionImpl {
                                                 val expr: Expr[S, Int])
     extends Selection.Index[S] with SelTuple1Op[S, Int] {
 
-    override def toString = s"Index$id($expr)"
+    override def toString() = s"Index$id($expr)"
 
     protected def _1 = expr
     protected def opID = Selection.Index.opID
@@ -158,7 +158,7 @@ object DimensionImpl {
                                                 val expr: Expr[S, String])
     extends Selection.Name[S] with SelTuple1Op[S, String] {
 
-    override def toString = s"Name$id($expr)"
+    override def toString() = s"Name$id($expr)"
 
     protected def _1 = expr
     protected def opID = Selection.Name.opID
