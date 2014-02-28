@@ -152,6 +152,7 @@ object ReduceImpl {
     override def toString() = s"Apply$id($index)"
 
     protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1 // cookie
       out writeInt Op.typeID
       out writeInt Op.Apply.opID
       index write out
@@ -179,6 +180,7 @@ object ReduceImpl {
     override def toString() = s"Slice$id($from, $until)"
 
     protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1   // cookie
       out writeInt Op.typeID
       out writeInt Op.Slice.opID
       from  write out
@@ -253,7 +255,7 @@ object ReduceImpl {
       val sz = hi - lo
       if (sz <= 0) return Vec.empty  // or throw exception?
 
-      val sh      = shape
+      val sh      = in.shape
       val num     = sh.take(idx    ).product
       val block   = sh.drop(idx + 1).product
       val stride  = block * sh(idx)
@@ -321,6 +323,7 @@ object ReduceImpl {
     }
 
     protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1   // cookie
       out writeInt Matrix.typeID
       out writeInt opID
       in  write out

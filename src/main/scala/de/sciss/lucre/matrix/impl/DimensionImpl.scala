@@ -122,6 +122,7 @@ object DimensionImpl {
     protected def _1: Expr[S, T1]
 
     protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1   // cookie
       out writeInt Selection.typeID
       out writeInt opID
       _1 write out

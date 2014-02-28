@@ -36,7 +36,7 @@ trait VarImpl[S <: Sys[S], Elem <: evt.Publisher[S, U], U]
   protected def disposeData()(implicit tx: S#Tx): Unit = ref.dispose()
 
   protected def writeData(out: DataOutput): Unit = {
-    out.writeByte(0)
+    out.writeByte(0)    // cookie
     ref.write(out)
   }
 

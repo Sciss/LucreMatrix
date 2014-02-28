@@ -75,8 +75,6 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     import imp._
 
     cursor.step { implicit tx =>
-      println("---1")
-
       val m0 = Matrix.newConst3D(Vec(
         Vec(
           Vec( 1,  2 , 3,  4),
@@ -90,7 +88,6 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
         )
       ))
 
-      println("---2")
       assert (m0.flatten === (1 to 24))
 
       val si  = Ints.newVar[S](0)
@@ -99,8 +96,28 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       val ov  = Reduce.Op.Var(Reduce.Op.Apply(oi))
       val m1  = Reduce(m0, sv, ov)
 
-      println("---3")
       assert (m1.flatten === (1 to 12))
+
+      oi() = 1
+      assert (m1.flatten === (13 to 24))
+
+      si() = 1
+      oi() = 0
+      assert (m1.flatten === (1 to 4) ++ (13 to 16))
+      oi() = 1
+      assert (m1.flatten === (5 to 8) ++ (17 to 20))
+      oi() = 2
+      assert (m1.flatten === (9 to 12) ++ (21 to 24))
+
+      si() = 2
+      oi() = 0
+      assert (m1.flatten === Vec(1, 5,  9, 13, 17, 21))
+      oi() = 1
+      assert (m1.flatten === Vec(2, 6, 10, 14, 18, 22))
+      oi() = 2
+      assert (m1.flatten === Vec(3, 7, 11, 15, 19, 23))
+      oi() = 3
+      assert (m1.flatten === Vec(4, 8, 12, 16, 20, 24))
     }
   }
 }
