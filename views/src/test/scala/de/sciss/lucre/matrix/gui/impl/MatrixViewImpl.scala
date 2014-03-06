@@ -17,10 +17,11 @@ package gui
 package impl
 
 import de.sciss.lucre.stm
-import scala.swing.{Component, Swing}
+import scala.swing.Component
 import de.sciss.lucre.swing._
 import de.sciss.lucre.swing.impl.ComponentHolder
 import scala.annotation.tailrec
+import de.sciss.lucre.expr.Expr
 
 object MatrixViewImpl {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S]): MatrixView[S] = {
@@ -31,16 +32,16 @@ object MatrixViewImpl {
 
   // ---- view data ----
 
-  private sealed trait SelState[S <: Sys[S]]{
-    def h: stm.Source[S#Tx, Dimension.Selection[S]]
+  private sealed trait SelState[S <: Sys[S]] {
+    // def h: stm.Source[S#Tx, Dimension.Selection[S]]
     // def isVar: Boolean
   }
 
-  private final class SelIndexState[S <: Sys[S]](val h: stm.Source[S#Tx, Dimension.Selection.Index[S]],
-                                                 var index: Int, val isVar: Boolean)
+  private final class SelIndexState[S <: Sys[S]](val indexVar: Option[stm.Source[S#Tx, Expr.Var[S, Int]]],
+                                                 var index: Int)
     extends SelState[S]
 
-  private final class SetNameState [S <: Sys[S]](val h: stm.Source[S#Tx, Dimension.Selection.Name [S]],
+  private final class SetNameState [S <: Sys[S]](val nameVar: Option[stm.Source[S#Tx, Expr.Var[S, String]]],
                                                  var name : String)
     extends SelState[S]
 
