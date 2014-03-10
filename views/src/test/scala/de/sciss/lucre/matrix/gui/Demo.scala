@@ -4,10 +4,15 @@ package gui
 import scala.swing.{MainFrame, Frame, SimpleSwingApplication}
 import de.sciss.lucre.event.InMemory
 import Implicits._
+import de.sciss.desktop.impl.UndoManagerImpl
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
   implicit val system: S  = InMemory()
+
+  implicit val undo       = new UndoManagerImpl {
+    protected var dirty: Boolean = false
+  }
 
   lazy val top: Frame = {
     val view = system.step { implicit tx =>

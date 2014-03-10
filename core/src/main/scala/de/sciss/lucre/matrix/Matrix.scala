@@ -29,7 +29,7 @@ object Matrix {
   object Var {
     def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Var[S] = impl.MatrixVarImpl(init)
 
-    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer
+    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer[S]
   }
   trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]]
 

@@ -18,9 +18,11 @@ package gui
 import scala.swing.Component
 import de.sciss.lucre.stm
 import de.sciss.lucre.swing.View
+import impl.{MatrixViewImpl => Impl}
+import de.sciss.desktop.UndoManager
 
 object MatrixView {
-  def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S]): MatrixView[S] = ???
+  def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = Impl[S]
 }
 trait MatrixView[S <: Sys[S]] extends View[S] {
   def matrix(implicit tx: S#Tx): Option[Matrix[S]]
