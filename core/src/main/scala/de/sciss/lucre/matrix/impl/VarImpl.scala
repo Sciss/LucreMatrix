@@ -6,7 +6,7 @@ import de.sciss.lucre.{event => evt}
 import de.sciss.serial.DataOutput
 
 // XXX TODO: this should go back into LucreEvent
-trait VarImpl[S <: Sys[S], Elem <: evt.Publisher[S, U], U]
+trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
   extends Var[S, Elem]
   with evt.impl.StandaloneLike[S, U, Elem]
   with evt.impl.Generator     [S, U, Elem] {
@@ -15,8 +15,8 @@ trait VarImpl[S <: Sys[S], Elem <: evt.Publisher[S, U], U]
 
   protected def ref: S#Var[Elem]
 
-  protected def mkUpdate(v: Elem): U
-  protected def mapUpdate(in: U): U
+  protected def mkUpdate(before: Elem, now: Elem): U
+  protected def mapUpdate(in: EU): U
 
   def apply()(implicit tx: S#Tx): Elem = ref()
 
@@ -28,7 +28,7 @@ trait VarImpl[S <: Sys[S], Elem <: evt.Publisher[S, U], U]
       ref() = v
       if (con) {
         v.changed ---> this
-        fire(mkUpdate(v))
+        fire(mkUpdate(before, v))
       }
     }
   }

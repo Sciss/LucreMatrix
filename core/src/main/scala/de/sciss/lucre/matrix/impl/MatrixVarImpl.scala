@@ -5,6 +5,7 @@ package impl
 import de.sciss.serial.DataInput
 import de.sciss.lucre.{event => evt}
 import de.sciss.lucre.matrix.Matrix
+import de.sciss.model.Change
 
 object MatrixVarImpl {
   def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix.Var[S] = {
@@ -37,15 +38,17 @@ object MatrixVarImpl {
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                         protected val ref: S#Var[Matrix[S]])
     extends Matrix.Var[S]
-    with MatrixProxy[S] with VarImpl[S, Matrix[S], Matrix.Update[S]] {
+    with MatrixProxy[S] with VarImpl[S, Matrix.Update[S], Matrix[S], Matrix.Var.Update[S]] {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = ref()
 
     // ---- event ----
 
-    protected def mapUpdate(in: Matrix.Update[S]): Matrix.Update[S] = in.copy(matrix = this)
+    protected def mapUpdate(in: Matrix.Update[S]): Matrix.Var.Update[S] =
+      Matrix.Var.Update.Element(this, in)
 
-    protected def mkUpdate(v: Matrix[S]): Matrix.Update[S] = Matrix.Update(this)
+    protected def mkUpdate(before: Matrix[S], now: Matrix[S]): Matrix.Var.Update[S] =
+      Matrix.Var.Update.Changed(this, Change(before, now))
 
     protected def reader: evt.Reader[S, Matrix[S]] = Matrix.serializer
   }

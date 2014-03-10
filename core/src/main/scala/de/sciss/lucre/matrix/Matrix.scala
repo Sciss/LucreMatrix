@@ -22,6 +22,7 @@ import de.sciss.serial.{DataInput, Writable}
 import stm.Disposable
 import scala.annotation.switch
 import de.sciss.serial.Serializer
+import de.sciss.model.Change
 
 object Matrix {
   final val typeID = 0x30001
@@ -30,10 +31,23 @@ object Matrix {
     def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Var[S] = impl.MatrixVarImpl(init)
 
     implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer[S]
-  }
-  trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]]
 
-  case class Update[S <: Sys[S]](matrix: Matrix[S])
+    object Update {
+      case class Changed[S <: Sys[S]](matrix: Var[S], change: Change[Matrix[S]]) extends Var.Update[S]
+      case class Element[S <: Sys[S]](matrix: Var[S], update: Matrix.Update[S])  extends Var.Update[S]
+    }
+    sealed trait Update[S <: Sys[S]] extends Matrix.Update[S] {
+      def matrix: Var[S]
+    }
+  }
+  trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]] with Publisher[S, Var.Update[S]]
+
+  object Update {
+    case class Generic[S <: Sys[S]](matrix: Matrix[S]) extends Update[S]
+  }
+  sealed trait Update[S <: Sys[S]] {
+    def matrix: Matrix[S]
+  }
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
     anySer.asInstanceOf[Ser[S]]

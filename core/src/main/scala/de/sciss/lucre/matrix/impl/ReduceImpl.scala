@@ -136,11 +136,11 @@ object ReduceImpl {
 
   private final class OpVarImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                              protected val ref: S#Var[Op[S]])
-    extends Op.Var[S] with VarImpl[S, Op[S], Op.Update[S]] {
+    extends Op.Var[S] with VarImpl[S, Op.Update[S], Op[S], Op.Update[S]] {
 
     protected def mapUpdate(in: Update[S]): Op.Update[S] = in.copy(op = this)
 
-    protected def mkUpdate(v: Op[S]): Op.Update[S] = Op.Update(this)
+    protected def mkUpdate(before: Op[S], now: Op[S]): Op.Update[S] = Op.Update(this)
 
     protected def reader: evt.Reader[S, Op[S]] = Op.serializer
   }
@@ -355,7 +355,7 @@ object ReduceImpl {
       val e0 =       pull.contains(in .changed) && pull(in .changed).isDefined
       val e1 = e0 || pull.contains(dim.changed) && pull(dim.changed).isDefined
       val e2 = e1 || pull.contains(op .changed) && pull(op .changed).isDefined
-      if (e2) Some(Matrix.Update(this)) else None
+      if (e2) Some(Matrix.Update.Generic(this)) else None
     }
   }
 }

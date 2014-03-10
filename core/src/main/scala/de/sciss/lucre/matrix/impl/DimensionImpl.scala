@@ -102,13 +102,14 @@ object DimensionImpl {
 
   private final class SelVarImpl[S <: Sys[S]](protected val targets: evt.Targets[S], 
                                               protected val ref: S#Var[Selection[S]])
-    extends Selection.Var[S] with VarImpl[S, Selection[S], Selection.Update[S]] {
+    extends Selection.Var[S] with VarImpl[S, Selection.Update[S], Selection[S], Selection.Update[S]] {
 
     override def toString() = s"Selection.Var$id"
 
     protected def mapUpdate(in: Selection.Update[S]): Selection.Update[S] = in.copy(selection = this)
 
-    protected def mkUpdate(v: Selection[S]): Selection.Update[S] = Selection.Update(this)
+    protected def mkUpdate(before: Selection[S], now: Selection[S]): Selection.Update[S] =
+      Selection.Update(this)
 
     protected def reader: evt.Reader[S, Selection[S]] = Selection.serializer
   }
