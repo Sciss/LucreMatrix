@@ -27,12 +27,34 @@ import de.sciss.swingplus.Separator
 import GridBagPanel.{Anchor, Fill}
 import de.sciss.lucre.stm.Disposable
 import scala.annotation.tailrec
+import javax.swing.Icon
+import java.awt
+import java.awt.Graphics
 
 object MatrixViewImpl {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = {
     val res = new Impl[S]
     deferTx(res.guiInit())
     res
+  }
+
+  private object MinusIcon extends Icon {
+    def getIconHeight = 12
+    def getIconWidth  = 12
+
+    def paintIcon(c: awt.Component, g: Graphics, x: Int, y: Int): Unit = {
+      g.fillRect(x, y + 6 - 2, 12, 4)
+    }
+  }
+
+  private object PlusIcon extends Icon {
+    def getIconHeight = 12
+    def getIconWidth  = 12
+
+    def paintIcon(c: awt.Component, g: Graphics, x: Int, y: Int): Unit = {
+      g.fillRect(x, y + 6 - 2, 12, 4)
+      g.fillRect(x + 6 - 2, y, 4, 12)
+    }
   }
 
   // ---- view data ----
@@ -79,8 +101,12 @@ object MatrixViewImpl {
         lb.maximumSize    = lbd
         val c1  = lb :: reductions.component :: Nil
         val c2  = if (varOptH.isEmpty) c1 else {
-          val ggRemove  = new Button("-")
-          val ggAdd     = new Button("+")
+          val ggRemove  = new Button
+          ggRemove.icon = MinusIcon
+          ggRemove.borderPainted = false
+          val ggAdd     = new Button
+          ggAdd.icon    = PlusIcon
+          ggAdd.borderPainted = false
           c1 ++ List(ggRemove, ggAdd)
         }
 
