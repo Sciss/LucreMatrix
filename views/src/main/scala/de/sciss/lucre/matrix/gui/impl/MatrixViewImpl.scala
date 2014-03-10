@@ -30,6 +30,7 @@ import java.awt.Graphics
 import scalaswingcontrib.PopupMenu
 import de.sciss.lucre.stm.Disposable
 import scala.swing.GridBagPanel.{Fill, Anchor}
+import de.sciss.lucre.swing.edit.EditVar
 
 object MatrixViewImpl {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = {
@@ -61,7 +62,7 @@ object MatrixViewImpl {
 
   private object DimensionView {
     def apply[S <: Sys[S]](varOpt: Option[Matrix.Var[S]], name: String)
-                          (implicit tx: S#Tx, cursor: stm.Cursor[S]): DimensionView[S] = {
+                          (implicit tx: S#Tx, cursor: stm.Cursor[S], undo: UndoManager): DimensionView[S] = {
       val red     = ReductionsView[S](name)
       val varOptH = varOpt.map(tx.newHandle(_))
       val res     = new Impl(varOptH, name, red)
@@ -70,12 +71,12 @@ object MatrixViewImpl {
     }
 
     private final class Impl[S <: Sys[S]](varOptH: Option[stm.Source[S#Tx, Matrix.Var[S]]], name: String,
-                                          val reductions: ReductionsView[S])(implicit cursor: stm.Cursor[S])
+                                          val reductions: ReductionsView[S])
+                                         (implicit cursor: stm.Cursor[S], undo: UndoManager)
       extends DimensionView[S] with ComponentHolder[Component] {
 
-      // XXX TODO: use undo manager
       private def performAdd(opV: ReduceOpEnum): Unit = varOptH.foreach { varH =>
-        cursor.step { implicit tx =>
+        val edit = cursor.step { implicit tx =>
           val vr    = varH()
           val prev  = vr()
           val dim   = Dimension.Selection.Name[S](expr.String.newConst(name))
@@ -88,9 +89,10 @@ object MatrixViewImpl {
                 expr.Int.newVar(expr.Int.newConst(Int.MaxValue))
               )
             }
-          val comp  = Reduce(prev, dim, op)
-          vr()      = comp
+          val newRed = Reduce(prev, dim, op)
+          EditVar[S, Matrix[S], Matrix.Var[S]](s"Add ${opV.name} to $name", vr, newRed)
         }
+        undo.add(edit)
       }
 
       private def performAdd(): Unit = {
@@ -103,8 +105,35 @@ object MatrixViewImpl {
         pop.show(ggAdd, ggAdd.peer.getWidth /* 0 */, 0 /* ggAdd.peer.getHeight */)
       }
 
-      private def performRemove(): Unit = {
+      // XXX TODO: use undo manager
+      private def performRemove(): Unit = varOptH.foreach { varH =>
+        cursor.step { implicit tx =>
+          val numRed = reductions.size
+          if (numRed > 0) {
+            val redV  = reductions(numRed - 1)
+            val red   = redV.reduction
 
+            /* @tailrec */ def loop(vr: Matrix.Var[S], m: Matrix[S]): Option[(Matrix.Var[S], Matrix[S])] = m match {
+              case r : Reduce[S] =>
+                val in = r.in
+                if (r == red) Some((vr, in))
+                else loop(vr, in).map { case (vr1, newIn) =>
+                  (vr1, Reduce(newIn, r.dim, r.op))
+                }
+
+              case vr1: Matrix.Var[S] =>
+                val in = vr1()
+                loop(vr1, in)
+
+              case _ => None
+            }
+
+            val vr0 = varH()
+            loop(vr0, vr0()).foreach { case (vr2, m2) =>
+              vr2() = m2
+            }
+          }
+        }
       }
 
       private lazy val addAction = new Action(null) {
@@ -410,6 +439,7 @@ object MatrixViewImpl {
         ggName.text = _matrixName
 
         p.revalidate()
+        p.repaint()
       }
     }
 
