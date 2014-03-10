@@ -17,7 +17,7 @@ package gui
 package impl
 
 import de.sciss.lucre.{expr, stm}
-import scala.swing.{ScrollPane, MenuItem, Action, Orientation, BoxPanel, Button, Swing, Label, Component}
+import scala.swing.{Insets, GridBagPanel, BorderPanel, ScrollPane, MenuItem, Action, Orientation, BoxPanel, Button, Swing, Label, Component}
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing._
 import scala.concurrent.stm.Ref
@@ -29,6 +29,7 @@ import java.awt
 import java.awt.Graphics
 import scalaswingcontrib.PopupMenu
 import de.sciss.lucre.stm.Disposable
+import scala.swing.GridBagPanel.{Fill, Anchor}
 
 object MatrixViewImpl {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = {
@@ -283,7 +284,8 @@ object MatrixViewImpl {
     private val dimViews    = Ref(Vec.empty[DimensionView[S]])
     private var editable    = false
 
-    private lazy val p = new BoxPanel(Orientation.Vertical)
+    // private lazy val p = new BoxPanel(Orientation.Vertical)
+    private lazy val p = new GridBagPanel
 
     def matrix(implicit tx: S#Tx): Option[Matrix[S]] = _matrix.get(tx.peer).map(_.apply())
 
@@ -291,7 +293,7 @@ object MatrixViewImpl {
       val oldViews = dimViews.swap(Vec.empty)(tx.peer)
       if (oldViews.nonEmpty) {
         deferTx {
-          p.contents --= oldViews.map(_.component)
+          p.layout --= oldViews.map(_.component)
         }
         oldViews.foreach(_.dispose())
       }
@@ -308,7 +310,7 @@ object MatrixViewImpl {
       case Matrix.Var.Update.Changed(_, _) =>
         implicit val tx = tx0
         // println("matrixUpdate")
-        matrix = matrix // XXX TODO: smart update
+        matrix = matrix // XXX TODO: smart update instead of rebuilding all
       case _ =>
     }
 
@@ -390,7 +392,15 @@ object MatrixViewImpl {
 
       deferTx {
         if (_dimViews.nonEmpty) {
-          p.contents ++= _dimViews.map(_.component)
+          val cons = new p.Constraints(gridx = 0, gridwidth = 1, gridy = 0, gridheight = 1, weightx = 1.0,
+            weighty = 0.0, anchor = Anchor.PageStart.id, fill = Fill.Horizontal.id, insets = new Insets(2, 2, 2, 2),
+            ipadx = 2, ipady = 2)
+          // p.contents ++= _dimViews.map(_.component)
+          val lay = p.layout
+          _dimViews.zipWithIndex.foreach { case (dv, idx) =>
+            cons.gridy = idx
+            lay(dv.component) = cons
+          }
         }
 
         if (_editable != editable) {
@@ -416,6 +426,10 @@ object MatrixViewImpl {
       p1.contents += lbDims
       p1.border = Swing.EmptyBorder(4)
 
+      //      val p2 = new BorderPanel {
+      //        add(p, BorderPanel.Position.West)
+      //        add(Swing.HGlue, BorderPanel.Position.East)
+      //      }
       val scroll    = new ScrollPane(p)
       // scroll.border = Swing.EmptyBorder
       p1.contents += scroll
