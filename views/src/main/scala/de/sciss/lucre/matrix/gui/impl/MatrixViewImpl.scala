@@ -17,19 +17,17 @@ package gui
 package impl
 
 import de.sciss.lucre.stm
-import scala.swing.{Orientation, BoxPanel, Button, FlowPanel, Swing, GridBagPanel, Label, Component}
+import scala.swing.{MenuItem, Action, Orientation, BoxPanel, Button, FlowPanel, Swing, GridBagPanel, Label, Component}
 import de.sciss.lucre.swing.impl.ComponentHolder
-import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.swing._
 import scala.concurrent.stm.Ref
 import de.sciss.desktop.UndoManager
 import de.sciss.swingplus.Separator
-import GridBagPanel.{Anchor, Fill}
-import de.sciss.lucre.stm.Disposable
 import scala.annotation.tailrec
 import javax.swing.Icon
 import java.awt
 import java.awt.Graphics
+import scalaswingcontrib.PopupMenu
 
 object MatrixViewImpl {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = {
@@ -57,30 +55,11 @@ object MatrixViewImpl {
     }
   }
 
-  // ---- view data ----
-
-  //  private sealed trait SelState[S <: Sys[S]] {
-  //    // def h: stm.Source[S#Tx, Dimension.Selection[S]]
-  //    // def isVar: Boolean
-  //  }
-  //
-  //  private final class SelIndexState[S <: Sys[S]](val indexVar: Option[stm.Source[S#Tx, Expr.Var[S, Int]]],
-  //                                                 var index: Int)
-  //    extends SelState[S]
-  //
-  //  private final class SetNameState [S <: Sys[S]](val nameVar: Option[stm.Source[S#Tx, Expr.Var[S, String]]],
-  //                                                 var name : String)
-  //    extends SelState[S]
-  //
-  //  private sealed trait RedOpState[S <: Sys[S]]
-  //
-  //  private final class RedApplyState[S <: Sys[S]](val h: stm.Source[S#Tx, Reduce.Op.Apply[S]], var index: Int)
-  //    extends RedOpState[S]
-
   // ---- impl ----
 
   private object DimensionView {
-    def apply[S <: Sys[S]](varOpt: Option[Matrix.Var[S]], name: String)(implicit tx: S#Tx): DimensionView[S] = {
+    def apply[S <: Sys[S]](varOpt: Option[Matrix.Var[S]], name: String)
+                          (implicit tx: S#Tx, cursor: stm.Cursor[S]): DimensionView[S] = {
       val red     = ReductionsView[S](name)
       val varOptH = varOpt.map(tx.newHandle(_))
       val res     = new Impl(varOptH, name, red)
@@ -89,8 +68,32 @@ object MatrixViewImpl {
     }
 
     private final class Impl[S <: Sys[S]](varOptH: Option[stm.Source[S#Tx, Matrix.Var[S]]], name: String,
-                                          val reductions: ReductionsView[S])
+                                          val reductions: ReductionsView[S])(implicit cursor: stm.Cursor[S])
       extends DimensionView[S] with ComponentHolder[Component] {
+
+      private def performAdd(op: ReduceOpEnum): Unit = {
+
+      }
+
+      private def performAdd(): Unit = {
+        val pop = new PopupMenu
+        ReduceOpEnum.seq.foreach { op =>
+          pop.contents += new MenuItem(new Action(op.name) {
+            def apply(): Unit = performAdd(op)
+          })
+        }
+        pop.show(ggAdd, ggAdd.peer.getWidth /* 0 */, 0 /* ggAdd.peer.getHeight */)
+      }
+
+      private def performRemove(): Unit = {
+
+      }
+
+      private lazy val addAction = new Action(null) {
+        icon = PlusIcon
+        def apply(): Unit = performAdd()
+      }
+      private lazy val ggAdd     = new Button(addAction)
 
       def guiInit(): Unit = {
         val lb    = new Label(name)
@@ -101,12 +104,15 @@ object MatrixViewImpl {
         lb.maximumSize    = lbd
         val c1  = lb :: reductions.component :: Nil
         val c2  = if (varOptH.isEmpty) c1 else {
-          val ggRemove  = new Button
-          ggRemove.icon = MinusIcon
+          val removeAction = new Action(null) {
+            icon = MinusIcon
+            def apply(): Unit = performRemove()
+          }
+          val ggRemove  = new Button(removeAction)
           ggRemove.borderPainted = false
-          val ggAdd     = new Button
-          ggAdd.icon    = PlusIcon
+          ggRemove.tooltip = "Remove Reduction"
           ggAdd.borderPainted = false
+          ggAdd.tooltip = "Add New Reduction"
           c1 ++ List(ggRemove, ggAdd)
         }
 
@@ -224,77 +230,37 @@ object MatrixViewImpl {
       }
 
       val (opComboItem, opView, _, opVarOpt) = loopOp(red.op, None)
-
-      //      opVarOpt.foreach { opVar =>
-      //        ...
-      //      }
-
-      // val obs = red.op.changed.react { implicit tx => upd =>
-        // upd.op
-      // }
-
-      val res = new Impl(opView)
+      val res = new Impl(opView, tx.newHandle(red))
       res
     }
 
-    private final class Impl[S <: Sys[S]](peer: View[S])
+    private final class Impl[S <: Sys[S]](peer: View[S], redH: stm.Source[S#Tx, Reduce[S]])
       extends ReductionView[S] /* with ComponentHolder[Component] */ {
 
       def component = peer.component
 
-      //      def guiInit(): Unit = {
-      //        ...
-      //      }
+      def reduction(implicit tx: S#Tx): Reduce[S] = redH()
 
       def dispose()(implicit tx: S#Tx) = peer.dispose()
     }
   }
-  private trait ReductionView[S <: Sys[S]] extends View[S]
+  private trait ReductionView[S <: Sys[S]] extends View[S] {
+    def reduction(implicit tx: S#Tx): Reduce[S]
+  }
 
   private final class Impl[S <: Sys[S]](implicit cursor: stm.Cursor[S], undo: UndoManager)
     extends MatrixView[S] with ComponentHolder[Component] {
 
     private val _matrix     = Ref(Option.empty[stm.Source[S#Tx, Matrix    [S]]])
     private val _matrixVar  = Ref(Option.empty[stm.Source[S#Tx, Matrix.Var[S]]])
-    // private var dimNames    = Vec.empty[String]
     private val dimViews    = Ref(Vec.empty[DimensionView[S]])
     private var editable    = false
-    // private var matrixName  = ""
 
     private lazy val p = new BoxPanel(Orientation.Vertical)
-    // private lazy val cons  = new p.Constraints()
-
-    // private var redComp = Vec.empty[Component]
 
     def matrix(implicit tx: S#Tx): Option[Matrix[S]] = _matrix.get(tx.peer).map(_.apply())
 
-    // what we've got:
-    // - opaque input matrix
-    // - var
-    // - reduce
-
-    // private def matrixChanged(views: Vec[DimensionView[S]]): Unit = {
-      //      val lay = p.layout
-      //      if (redComp.nonEmpty) {
-      //        redComp.foreach(lay -= _)
-      //        redComp = Vec.empty
-      //      }
-      //
-      //      if (views.nonEmpty) {
-      //        redComp = dimNames.map { name =>
-      //          new Label(name)
-      //        }
-      //        redComp.zipWithIndex.foreach { case (comp, i) =>
-      //          cons.gridx  = 0
-      //          cons.gridy  = 3 + i
-      //          cons.fill   = Fill.None // Horizontal
-      //          cons.anchor = Anchor.LineStart // .LineEnd
-      //          lay(comp)   = cons
-      //        }
-      //      }
-    // }
-
-    def matrix_=(value: Option[Matrix[S]])(implicit tx: S#Tx): Unit = {
+    private def disposeViews()(implicit tx: S#Tx): Unit = {
       val oldViews = dimViews.swap(Vec.empty)(tx.peer)
       if (oldViews.nonEmpty) {
         deferTx {
@@ -302,6 +268,10 @@ object MatrixViewImpl {
         }
         oldViews.foreach(_.dispose())
       }
+    }
+
+    def matrix_=(value: Option[Matrix[S]])(implicit tx: S#Tx): Unit = {
+      disposeViews()
 
       val (_dimNames, _matrixName, mEdit, _dimViews) =
         value.fold[(Vec[String], String, Option[Matrix.Var[S]], Vec[DimensionView[S]])] {
@@ -325,16 +295,11 @@ object MatrixViewImpl {
               def loopDim(dim: Dimension.Selection[S]): Int = dim match {
                 case di: Dimension.Selection.Index[S] =>
                   val index = di.expr
-                  // val view  = IntSpinnerView(index, "Dimension Index", width = 96)
-                  // if (index < 0 || index >= numDims) None else {
-                  //
-                  // }
                   index.value
 
                 case dn: Dimension.Selection.Name [S] =>
                   val name    = dn.expr
                   val nameV   = name.value
-                  // val view  = StringFieldView(name, "Dimension Name", columns = 6)
                   val indexV  = __dimNames.indexOf(nameV)
                   indexV
 
@@ -378,8 +343,6 @@ object MatrixViewImpl {
       dimViews.set(_dimViews)(tx.peer)
 
       deferTx {
-        // dimNames  = _dimNames
-        // matrixChanged(_dimViews)
         if (_dimViews.nonEmpty) {
           p.contents ++= _dimViews.map(_.component)
         }
@@ -435,7 +398,7 @@ object MatrixViewImpl {
     }
 
     def dispose()(implicit tx: S#Tx): Unit = {
-      // XXX TODO: what to dispose? the child views of course
+      disposeViews()
     }
   }
 }
