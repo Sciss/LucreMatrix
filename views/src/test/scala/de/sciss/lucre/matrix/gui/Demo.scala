@@ -5,6 +5,8 @@ import scala.swing.{MainFrame, Frame, SimpleSwingApplication}
 import de.sciss.lucre.event.InMemory
 import Implicits._
 import de.sciss.desktop.impl.UndoManagerImpl
+import de.sciss.desktop.Desktop
+import javax.swing.UIManager
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
@@ -12,6 +14,13 @@ object Demo extends SimpleSwingApplication {
 
   implicit val undo       = new UndoManagerImpl {
     protected var dirty: Boolean = false
+  }
+
+  override def main(args: Array[String]): Unit = {
+    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
+      UIManager.setLookAndFeel(info.getClassName)
+    }
+    super.main(args)
   }
 
   lazy val top: Frame = {
