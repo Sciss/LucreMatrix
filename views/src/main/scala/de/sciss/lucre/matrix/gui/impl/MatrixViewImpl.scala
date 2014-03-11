@@ -105,11 +105,10 @@ object MatrixViewImpl {
         pop.show(ggAdd, ggAdd.peer.getWidth /* 0 */, 0 /* ggAdd.peer.getHeight */)
       }
 
-      // XXX TODO: use undo manager
       private def performRemove(): Unit = varOptH.foreach { varH =>
-        cursor.step { implicit tx =>
+        val editOpt = cursor.step { implicit tx =>
           val numRed = reductions.size
-          if (numRed > 0) {
+          if (numRed == 0) None else {
             val redV  = reductions(numRed - 1)
             val red   = redV.reduction
 
@@ -129,11 +128,13 @@ object MatrixViewImpl {
             }
 
             val vr0 = varH()
-            loop(vr0, vr0()).foreach { case (vr2, m2) =>
-              vr2() = m2
+            loop(vr0, vr0()).map { case (vr2, m2) =>
+              // vr2() = m2
+              EditVar(s"Remove Reduction in $name", vr2, m2)
             }
           }
         }
+        editOpt.foreach(undo.add)
       }
 
       private lazy val addAction = new Action(null) {
@@ -385,7 +386,7 @@ object MatrixViewImpl {
                 val redView = ReductionView(__dimNames(dIdx), red)
                 val before  = dimViews0(dIdx)
                 val now     = redView :: before
-                dimViews0.patch(dIdx, now :: Nil, 0) // (collection.breakOut)
+                dimViews0.updated(dIdx, now)
               }
 
               loopMatrix(red.in, vr, dimViews1)
@@ -403,7 +404,7 @@ object MatrixViewImpl {
         val _dimViews1    = (_dimViews0 zip __dimNames).map { case (list, name) =>
           val v   = DimensionView(_mEdit, name)
           val rs  = v.reductions
-          list.foreach { r => rs.insert(0, r) }
+          list.foreach { r => rs.insert(rs.size, r) }
           v
         }
 
