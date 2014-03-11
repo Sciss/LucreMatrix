@@ -43,12 +43,14 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
 )
 
 lazy val root = Project(
-  id            = "root",
+  id            = baseNameL,
   base          = file("."),
   aggregate     = Seq(core, views),
   dependencies  = Seq(core, views),
   settings      = commonSettings ++ Seq(
-    packagedArtifacts := Map.empty           // prevent publishing anything!
+    publishArtifact in (Compile, packageBin) := false, // there are no binaries
+    publishArtifact in (Compile, packageDoc) := false, // there are no javadocs
+    publishArtifact in (Compile, packageSrc) := false  // there are no sources
   )
 )
 
