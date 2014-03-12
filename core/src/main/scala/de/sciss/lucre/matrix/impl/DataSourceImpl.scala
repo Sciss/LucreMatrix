@@ -19,18 +19,17 @@ import ucar.nc2
 import de.sciss.serial.{ImmutableSerializer, Serializer, DataInput, DataOutput}
 import de.sciss.lucre.{event => evt}
 import de.sciss.file._
-import DataSource.Variable
+import de.sciss.lucre.matrix.DataSource.{Variable, Resolver}
 import de.sciss.lucre.stm.Mutable
 import scala.collection.{JavaConversions, breakOut}
-import DataSource.Resolver
 import scala.annotation.tailrec
-import de.sciss.lucre.event.EventLike
+import de.sciss.lucre.event.{Event, EventLike}
 import de.sciss.lucre.matrix.Matrix.Update
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
 
-  private final val VAR_COOKIE    = 0x76617200            // "var\0"
+  // private final val VAR_COOKIE    = 0x76617200            // "var\0"
 
   @tailrec private[this] def parentsLoop(g: nc2.Group, res: List[String]): List[String] = {
     val p = g.getParentGroup
@@ -53,7 +52,7 @@ object DataSourceImpl {
   }
 
   private def variable[S <: Sys[S]](source: DataSource[S], net: nc2.Variable)(implicit tx: S#Tx): Variable[S] = {
-    val id        = tx.newID()
+    val targets   = evt.Targets[S]
     // val sourceRef = tx.newVar(id, source)
     val parents   = parentsLoop(net.getParentGroup, Nil)
     val name      = net.getShortName
@@ -72,20 +71,24 @@ object DataSourceImpl {
       val dimName = if (n0 == null) "?" else n0
       ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
     }
-    new VariableImpl(id, source /* sourceRef */, parents, name, shapeInfo)
+    new VariableImpl(targets, source /* sourceRef */, parents, name, shapeInfo)
   }
 
   def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
-    val id        = tx.readID(in, access)
-    val cookie    = in.readInt()
-    require(cookie == VAR_COOKIE,
-      s"Unexpected cookie (found ${cookie.toHexString}, expected ${VAR_COOKIE.toHexString})")
+    val targets = evt.Targets.read(in, access)
+    val opID    = in.readInt()
+    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")  // type
+    readIdentifiedVariable(in, access, targets)
+  }
+
+  def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
+                                         (implicit tx: S#Tx): Variable[S] with evt.Node[S] = {
     val source    = DataSource.read(in, access)
     // val sourceRef = tx.readVar[DataSource[S]](id, in)
     val parents   = parentsSer.read(in)
     val name      = in.readUTF()
     val shape     = shapeSer.read(in)
-    new VariableImpl(id, source /* sourceRef */, parents, name, shape)
+    new VariableImpl(targets, source /* sourceRef */, parents, name, shape)
   }
   
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
@@ -148,14 +151,21 @@ object DataSourceImpl {
 
   private val shapeSer    = ImmutableSerializer.indexedSeq[ShapeInfo]
 
-  private final class VariableImpl[S <: Sys[S]](val id: S#ID, val source: DataSource[S] /* sourceRef: S#Var[DataSource[S]] */,
+  private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
+                                                val source: DataSource[S] /* sourceRef: S#Var[DataSource[S]] */,
                                                 val parents: List[String],
                                                 _name: String, shapeInfo: Vec[ShapeInfo])
-    extends Variable[S] with Mutable.Impl[S] {
+    extends Variable[S] with evt.Node[S] {
 
     // def source(implicit tx: S#Tx): DataSource[S] = _source // sourceRef()
 
+    // ---- event dummy ----
+
     def changed: EventLike[S, Update[S]] = evt.Dummy.apply
+
+    def select(slot: Int): Event[S, Any, Any] = throw new UnsupportedOperationException
+
+    // ----
 
     def name(implicit tx: S#Tx): String = _name
 
@@ -169,7 +179,8 @@ object DataSourceImpl {
     def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
 
     protected def writeData(out: DataOutput): Unit = {
-      out       .writeInt(VAR_COOKIE)
+      // out       .writeInt(VAR_COOKIE)
+      out.writeInt(Variable.opID)
       // sourceRef .write(out)
       source    .write(out)
       parentsSer.write(parents, out)

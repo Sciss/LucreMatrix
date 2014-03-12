@@ -75,8 +75,9 @@ object Matrix {
       require(tpe == typeID, s"Unexpected type (found $tpe, expected $typeID)")
       val opID  = in.readInt()
       (opID: @switch) match {
-        case Reduce.opID  => Reduce.readIdentified(in, access, targets)
-        case _            => sys.error("Unknown operator id $opID")
+        case Reduce.opID              => Reduce             .readIdentified        (in, access, targets)
+        case DataSource.Variable.opID => impl.DataSourceImpl.readIdentifiedVariable(in, access, targets)
+        case _                        => sys.error("Unknown operator id $opID")
       }
     }
 

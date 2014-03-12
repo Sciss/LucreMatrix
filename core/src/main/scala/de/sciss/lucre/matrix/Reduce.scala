@@ -14,7 +14,7 @@ object Reduce {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Dimension.Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] =
     Impl(in, dim, op)
 
-  implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Reduce[S]] = Impl.serializer
+  implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Reduce[S]] = Impl.serializer[S]
 
   private[matrix] def readIdentified[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
                                                  (implicit tx: S#Tx): Reduce[S] =
@@ -26,12 +26,12 @@ object Reduce {
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] =
       serializer[S].read(in, access)
 
-    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Op[S]] = Impl.opSerializer
+    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Op[S]] = Impl.opSerializer[S]
 
     object Var {
       def apply[S <: Sys[S]](init: Op[S])(implicit tx: S#Tx): Var[S] = Impl.applyOpVar(init)
 
-      implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]]= Impl.opVarSerializer
+      implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]]= Impl.opVarSerializer[S]
     }
     trait Var[S <: Sys[S]] extends Op[S] with matrix.Var[S, Op[S]]
 
