@@ -19,6 +19,7 @@ import java.io.File
 import impl.{DataSourceImpl => Impl}
 import de.sciss.serial.{DataInput, Writable, Serializer}
 import de.sciss.lucre.stm.Mutable
+import scala.collection.breakOut
 
 object DataSource {
   def apply[S <: Sys[S]](file: File)(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = Impl(file)
@@ -54,6 +55,16 @@ object DataSource {
     def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable
   }
 
+  object Resolver {
+    def seq[S <: Sys[S]](files: nc2.NetcdfFile*): Resolver[S] = new Seq(files.map(net => (net.getLocation, net))(breakOut))
+
+    private final class Seq[S <: Sys[S]](map: Map[String, nc2.NetcdfFile]) extends Resolver[S] {
+      def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile = {
+        val p = file.getPath
+        map.getOrElse(file.getPath, throw new NoSuchElementException(p))
+      }
+    }
+  }
   trait Resolver[S <: Sys[S]] {
     def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile
   }
