@@ -28,5 +28,7 @@ trait MatrixView[S <: Sys[S]] extends View[S] {
   def matrix(implicit tx: S#Tx): Option[Matrix[S]]
   def matrix_=(value: Option[Matrix[S]])(implicit tx: S#Tx): Unit
 
+  var nameVisible: Boolean
+
   def component: Component
 }

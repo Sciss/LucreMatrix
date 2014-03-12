@@ -3,6 +3,7 @@ package de.sciss.lucre.matrix
 import de.sciss.lucre.event.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
 import de.sciss.file._
+import de.sciss.lucre.expr
 
 object NetCDFSerialTest extends App {
   type S = Durable
@@ -32,6 +33,23 @@ object NetCDFSerialTest extends App {
       system.step { implicit tx =>
         val vr = vrv()
         println(vr)
+      }
+
+      val mvv = system.step { implicit tx =>
+        val mv = Matrix.Var(vrv())
+        val id = tx.newID()
+        tx.newVar[Matrix[S]](id, mv)
+      }
+
+      system.step { implicit tx =>
+        val Matrix.Var(mv) = mvv()
+        println(mv)
+        mv() = Reduce(mv(), Dimension.Selection.Index(expr.Int.newConst(0)), Reduce.Op.Apply(expr.Int.newConst(0)))
+      }
+
+      system.step { implicit tx =>
+        val Matrix.Var(mv) = mvv()
+        println(mv())
       }
 
     } finally {

@@ -26,8 +26,6 @@ import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
 
 object ReduceImpl {
-  final val opID = 2
-  
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
     val targets = evt.Targets[S]
     new Impl[S](targets, in, dim, op)
@@ -327,7 +325,7 @@ object ReduceImpl {
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
       out writeInt Matrix.typeID
-      out writeInt opID
+      out writeInt Reduce.opID
       in  write out
       dim write out
       op  write out

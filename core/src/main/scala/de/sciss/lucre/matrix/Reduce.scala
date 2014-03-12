@@ -9,7 +9,7 @@ import de.sciss.lucre.stm.Disposable
 import impl.{ReduceImpl => Impl}
 
 object Reduce {
-  final val opID = 1
+  final val opID = 2
 
   def apply[S <: Sys[S]](in : Matrix[S], dim: Dimension.Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] =
     Impl(in, dim, op)

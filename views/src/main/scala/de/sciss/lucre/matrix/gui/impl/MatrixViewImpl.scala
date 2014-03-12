@@ -24,7 +24,7 @@ import scala.concurrent.stm.Ref
 import de.sciss.desktop.UndoManager
 import de.sciss.swingplus.Separator
 import scala.annotation.tailrec
-import javax.swing.Icon
+import javax.swing.{UIManager, Icon}
 import java.awt
 import java.awt.Graphics
 import scalaswingcontrib.PopupMenu
@@ -39,20 +39,25 @@ object MatrixViewImpl {
     res
   }
 
-  private object MinusIcon extends Icon {
-    def getIconHeight = 12
-    def getIconWidth  = 12
+  private sealed trait PlusMinus extends Icon {
+    final def getIconHeight = 12
+    final def getIconWidth  = 12
 
-    def paintIcon(c: awt.Component, g: Graphics, x: Int, y: Int): Unit = {
-      g.fillRect(x, y + 6 - 2, 12, 4)
+    final def paintIcon(c: awt.Component, g: Graphics, x: Int, y: Int): Unit = {
+      g.setColor(UIManager.getColor(if (c.isEnabled) "Label.foreground" else "Label.disabledForeground"))
+      paintImpl(g, x, y)
     }
+
+    protected def paintImpl(g: Graphics, x: Int, y: Int): Unit
   }
 
-  private object PlusIcon extends Icon {
-    def getIconHeight = 12
-    def getIconWidth  = 12
+  private object MinusIcon extends PlusMinus {
+    protected def paintImpl(g: Graphics, x: Int, y: Int): Unit =
+      g.fillRect(x, y + 6 - 2, 12, 4)
+  }
 
-    def paintIcon(c: awt.Component, g: Graphics, x: Int, y: Int): Unit = {
+  private object PlusIcon extends PlusMinus {
+    protected def paintImpl(g: Graphics, x: Int, y: Int): Unit = {
       g.fillRect(x, y + 6 - 2, 12, 4)
       g.fillRect(x + 6 - 2, y, 4, 12)
     }
@@ -446,14 +451,29 @@ object MatrixViewImpl {
 
     private lazy val ggName = new Label("<none>")
 
+    private lazy val topPane: Component = {
+      val p       = new BoxPanel(Orientation.Vertical)
+      p.contents += ggName
+      val sep     = Separator()
+      p.contents += sep
+      p.visible   = _nameVisible
+      p
+    }
+
+    private var _nameVisible = true
+    def nameVisible = _nameVisible
+    def nameVisible_=(value: Boolean): Unit = {
+      requireEDT()
+      if (_nameVisible != value) {
+        _nameVisible    = value
+        topPane.visible = value
+      }
+    }
+
     def guiInit(): Unit = {
       val p1 = new BoxPanel(Orientation.Vertical)
-      p1.contents += ggName
-
-      val sep = Separator()
-      p1.contents += sep
-
-      val lbDims = new Label("<html><b>Dimensions</b></html>")
+      p1.contents += topPane
+      val lbDims   = new Label("<html><b>Dimensions</b></html>")
       p1.contents += lbDims
       p1.border = Swing.EmptyBorder(4)
 

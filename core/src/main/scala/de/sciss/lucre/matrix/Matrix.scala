@@ -30,6 +30,9 @@ object Matrix {
   object Var {
     def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Var[S] = impl.MatrixVarImpl(init)
 
+    def unapply[S <: Sys[S], A](matrix: Matrix[S]): Option[Var[S]] =
+      if (matrix.isInstanceOf[Var[_]]) Some(matrix.asInstanceOf[Var[S]]) else None
+
     implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer[S]
 
     object Update {
@@ -77,7 +80,7 @@ object Matrix {
       (opID: @switch) match {
         case Reduce.opID              => Reduce             .readIdentified        (in, access, targets)
         case DataSource.Variable.opID => impl.DataSourceImpl.readIdentifiedVariable(in, access, targets)
-        case _                        => sys.error("Unknown operator id $opID")
+        case _                        => sys.error(s"Unknown operator id $opID")
       }
     }
 
