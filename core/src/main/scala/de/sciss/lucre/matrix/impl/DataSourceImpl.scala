@@ -76,8 +76,12 @@ object DataSourceImpl {
 
   def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
     val targets = evt.Targets.read(in, access)
-    val opID    = in.readInt()
-    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")  // type
+    val cookie = in.readByte() // 'node'
+    require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
+    val tpe     = in.readInt()  // 'type'
+    require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
+    val opID  = in.readInt()    // 'op'
+    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")
     readIdentifiedVariable(in, access, targets)
   }
 
@@ -179,9 +183,9 @@ object DataSourceImpl {
     def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
 
     protected def writeData(out: DataOutput): Unit = {
-      // out       .writeInt(VAR_COOKIE)
-      out.writeInt(Variable.opID)
-      // sourceRef .write(out)
+      out writeByte 1   // cookie
+      out writeInt Matrix.typeID
+      out writeInt Variable.opID
       source    .write(out)
       parentsSer.write(parents, out)
       out       .writeUTF(_name)

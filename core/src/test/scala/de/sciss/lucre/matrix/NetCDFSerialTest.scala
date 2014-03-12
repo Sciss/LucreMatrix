@@ -16,19 +16,21 @@ object NetCDFSerialTest extends App {
     try {
       implicit val resolver = DataSource.Resolver.seq[S](net)
 
-      val dsH = system.step { implicit tx =>
-        val ds = DataSource(f)
-        tx.newHandle(ds)
+      val dsv = system.step { implicit tx =>
+        val ds  = DataSource(f)
+        val id  = tx.newID()
+        tx.newVar[DataSource[S]](id, ds)
       }
 
-      val vrH = system.step { implicit tx =>
-        val ds = dsH()
-        val vr = ds.variables.head
-        tx.newHandle[Matrix[S]](vr)
+      val vrv = system.step { implicit tx =>
+        val ds  = dsv()
+        val vr  = ds.variables.head
+        val id  = tx.newID()
+        tx.newVar[Matrix[S]](id, vr)
       }
 
       system.step { implicit tx =>
-        val vr = vrH()
+        val vr = vrv()
         println(vr)
       }
 

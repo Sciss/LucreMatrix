@@ -39,10 +39,12 @@ object ReduceImpl {
 
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Reduce[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Reduce[S] = {
-      val tpe     = in.readInt()
+      val cookie = in.readByte() // 'node'
+      require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
+      val tpe     = in.readInt()  // 'type'
       require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
-      val cookie  = in.readInt()
-      require (cookie == opID, s"Unexpected operator id (found $cookie, expected $opID)")
+      val opID  = in.readInt()    // 'op'
+      require (opID == Reduce.opID, s"Unexpected operator id (found $opID, expected ${Reduce.opID})")
       readIdentified[S](in, access, targets)
     }
 
