@@ -223,8 +223,8 @@ object ReduceImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
-    override def flatten(implicit tx: S#Tx): Vec[Double] = {
-      val data  = in.flatten
+    override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+      val data  = in.debugFlatten
       val idx   = indexOfDim
       if (idx == -1) return data
 

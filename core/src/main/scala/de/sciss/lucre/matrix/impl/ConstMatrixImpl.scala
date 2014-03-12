@@ -71,7 +71,7 @@ object ConstMatrixImpl {
 
     def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 
-    def flatten(implicit tx: S#Tx): Vec[Double] = flatData
+    def debugFlatten(implicit tx: S#Tx): Vec[Double] = flatData
 
     def write(out: DataOutput): Unit = {
       out.writeByte(3)    // 'constant'

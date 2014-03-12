@@ -22,7 +22,7 @@ trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
 
   import m.{matrixPeer => peer}
 
-  def flatten(implicit tx: S#Tx): Vec[Double] = peer.flatten
+  def debugFlatten(implicit tx: S#Tx): Vec[Double] = peer.debugFlatten
 
   def shape     (implicit tx: S#Tx): Vec[Int]             = peer.shape
   def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = peer.dimensions

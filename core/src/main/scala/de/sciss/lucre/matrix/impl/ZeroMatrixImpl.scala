@@ -46,7 +46,7 @@ object ZeroMatrixImpl {
 
     def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 
-    def flatten(implicit tx: S#Tx): Vec[Double] = {
+    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size
       require(sz <= 0x7FFFFFFF)
       val szI = sz.toInt

@@ -1,3 +1,17 @@
+/*
+ *  DataSourceImpl.scala
+ *  (LucreMatrix)
+ *
+ *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
+ *  Written by Hanns Holger Rutz.
+ *
+ *	This software is published under the GNU General Public License v2+
+ *
+ *
+ *	For further information, please contact Hanns Holger Rutz at
+ *	contact@sciss.de
+ */
+
 package de.sciss.lucre.matrix
 package impl
 
@@ -10,6 +24,8 @@ import de.sciss.lucre.stm.Mutable
 import scala.collection.{JavaConversions, breakOut}
 import DataSource.Resolver
 import scala.annotation.tailrec
+import de.sciss.lucre.event.EventLike
+import de.sciss.lucre.matrix.Matrix.Update
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
@@ -19,25 +35,6 @@ object DataSourceImpl {
   @tailrec private[this] def parentsLoop(g: nc2.Group, res: List[String]): List[String] = {
     val p = g.getParentGroup
     if (p == null) res else parentsLoop(p, g.getFullName :: res)
-  }
-
-  // XXX TODO: eliminate here
-  implicit private[this] class RichNetcdfFile(val peer: nc2.NetcdfFile)
-    extends AnyVal {
-
-    import JavaConversions._
-    def variableMap: Map[String, nc2.Variable]  = peer.getVariables.map(a => a.getShortName -> a)(breakOut)
-  }
-
-  // XXX TODO: eliminate here
-  implicit private[this] class RichVariable(val peer: nc2.Variable)
-    extends AnyVal {
-
-    import JavaConversions._
-    def dimensions : Vec[nc2.Dimension] = peer.getDimensions.toIndexedSeq
-    def ranges     : Vec[Range]         = peer.getRanges.map {
-      ma => Range.inclusive(ma.first(), ma.last(), ma.stride())
-    } (breakOut)
   }
 
   def apply[S <: Sys[S]](file: File)(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = {
@@ -60,11 +57,22 @@ object DataSourceImpl {
     // val sourceRef = tx.newVar(id, source)
     val parents   = parentsLoop(net.getParentGroup, Nil)
     val name      = net.getShortName
-    val shape     = net.dimensions.map { dim =>
-      val n0 = dim.getShortName
-      if (n0 == null) "?" else n0
-    } zip net.ranges
-    new VariableImpl(id, source /* sourceRef */, parents, name, shape)
+
+    val dimArr    = net.getDimensions
+    val rangeArr  = net.getRanges
+    val rank      = dimArr.size()
+    if (rank != rangeArr.size()) throw new IllegalStateException(
+      s"For variable $name, nr of dimensions ($rank) is different from nr of ranges (${rangeArr.size()})")
+
+    val shapeInfo = Vec.tabulate(rank) { i =>
+      val dim     = dimArr  .get(i)
+      val rangeJ  = rangeArr.get(i)
+      val range   = Range.inclusive(rangeJ.first(), rangeJ.last(), rangeJ.stride())
+      val n0      = dim.getShortName
+      val dimName = if (n0 == null) "?" else n0
+      ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
+    }
+    new VariableImpl(id, source /* sourceRef */, parents, name, shapeInfo)
   }
 
   def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
@@ -79,17 +87,7 @@ object DataSourceImpl {
     val shape     = shapeSer.read(in)
     new VariableImpl(id, source /* sourceRef */, parents, name, shape)
   }
-
-  //  private def resolveFile[S <: Sys[S]](workspace: Workspace[S], file: File)(implicit tx: S#Tx): nc2.NetcdfFile =
-  //    workspace.fileCache.get(file)(tx.peer).getOrElse {
-  //      val net = nc2.NetcdfFile.open(file.path).setImmutable()
-  //      workspace.fileCache.put(file, net)(tx.peer)
-  //      Txn.afterRollback { _ =>
-  //        net.close() // a bit tricky doing I/O inside a transaction...
-  //      } (tx.peer)
-  //      net
-  //    }
-
+  
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     anySer.asInstanceOf[Ser[S]]
 
@@ -123,39 +121,80 @@ object DataSourceImpl {
 
   private val parentsSer  = ImmutableSerializer.list[String]
   import Serializers.RangeSerializer
-  private val shapeSer    = ImmutableSerializer.indexedSeq[(String, Range)]
+
+  private object ShapeInfo {
+    private val SHAPE_COOKIE = 0x73686170 // "shap"
+
+    implicit object Ser extends ImmutableSerializer[ShapeInfo] {
+      def read(in: DataInput): ShapeInfo = {
+        val cookie = in.readInt()
+        require (cookie == SHAPE_COOKIE, s"Unexpected cookie (found $cookie, expected $SHAPE_COOKIE)")
+        val dName = in.readUTF()
+        val dSize = in.readInt()
+        val range = RangeSerializer.read(in)
+        ShapeInfo(Dimension.Value(dName, dSize), range)
+      }
+
+      def write(info: ShapeInfo, out: DataOutput): Unit = {
+        out.writeInt(SHAPE_COOKIE)
+        val dim = info.dim
+        out.writeUTF(dim.name)
+        out.writeInt(dim.size)
+        RangeSerializer.write(info.range, out)
+      }
+    }
+  }
+  private final case class ShapeInfo(dim: Dimension.Value, range: Range)
+
+  private val shapeSer    = ImmutableSerializer.indexedSeq[ShapeInfo]
 
   private final class VariableImpl[S <: Sys[S]](val id: S#ID, val source: DataSource[S] /* sourceRef: S#Var[DataSource[S]] */,
                                                 val parents: List[String],
-                                                val name: String, val shape: Vec[(String, Range)])
+                                                _name: String, shapeInfo: Vec[ShapeInfo])
     extends Variable[S] with Mutable.Impl[S] {
 
     // def source(implicit tx: S#Tx): DataSource[S] = _source // sourceRef()
+
+    def changed: EventLike[S, Update[S]] = evt.Dummy.apply
+
+    def name(implicit tx: S#Tx): String = _name
+
+    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+      // if (size > 256) throw new UnsupportedOperationException(s"debugFlatten is restricted to matrices with size <= 256")
+      throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
+    }
+
+    def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = shapeInfo.map(_.dim)
+    def ranges    (implicit tx: S#Tx): Vec[Range          ] = shapeInfo.map(_.range)
+    def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
 
     protected def writeData(out: DataOutput): Unit = {
       out       .writeInt(VAR_COOKIE)
       // sourceRef .write(out)
       source    .write(out)
       parentsSer.write(parents, out)
-      out       .writeUTF(name)
-      shapeSer  .write(shape  , out)
+      out       .writeUTF(_name)
+      shapeSer  .write(shapeInfo, out)
     }
 
     protected def disposeData()(implicit tx: S#Tx): Unit = {
       // sourceRef.dispose()
     }
 
-    def rank: Int = shape.size
+    def rank: Int = shapeInfo.size
 
     lazy val size: Long = {
       var res = 0L
-      shape.foreach { tup => res += tup._2.size }
+      shapeInfo.foreach { tup => res += tup.range.size }
       res
     }
 
     def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable = {
       val net = source.data()
-      net.variableMap.getOrElse(name, sys.error(s"Variable '$name' does not exist in data source ${source.file.base}"))
+      import JavaConversions._
+      net.getVariables.find(_.getShortName == _name).getOrElse(
+        sys.error(s"Variable '$name' does not exist in data source ${source.file.base}")
+      )
     }
   }
 

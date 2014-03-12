@@ -9,6 +9,6 @@ object Test extends App {
 
   def run[S <: Sys[S]]()(implicit tx: S#Tx): Unit = {
     val m = Matrix.zeros(4, 5)
-    println(m.flatten)
+    println(m.debugFlatten)
   }
 }

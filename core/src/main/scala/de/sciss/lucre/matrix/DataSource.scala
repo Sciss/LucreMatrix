@@ -1,3 +1,17 @@
+/*
+ *  DataSource.scala
+ *  (LucreMatrix)
+ *
+ *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
+ *  Written by Hanns Holger Rutz.
+ *
+ *	This software is published under the GNU General Public License v2+
+ *
+ *
+ *	For further information, please contact Hanns Holger Rutz at
+ *	contact@sciss.de
+ */
+
 package de.sciss.lucre.matrix
 
 import ucar.nc2
@@ -23,16 +37,17 @@ object DataSource {
 
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = Impl.readVariable(in, access)
   }
-  trait Variable[S <: Sys[S]] extends Writable {
+  trait Variable[S <: Sys[S]] extends Matrix[S] with Writable {
     def source /* (implicit tx: S#Tx) */: DataSource[S]
     def parents: List[String]
-    def name: String
 
-    def shape: Vec[(String, Range)]
-
-    def rank: Int
-
-    def size: Long
+    //    def name: String
+    //
+    //    def shape: Vec[(String, Range)]
+    //
+    //    def rank: Int
+    //
+    //    def size: Long
 
     def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable
   }

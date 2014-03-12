@@ -116,7 +116,7 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   // def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?
   // def shape(implicit tx: S#Tx): Vec[Dimension.Value]
 
-  def flatten(implicit tx: S#Tx): Vec[Double]
+  private[matrix] def debugFlatten(implicit tx: S#Tx): Vec[Double]
 
   // def read(...) = ...
 

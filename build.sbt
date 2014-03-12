@@ -15,10 +15,12 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   homepage        := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses        := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
   // retrieveManaged := true,
-  scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature"),
+  scalacOptions  ++= Seq("-deprecation", "-unchecked", "-feature"),
   // ---- publishing ----
   publishMavenStyle := true,
-  publishTo := {
+  // maven repository for NetCDF library
+  resolvers       += "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases",
+  publishTo       := {
     Some(if (version.value endsWith "-SNAPSHOT")
       "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
     else
@@ -62,7 +64,7 @@ lazy val core = Project(
     description := "Operationalizing SysSon data matrices as reactive dataflow objects",
     libraryDependencies ++= Seq(
       "de.sciss"      %% "lucreevent"      % eventVersion,
-      "edu.ucar"      %  "netcdf"          % "4.3.20",
+      "edu.ucar"      %  "netcdf"          % "4.3.21",
       "de.sciss"      %% "fileutil"        % "1.1.+",
       "org.scalatest" %  "scalatest_2.10"  % "2.0"     % "test",
       "de.sciss"      %% "lucrestm-bdb"    % "2.0.1+"  % "test"
