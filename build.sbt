@@ -63,6 +63,7 @@ lazy val core = Project(
     libraryDependencies ++= Seq(
       "de.sciss"      %% "lucreevent"      % eventVersion,
       "edu.ucar"      %  "netcdf"          % "4.3.20",
+      "de.sciss"      %% "fileutil"        % "1.1.+",
       "org.scalatest" %  "scalatest_2.10"  % "2.0"     % "test",
       "de.sciss"      %% "lucrestm-bdb"    % "2.0.1+"  % "test"
     ),
