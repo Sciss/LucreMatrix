@@ -31,8 +31,11 @@ import scalaswingcontrib.PopupMenu
 import de.sciss.lucre.stm.Disposable
 import scala.swing.GridBagPanel.{Fill, Anchor}
 import de.sciss.lucre.swing.edit.EditVar
+import de.sciss.audiowidgets.DualRangeModel
 
 object MatrixViewImpl {
+  var DEBUG = false
+
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = {
     val res = new Impl[S]
     deferTx(res.guiInit())
@@ -258,14 +261,16 @@ object MatrixViewImpl {
   }
 
   private object ReductionView {
-    def apply[S <: Sys[S]](dimName: String, /* editable: Option[Matrix.Var[S]], */ red: Reduce[S])
+    def apply[S <: Sys[S]](dimVal: Dimension.Value, /* editable: Option[Matrix.Var[S]], */ red: Reduce[S])
                           (implicit tx: S#Tx, cursor: stm.Cursor[S], undo: UndoManager): ReductionView[S] = {
       @tailrec def loopOp(op: Reduce.Op[S], vr: Option[Reduce.Op.Var[S]]):
           (ReduceOpEnum, View[S], Reduce.Op[S], Option[Reduce.Op.Var[S]]) = op match {
 
         case oi: Reduce.Op.Apply[S] =>
-          // val view = IntSpinnerView(di.expr, "Dimension Index", width = 96)
-          val viewIdx = IntSpinnerView(oi.index, s"Index in $dimName")
+          // val viewIdx = IntSpinnerView(oi.index, s"Index in $dimName")
+          val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
+          val viewIdx   = IntRangeSliderView(rm, s"Index in ${dimVal.name}")
+          viewIdx.value = Some(oi.index)
           val view    = View.wrap[S] {
             new BoxPanel(Orientation.Horizontal) {
               contents += new Label("Index")
@@ -276,13 +281,16 @@ object MatrixViewImpl {
 
         case os: Reduce.Op.Slice[S] =>
           // val view = StringFieldView(dn.expr, "Dimension Name", columns = 6)
-          val viewLo = IntSpinnerView(os.from , s"Slice in $dimName")
-          val viewHi = IntSpinnerView(os.until, s"Slice in $dimName")
-          val view   = View.wrap[S] {
+          // val viewLo = IntSpinnerView(os.from , s"Slice in ${dimVal.name}")
+          // val viewHi = IntSpinnerView(os.until, s"Slice in ${dimVal.name}")
+          val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size)
+          val viewSlice = IntRangeSliderView(rm, s"Slice in ${dimVal.name}")
+          viewSlice.rangeLo = Some(os.from)
+          viewSlice.rangeHi = Some(os.until)
+          val view      = View.wrap[S] {
             new BoxPanel(Orientation.Horizontal) {
               contents += new Label("Slice")
-              contents += viewLo.component
-              contents += viewHi.component
+              contents += viewSlice.component
             }
           }
           (ReduceOpEnum.Slice, view, os, vr)
@@ -337,8 +345,11 @@ object MatrixViewImpl {
     private def removeMatrix()(implicit tx: S#Tx): Unit = {
       _matrix   .set(None)(tx.peer)
       _matrixVar.set(None)(tx.peer)
-      val obs = _matrixObs.swap(None)(tx.peer)
-      obs.foreach(_.dispose())
+      val obsOpt = _matrixObs.swap(None)(tx.peer)
+      obsOpt.foreach { obs =>
+        if (DEBUG) println(s"MatrixView.removeMatrix, obs = $obs")
+        obs.dispose()
+      }
     }
 
     private def matrixUpdate(tx0: S#Tx)(upd: Matrix.Update[S]): Unit = upd match {
@@ -360,7 +371,7 @@ object MatrixViewImpl {
       } { m0 =>
         val dims        = m0.dimensions
         val numDims     = dims.size
-        val __dimNames  = dims.map(_.name)
+        // val __dimNames  = dims.map(_.name)
 
         @tailrec def loopMatrix(m: Matrix[S], vr: Option[Matrix.Var[S]],
             dimViews0: Vec[List[ReductionView[S]]]): (Matrix[S], Option[Matrix.Var[S]], Vec[List[ReductionView[S]]]) =
@@ -379,7 +390,7 @@ object MatrixViewImpl {
                 case dn: Dimension.Selection.Name [S] =>
                   val name    = dn.expr
                   val nameV   = name.value
-                  val indexV  = __dimNames.indexOf(nameV)
+                  val indexV  = dims.indexWhere(_.name == nameV)
                   indexV
 
                 case dv: Dimension.Selection.Var  [S] =>
@@ -388,7 +399,7 @@ object MatrixViewImpl {
               val dIdx = loopDim(red.dim)
 
               val dimViews1: Vec[List[ReductionView[S]]] = if (dIdx < 0 || dIdx >= numDims) dimViews0 else {
-                val redView = ReductionView(__dimNames(dIdx), red)
+                val redView = ReductionView(dims(dIdx), red)
                 val before  = dimViews0(dIdx)
                 val now     = redView :: before
                 dimViews0.updated(dIdx, now)
@@ -406,14 +417,15 @@ object MatrixViewImpl {
         val (mBase, _mEdit, _dimViews0) = loopMatrix(m0, None, Vec.fill(numDims)(Nil))
 
         val __matrixName  = m0.name
-        val _dimViews1    = (_dimViews0 zip __dimNames).map { case (list, name) =>
-          val v   = DimensionView(_mEdit, name)
+        val _dimViews1    = (_dimViews0 zip dims).map { case (list, dimVal) =>
+          val v   = DimensionView(_mEdit, dimVal.name)
           val rs  = v.reductions
           list.foreach { r => rs.insert(rs.size, r) }
           v
         }
 
         val _obs = m0.changed.react(matrixUpdate)
+        if (DEBUG) println(s"MatrixView.matrix_=($m0, ${m0.changed}), new observer = ${_obs}")
 
         (__matrixName, _mEdit, _dimViews1, Some(_obs))
       }
