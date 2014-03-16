@@ -1,12 +1,13 @@
 package de.sciss.lucre.matrix
 package gui
 
-import scala.swing.{MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
+import scala.swing.{CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
 import de.sciss.lucre.event.InMemory
 import Implicits._
 import de.sciss.desktop.impl.UndoManagerImpl
 import de.sciss.desktop.Desktop
 import javax.swing.UIManager
+import de.sciss.lucre.swing.View
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
@@ -35,6 +36,7 @@ object Demo extends SimpleSwingApplication {
       val m     = MatrixView[S]
       val m0    = Matrix.Var[S](Matrix.newConst2D[S](Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
       m.matrix  = Some(m0)
+      m.rowHeaders = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
       m
     }
     new MainFrame {

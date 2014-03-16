@@ -17,7 +17,7 @@ package gui
 package impl
 
 import de.sciss.lucre.{expr, stm}
-import scala.swing.{Insets, GridBagPanel, BorderPanel, ScrollPane, MenuItem, Action, Orientation, BoxPanel, Button, Swing, Label, Component}
+import scala.swing.{Insets, GridBagPanel, ScrollPane, MenuItem, Action, Orientation, BoxPanel, Button, Swing, Label, Component}
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing._
 import scala.concurrent.stm.Ref
@@ -73,7 +73,7 @@ object MatrixViewImpl {
                           (implicit tx: S#Tx, cursor: stm.Cursor[S], undo: UndoManager): DimensionView[S] = {
       val red     = ReductionsView[S](name)
       val varOptH = varOpt.map(tx.newHandle(_))
-      val res     = new Impl(varOptH, name, red)
+      val res     = new Impl[S](varOptH, name, red)
       deferTx(res.guiInit())
       res
     }
@@ -439,7 +439,7 @@ object MatrixViewImpl {
 
       deferTx {
         if (_dimViews.nonEmpty) {
-          val cons = new p.Constraints(gridx = 0, gridwidth = 1, gridy = 0, gridheight = 1, weightx = 1.0,
+          val cons = new p.Constraints(gridx = 1, gridwidth = 1, gridy = 0, gridheight = 1, weightx = 1.0,
             weighty = 0.0, anchor = Anchor.PageStart.id, fill = Fill.Horizontal.id, insets = new Insets(2, 2, 2, 2),
             ipadx = 2, ipady = 2)
           // p.contents ++= _dimViews.map(_.component)
@@ -468,17 +468,34 @@ object MatrixViewImpl {
       p.contents += ggName
       val sep     = Separator()
       p.contents += sep
-      p.visible   = _nameVisible
+      p.visible   = _nameVisible.single()
       p
     }
 
-    private var _nameVisible = true
-    def nameVisible = _nameVisible
-    def nameVisible_=(value: Boolean): Unit = {
-      requireEDT()
-      if (_nameVisible != value) {
-        _nameVisible    = value
+    private val _nameVisible = Ref(initialValue = true)
+    def nameVisible(implicit tx: S#Tx): Boolean = _nameVisible.get(tx.peer)
+    def nameVisible_=(value: Boolean)(implicit tx: S#Tx): Unit = {
+      val old = _nameVisible.swap(value)(tx.peer)
+      if (old != value) deferTx {
         topPane.visible = value
+      }
+    }
+
+    private val _rowHeaders = Ref(Vec.empty[View[S]])
+    def rowHeaders(implicit tx: S#Tx): Vec[View[S]] = _rowHeaders.get(tx.peer)
+
+    def rowHeaders_=(views: Vec[View[S]])(implicit tx: S#Tx): Unit = {
+      val old = _rowHeaders.swap(views)(tx.peer)
+      deferTx {
+        val cons = new p.Constraints(gridx = 0, gridwidth = 1, gridy = 0, gridheight = 1, weightx = 0.0,
+          weighty = 0.0, anchor = Anchor.PageStart.id, fill = Fill.Horizontal.id, insets = new Insets(2, 2, 2, 2),
+          ipadx = 2, ipady = 2)
+        val lay = p.layout
+        if (old.nonEmpty) lay --= old.map(_.component)
+        if (views.nonEmpty) views.zipWithIndex.foreach { case (rv, idx) =>
+          cons.gridy = idx
+          lay(rv.component) = cons
+        }
       }
     }
 
