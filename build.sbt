@@ -1,20 +1,32 @@
-lazy val baseName       = "LucreMatrix"
+lazy val baseName          = "LucreMatrix"
 
-def baseNameL           = baseName.toLowerCase
+def baseNameL              = baseName.toLowerCase
 
-lazy val projectVersion = "0.1.0-SNAPSHOT"
+lazy val projectVersion    = "0.1.0-SNAPSHOT"
 
-lazy val eventVersion   = "2.6.+"
+lazy val eventVersion      = "2.6.+"
 
-lazy val swingVersion   = "0.1.+"
+lazy val netCDFVersion     = "4.3.21"
+
+lazy val fileUtilVersion   = "1.1.+"
+
+// ---- core/test ----
+
+lazy val scalaTestVersion  = "2.1.2"
+
+lazy val lucreSTMVersion   = "2.0.3+"
+
+// --- views ----
+
+lazy val lucreSwingVersion = "0.2.+"
 
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version         := projectVersion,
   organization    := "de.sciss",
-  scalaVersion    := "2.10.3",
+  scalaVersion    := "2.10.4",
   homepage        := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses        := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
-  // retrieveManaged := true,
+  retrieveManaged := true,
   scalacOptions  ++= Seq("-deprecation", "-unchecked", "-feature"),
   // ---- publishing ----
   publishMavenStyle := true,
@@ -64,10 +76,10 @@ lazy val core = Project(
     description := "Operationalizing SysSon data matrices as reactive dataflow objects",
     libraryDependencies ++= Seq(
       "de.sciss"      %% "lucreevent"      % eventVersion,
-      "edu.ucar"      %  "netcdf"          % "4.3.21",
-      "de.sciss"      %% "fileutil"        % "1.1.+",
-      "org.scalatest" %  "scalatest_2.10"  % "2.0"     % "test",
-      "de.sciss"      %% "lucrestm-bdb"    % "2.0.1+"  % "test"
+      "edu.ucar"      %  "netcdf"          % netCDFVersion,
+      "de.sciss"      %% "fileutil"        % fileUtilVersion,
+      "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",
+      "de.sciss"      %% "lucrestm-bdb"    % lucreSTMVersion  % "test"
     ),
     initialCommands in console :=
       """import de.sciss.lucre.matrix._
@@ -89,7 +101,7 @@ lazy val views = Project(
     name        := s"$baseName-views",
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "lucreswing" % swingVersion
+      "de.sciss" %% "lucreswing" % lucreSwingVersion
     )
   )
 )

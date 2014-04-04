@@ -22,12 +22,11 @@ import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing._
 import scala.concurrent.stm.Ref
 import de.sciss.desktop.UndoManager
-import de.sciss.swingplus.Separator
+import de.sciss.swingplus.{PopupMenu, Separator}
 import scala.annotation.tailrec
 import javax.swing.{UIManager, Icon}
 import java.awt
 import java.awt.Graphics
-import scalaswingcontrib.PopupMenu
 import de.sciss.lucre.stm.Disposable
 import scala.swing.GridBagPanel.{Fill, Anchor}
 import de.sciss.lucre.swing.edit.EditVar
