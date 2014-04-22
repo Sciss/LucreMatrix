@@ -18,7 +18,7 @@ lazy val lucreSTMVersion   = "2.0.4"
 
 // --- views ----
 
-lazy val lucreSwingVersion = "0.2.+"
+lazy val lucreSwingVersion = "0.2.1"
 
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version            := projectVersion,
