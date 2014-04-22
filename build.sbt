@@ -2,32 +2,33 @@ lazy val baseName          = "LucreMatrix"
 
 def baseNameL              = baseName.toLowerCase
 
-lazy val projectVersion    = "0.1.0-SNAPSHOT"
+lazy val projectVersion    = "0.1.0"
 
-lazy val eventVersion      = "2.6.+"
+lazy val eventVersion      = "2.6.1"
 
-lazy val netCDFVersion     = "4.3.21"
+lazy val netCDFVersion     = "4.3.21"  // be careful: 4.5 will drop Java 6 support
 
-lazy val fileUtilVersion   = "1.1.+"
+lazy val fileUtilVersion   = "1.1.1"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion  = "2.1.2"
+lazy val scalaTestVersion  = "2.1.3"
 
-lazy val lucreSTMVersion   = "2.0.3+"
+lazy val lucreSTMVersion   = "2.0.4"
 
 // --- views ----
 
 lazy val lucreSwingVersion = "0.2.+"
 
 lazy val commonSettings = Project.defaultSettings ++ Seq(
-  version         := projectVersion,
-  organization    := "de.sciss",
-  scalaVersion    := "2.10.4",
-  homepage        := Some(url("https://github.com/iem-projects/" + baseName)),
-  licenses        := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
-  retrieveManaged := true,
-  scalacOptions  ++= Seq("-deprecation", "-unchecked", "-feature"),
+  version            := projectVersion,
+  organization       := "de.sciss",
+  scalaVersion       := "2.11.0",
+  crossScalaVersions := Seq("2.11.0", "2.10.4"),
+  homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
+  licenses           := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
+  retrieveManaged    := true,
+  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture"),
   // ---- publishing ----
   publishMavenStyle := true,
   // maven repository for NetCDF library
