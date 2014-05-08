@@ -1,24 +1,28 @@
-lazy val baseName          = "LucreMatrix"
+lazy val baseName           = "LucreMatrix"
 
-def baseNameL              = baseName.toLowerCase
+def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion    = "0.1.0"
+lazy val projectVersion     = "0.2.0"
 
-lazy val eventVersion      = "2.6.1"
+lazy val eventVersion       = "2.6.1"
 
-lazy val netCDFVersion     = "4.3.21"  // be careful: 4.5 will drop Java 6 support
+lazy val netCDFVersion      = "4.3.21"  // be careful: 4.5 will drop Java 6 support
 
-lazy val fileUtilVersion   = "1.1.1"
+lazy val fileUtilVersion    = "1.1.1"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion  = "2.1.3"
+lazy val scalaTestVersion   = "2.1.3"
 
-lazy val lucreSTMVersion   = "2.0.4"
+lazy val lucreSTMVersion    = "2.0.4"
 
-// --- views ----
+// ---- views ----
 
-lazy val lucreSwingVersion = "0.2.1"
+lazy val lucreSwingVersion  = "0.2.1"
+
+// ---- views/test ----
+
+lazy val webLaFVersion      = "1.27"
 
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version            := projectVersion,
@@ -102,7 +106,8 @@ lazy val views = Project(
     name        := s"$baseName-views",
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "lucreswing" % lucreSwingVersion
+      "de.sciss" %% "lucreswing" % lucreSwingVersion,
+      "de.sciss" %  "weblaf"     % webLaFVersion  % "test"
     )
   )
 )

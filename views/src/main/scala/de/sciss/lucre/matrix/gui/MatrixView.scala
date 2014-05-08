@@ -20,11 +20,15 @@ import de.sciss.lucre.stm
 import de.sciss.lucre.swing.View
 import impl.{MatrixViewImpl => Impl}
 import de.sciss.desktop.UndoManager
+import de.sciss.model.Model
 
 object MatrixView {
   def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = Impl[S]
+
+  sealed trait Update
+  case object Resized extends Update
 }
-trait MatrixView[S <: Sys[S]] extends View[S] {
+trait MatrixView[S <: Sys[S]] extends View[S] with Model[MatrixView.Update] {
   def matrix(implicit tx: S#Tx): Option[Matrix[S]]
   def matrix_=(value: Option[Matrix[S]])(implicit tx: S#Tx): Unit
 

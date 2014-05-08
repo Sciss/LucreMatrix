@@ -5,9 +5,9 @@ import scala.swing.{CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleS
 import de.sciss.lucre.event.InMemory
 import Implicits._
 import de.sciss.desktop.impl.UndoManagerImpl
-import de.sciss.desktop.Desktop
 import javax.swing.UIManager
 import de.sciss.lucre.swing.View
+import scala.util.control.NonFatal
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
@@ -18,8 +18,15 @@ object Demo extends SimpleSwingApplication {
   }
 
   override def main(args: Array[String]): Unit = {
-    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
-      UIManager.setLookAndFeel(info.getClassName)
+    //    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
+    //      UIManager.setLookAndFeel(info.getClassName)
+    //    }
+    try {
+      val web = "com.alee.laf.WebLookAndFeel"
+      UIManager.installLookAndFeel("Web Look And Feel", web)
+      UIManager.setLookAndFeel(web)
+    } catch {
+      case NonFatal(_) =>
     }
     super.main(args)
   }
@@ -33,10 +40,10 @@ object Demo extends SimpleSwingApplication {
     }
 
     val view = system.step { implicit tx =>
-      val m     = MatrixView[S]
-      val m0    = Matrix.Var[S](Matrix.newConst2D[S](Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
-      m.matrix  = Some(m0)
-      m.rowHeaders = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
+      val m         = MatrixView[S]
+      val m0        = Matrix.Var[S](Matrix.newConst2D[S](Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
+      m.matrix      = Some(m0)
+      m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
       m
     }
     new MainFrame {
@@ -44,12 +51,17 @@ object Demo extends SimpleSwingApplication {
       contents  = view.component
       menuBar   = mb
       pack()
-      size = {
-        val sz = size
-        sz.width  = math.max(sz.width , 400)
-        sz.height = math.max(sz.height, 200)
-        sz
+      //      size = {
+      //        val sz    = size
+      //        sz.width  = math.max(sz.width , 400)
+      //        sz.height = math.max(sz.height, 200)
+      //        sz
+      //      }
+
+      view.addListener {
+        case MatrixView.Resized => pack()
       }
+
       centerOnScreen()
       open()
     }

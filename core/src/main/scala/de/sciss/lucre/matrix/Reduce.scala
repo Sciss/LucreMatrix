@@ -46,12 +46,12 @@ object Reduce {
     object Slice {
       final val opID = 1
 
-      def apply[S <: Sys[S]](from: Expr[S, Int], until: Expr[S, Int])(implicit tx: S#Tx): Slice[S] =
-        Impl.applyOpSlice(from, until)
+      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Slice[S] =
+        Impl.applyOpSlice(from, to)
     }
     trait Slice[S <: Sys[S]] extends Op[S] with evt.Node[S] {
       def from : Expr[S, Int]
-      def until: Expr[S, Int]
+      def to   : Expr[S, Int]
     }
     // case class Mean[S <: Sys[S]]() extends Op[S]
 

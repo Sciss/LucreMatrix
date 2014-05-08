@@ -89,8 +89,8 @@ object ReduceImpl {
 
         case Op.Slice.opID =>
           val from  = expr.Int.read(in, access)
-          val until = expr.Int.read(in, access)
-          new OpSliceImpl[S](targets, from, until)
+          val to    = expr.Int.read(in, access)
+          new OpSliceImpl[S](targets, from, to)
 
         case _ => sys.error(s"Unsupported operator id $opID")
       }
@@ -127,9 +127,9 @@ object ReduceImpl {
     new OpApplyImpl[S](targets, index)
   }
 
-  def applyOpSlice[S <: Sys[S]](from: Expr[S, Int], until: Expr[S, Int])(implicit tx: S#Tx): Op.Slice[S] = {
+  def applyOpSlice[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Op.Slice[S] = {
     val targets = evt.Targets[S]
-    new OpSliceImpl[S](targets, from = from, until = until)
+    new OpSliceImpl[S](targets, from = from, to = to)
   }
 
   // ---- actual implementations ----
@@ -174,17 +174,17 @@ object ReduceImpl {
   }
 
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                               val from: Expr[S, Int], val until: Expr[S, Int])
+                                               val from: Expr[S, Int], val to: Expr[S, Int])
     extends Op.Slice[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
 
-    override def toString() = s"Slice$id($from, $until)"
+    override def toString() = s"Slice$id($from, $to)"
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
       out writeInt Op.typeID
       out writeInt Op.Slice.opID
       from  write out
-      until write out
+      to    write out
     }
 
     protected def disposeData()(implicit tx: S#Tx) = ()
@@ -197,19 +197,19 @@ object ReduceImpl {
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
       val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
-      val e1 = e0 || pull.contains(until.changed) && pull(until.changed).isDefined
+      val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
 
       if (e1) Some(Op.Update(this)) else None
     }
 
     def connect()(implicit tx: S#Tx): Unit = {
       from .changed ---> this
-      until.changed ---> this
+      to   .changed ---> this
     }
 
     def disconnect()(implicit tx: S#Tx): Unit = {
       from .changed -/-> this
-      until.changed -/-> this
+      to   .changed -/-> this
     }
   }
 
@@ -252,8 +252,8 @@ object ReduceImpl {
       // }
 
       val (lo, hi) = rangeOfDim(idx)
-      val sz = hi - lo
-      if (sz <= 0) return Vec.empty  // or throw exception?
+      val sz = hi - lo + 1
+      // if (sz <= 0) return Vec.empty  // or throw exception?
 
       val sh      = in.shape
       val num     = sh.take(idx    ).product
@@ -265,7 +265,7 @@ object ReduceImpl {
       val b     = Vec.newBuilder[Double]
       b.sizeHint(szRed)
       for (x <- 0 until szFull by stride) {
-        for (y <- lo * block + x until hi * block + x) {
+        for (y <- lo * block + x until (hi+1) * block + x) {
           b += data(y)
         }
       }
@@ -298,19 +298,19 @@ object ReduceImpl {
       @tailrec def loop(_op: Op[S]): (Int, Int) = _op match {
         case oa: Op.Apply[S] =>
           val _lo  = oa.index.value
-          val _hi  = _lo + 1
+          val _hi  = _lo // + 1
           (_lo, _hi)
 
         case os: Op.Slice[S] =>
           val _lo = os.from .value
-          val _hi = os.until.value
+          val _hi = os.to   .value
           (_lo, _hi)
 
         case ov: Op.Var  [S] => loop(ov())
       }
 
       val (lo, hi) = loop(op)
-      (math.max(0, lo), math.min(in.shape.apply(idx), hi))
+      (math.max(0, lo), math.min(in.shape.apply(idx) - 1, hi))
     }
 
     private def indexAndSize(implicit tx: S#Tx): (Int, Int) = {
@@ -318,7 +318,7 @@ object ReduceImpl {
       if (idx == -1) return (-1, -1)   // or throw exception?
 
       val (lo, hi) = rangeOfDim(idx)
-      val sz = hi - lo
+      val sz = hi - lo + 1
       (idx, sz)
     }
 

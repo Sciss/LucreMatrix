@@ -31,6 +31,8 @@ import de.sciss.lucre.stm.Disposable
 import scala.swing.GridBagPanel.{Fill, Anchor}
 import de.sciss.lucre.swing.edit.EditVar
 import de.sciss.audiowidgets.DualRangeModel
+import de.sciss.model.impl.ModelImpl
+import javax.swing.event.{ChangeEvent, ChangeListener}
 
 object MatrixViewImpl {
   var DEBUG = false
@@ -93,7 +95,7 @@ object MatrixViewImpl {
             case ReduceOpEnum.Slice =>
               Reduce.Op.Slice[S](
                 expr.Int.newVar(expr.Int.newConst(0)),
-                expr.Int.newVar(expr.Int.newConst(Int.MaxValue))
+                expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1))
               )
             }
           val newRed = Reduce(prev, dim, op)
@@ -271,6 +273,12 @@ object MatrixViewImpl {
           val viewIdx   = IntRangeSliderView(rm, s"Index in ${dimVal.name}")
           viewIdx.value = Some(oi.index)
           val view    = View.wrap[S] {
+            val cl = new ChangeListener {
+              def stateChanged(e: ChangeEvent): Unit = viewIdx.component.tooltip = rm.value.toString
+            }
+            rm.addChangeListener(cl)
+            cl.stateChanged(null)
+
             new BoxPanel(Orientation.Horizontal) {
               contents += new Label("Index")
               contents += viewIdx.component
@@ -282,11 +290,22 @@ object MatrixViewImpl {
           // val view = StringFieldView(dn.expr, "Dimension Name", columns = 6)
           // val viewLo = IntSpinnerView(os.from , s"Slice in ${dimVal.name}")
           // val viewHi = IntSpinnerView(os.until, s"Slice in ${dimVal.name}")
-          val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size)
+          val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
           val viewSlice = IntRangeSliderView(rm, s"Slice in ${dimVal.name}")
           viewSlice.rangeLo = Some(os.from)
-          viewSlice.rangeHi = Some(os.until)
+          viewSlice.rangeHi = Some(os.to  )
           val view      = View.wrap[S] {
+            val cl = new ChangeListener {
+              def stateChanged(e: ChangeEvent): Unit = {
+                val lo  = rm.rangeLo
+                val hi  = rm.rangeHi
+                val txt = if (hi == lo) lo.toString else s"$lo to $hi"
+                viewSlice.component.tooltip = txt
+              }
+            }
+            rm.addChangeListener(cl)
+            cl.stateChanged(null)
+
             new BoxPanel(Orientation.Horizontal) {
               contents += new Label("Slice")
               contents += viewSlice.component
@@ -318,7 +337,7 @@ object MatrixViewImpl {
   }
 
   private final class Impl[S <: Sys[S]](implicit cursor: stm.Cursor[S], undo: UndoManager)
-    extends MatrixView[S] with ComponentHolder[Component] {
+    extends MatrixView[S] with ComponentHolder[Component] with ModelImpl[MatrixView.Update] {
 
     private val _matrixObs  = Ref(Option.empty[stm.Disposable[S#Tx]])
     private val _matrix     = Ref(Option.empty[stm.Source[S#Tx, Matrix    [S]]])
@@ -457,6 +476,7 @@ object MatrixViewImpl {
 
         p.revalidate()
         p.repaint()
+        dispatch(MatrixView.Resized)
       }
     }
 
