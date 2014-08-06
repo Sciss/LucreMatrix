@@ -2,7 +2,7 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.2.0"
+lazy val projectVersion     = "0.3.0-SNAPSHOT"
 
 lazy val eventVersion       = "2.6.1"
 
@@ -12,7 +12,7 @@ lazy val fileUtilVersion    = "1.1.1"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion   = "2.1.3"
+lazy val scalaTestVersion   = "2.2.0"
 
 lazy val lucreSTMVersion    = "2.0.4"
 
@@ -22,13 +22,13 @@ lazy val lucreSwingVersion  = "0.2.1"
 
 // ---- views/test ----
 
-lazy val webLaFVersion      = "1.27"
+lazy val webLaFVersion      = "1.28"
 
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version            := projectVersion,
   organization       := "de.sciss",
-  scalaVersion       := "2.11.0",
-  crossScalaVersions := Seq("2.11.0", "2.10.4"),
+  scalaVersion       := "2.11.2",
+  crossScalaVersions := Seq("2.11.2", "2.10.4"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
   retrieveManaged    := true,

@@ -16,4 +16,4 @@ Add the following dependency:
 
     "de.sciss" %% "lucrematrix" % v
 
-The current version `v` is `"0.2.0"`
+The current stable version `v` is `"0.2.0"`
