@@ -155,28 +155,48 @@ object ReduceImpl {
     protected def reader: evt.Reader[S, Op[S]] = Op.serializer
   }
 
+  private sealed trait OpNativeImpl[S <: Sys[S]] extends evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
+    _: Op[S] =>
+
+    // ---- abstract ----
+
+    protected def writeOpData(out: DataOutput): Unit
+
+    def map(in: Range)(implicit tx: S#Tx): Range = ???
+
+    // ---- impl ----
+
+    final protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1 // cookie
+      out writeInt Op.typeID
+      writeOpData(out)
+    }
+
+    final protected def disposeData()(implicit tx: S#Tx) = ()
+
+    // ---- event ----
+
+    final def changed: EventLike[S, Op.Update[S]] = this
+
+    final protected def reader: evt.Reader[S, Op[S]] = Op.serializer
+  }
+
   private final class OpApplyImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val index: Expr[S, Int])
-    extends Op.Apply[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
+    extends OpNativeImpl[S] with Op.Apply[S] {
 
     override def toString() = s"Apply$id($index)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
 
-    protected def writeData(out: DataOutput): Unit = {
-      out writeByte 1 // cookie
-      out writeInt Op.typeID
+    protected def writeOpData(out: DataOutput): Unit = {
+      // out writeByte 1 // cookie
+      // out writeInt Op.typeID
       out writeInt Op.Apply.opID
       index write out
     }
 
-    protected def disposeData()(implicit tx: S#Tx) = ()
-
     // ---- event ----
-
-    def changed: EventLike[S, Op.Update[S]] = this
-
-    protected def reader: evt.Reader[S, Op[S]] = Op.serializer
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Update[S]] =
       pull(index.changed).map(_ => Op.Update(this))
@@ -187,7 +207,7 @@ object ReduceImpl {
 
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val from: Expr[S, Int], val to: Expr[S, Int])
-    extends Op.Slice[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
+    extends OpNativeImpl[S] with Op.Slice[S] {
 
     override def toString() = s"Slice$id($from, $to)"
 
@@ -200,21 +220,15 @@ object ReduceImpl {
       math.max(0, res)
     }
 
-    protected def writeData(out: DataOutput): Unit = {
-      out writeByte 1   // cookie
-      out writeInt Op.typeID
+    protected def writeOpData(out: DataOutput): Unit = {
+      // out writeByte 1   // cookie
+      // out writeInt Op.typeID
       out writeInt Op.Slice.opID
       from  write out
       to    write out
     }
 
-    protected def disposeData()(implicit tx: S#Tx) = ()
-
     // ---- event ----
-
-    def changed: EventLike[S, Op.Update[S]] = this
-
-    protected def reader: evt.Reader[S, Op[S]] = Op.serializer
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
       val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
@@ -236,7 +250,7 @@ object ReduceImpl {
 
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
-    extends Op.Stride[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
+    extends OpNativeImpl[S] with Op.Stride[S] {
 
     override def toString() = s"Stride$id($from, $to, $step)"
 
@@ -253,29 +267,23 @@ object ReduceImpl {
       math.max(0, res)
     }
 
-    protected def writeData(out: DataOutput): Unit = {
-      out writeByte 1   // cookie
-      out writeInt Op.typeID
+    protected def writeOpData(out: DataOutput): Unit = {
+      // out writeByte 1   // cookie
+      // out writeInt Op.typeID
       out writeInt Op.Stride.opID
       from  write out
       to    write out
       step  write out
     }
 
-    protected def disposeData()(implicit tx: S#Tx) = ()
-
     // ---- event ----
-
-    def changed: EventLike[S, Op.Update[S]] = this
-
-    protected def reader: evt.Reader[S, Op[S]] = Op.serializer
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
       val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
       val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
       val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
 
-      if (e1) Some(Op.Update(this)) else None
+      if (e2) Some(Op.Update(this)) else None
     }
 
     def connect()(implicit tx: S#Tx): Unit = {
@@ -291,24 +299,65 @@ object ReduceImpl {
     }
   }
 
-  private object CombinedOp {
-    final class NativeSection[S <: Sys[S]](val source: DataSource.Variable[S], val section: Vec[Range]) extends CombinedOp[S]
-    final class OtherSection [S <: Sys[S]](val source: Reader                , val section: Vec[Range]) extends CombinedOp[S]
-    final class Other        [S <: Sys[S]](val source: Reader                , val op     : Op[S])      extends CombinedOp[S]
-  }
-  private sealed trait CombinedOp[S <: Sys[S]]
+  private def mkReduceReaderFactory[S <: Sys[S]](r: Reduce[S], streamDim: Int)
+                                                (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] = {
+    val idx   = r.indexOfDim
+    val rInF  = mkReaderFactory(r.in, streamDim)
+    r.op match {
+      case op: OpNativeImpl[S] =>
+        rInF match {
+          case t: ReaderFactory.HasSection[S] =>
+            if (idx >= 0) t.section = t.section.updated(idx, op.map(t.section(idx)))
+            t
+          case t: ReaderFactory.Opaque[S] =>
+            var section = mkAllRange(r.in.shape)
+            if (idx >= 0) section = section.updated(idx, op.map(section(idx)))
+            new ReaderFactory.Cloudy(t.source, section)
+        }
 
-  private def foo[S <: Sys[S]](in: Reduce[S])(implicit tx: S#Tx): CombinedOp[S] = {
-    def loop(in0: Matrix[S]): CombinedOp[S] = in0 match {
-      case Matrix.Var(in1) => loop(in1)
-      case dv: DataSource.Variable[S] =>
-        val all = in0.shape.map(0 until _)
-        new CombinedOp.NativeSection(dv, all)
-      case Reduce(in1, dim1, op1) =>
-
-        ???
+      case op =>
+        val rd = op.map(rInF.make(), idx, streamDim)
+        new ReaderFactory.Opaque(rd)
     }
-    loop(in)
+  }
+
+  private def mkAllRange(shape: Vec[Int]): Vec[Range] = shape.map(0 until _)
+
+  @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
+                                                   (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] =
+    m match {
+      case Matrix.Var(in1) =>
+        mkReaderFactory(in1, streamDim)
+      case dv: DataSource.Variable[S] =>
+        new ReaderFactory.Transparent(dv, mkAllRange(dv.shape))
+      case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
+      case _ => // "opaque"
+        new ReaderFactory.Opaque(m.reader(streamDim))
+    }
+
+  private object ReaderFactory {
+    sealed trait HasSection[S <: Sys[S]] extends ReaderFactory[S] {
+      var section: Vec[Range]
+    }
+
+    final class Transparent[S <: Sys[S]](val source: DataSource.Variable[S], var section: Vec[Range])
+      extends HasSection[S] {
+
+      def make()(implicit tx: S#Tx): Reader = ???
+    }
+
+    final class Cloudy[S <: Sys[S]](val source: Reader, var section: Vec[Range])
+      extends HasSection[S] {
+
+      def make()(implicit tx: S#Tx): Reader = ???
+    }
+
+    final class Opaque[S <: Sys[S]](val source: Reader) extends ReaderFactory[S] {
+      def make()(implicit tx: S#Tx): Reader = source
+    }
+  }
+  private sealed trait ReaderFactory[S <: Sys[S]] {
+    def make()(implicit tx: S#Tx): Reader
   }
 
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
@@ -322,7 +371,8 @@ object ReduceImpl {
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
     def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
-      ???
+      val rf = mkReduceReaderFactory(this, streamDim)
+      rf.make()
     }
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
@@ -389,7 +439,7 @@ object ReduceImpl {
     private def validateIndex(idx: Int)(implicit tx: S#Tx): Int =
       if (idx >= 0 && idx < in.rank) idx else -1
 
-    private def indexOfDim(implicit tx: S#Tx): Int = {
+    def indexOfDim(implicit tx: S#Tx): Int = {
       @tailrec def loop(sel: Selection[S])(implicit tx: S#Tx): Int = sel match {
         case si: Selection.Index[S] => si.expr.value
         case sn: Selection.Name [S] => in.dimensions.indexWhere(_.name == sn.expr.value)

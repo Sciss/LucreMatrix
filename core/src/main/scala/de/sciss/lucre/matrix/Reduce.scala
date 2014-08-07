@@ -82,10 +82,14 @@ object Reduce {
     extends Writable with Disposable[S#Tx] with Publisher[S, Op.Update[S]] {
 
     def size(in: Int)(implicit tx: S#Tx): Int
+
+    def map(r: Matrix.Reader, redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ???
   }
 }
 trait Reduce[S <: Sys[S]] extends Matrix[S] with evt.Node[S] {
   def in : Matrix[S]
   def dim: Dimension.Selection[S]
   def op : Reduce.Op[S]
+
+  def indexOfDim(implicit tx: S#Tx): Int
 }
