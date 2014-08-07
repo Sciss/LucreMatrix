@@ -63,6 +63,11 @@ object Dimension {
     extends Writable with Disposable[S#Tx] with evt.Publisher[S, Selection.Update[S]]
 
   case class Value(name: String, size: Int)
+
+  //  trait Value {
+  //    def name: String
+  //    def size: Int
+  //  }
 }
 //trait Dimension[S <: Sys[S]] extends Expr[S, Dimension.Value] {
 //  def name: Expr[S, String]

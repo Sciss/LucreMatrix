@@ -2,9 +2,10 @@ package de.sciss.lucre
 package matrix
 package impl
 
+import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.serial.DataInput
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.matrix.Matrix
 import de.sciss.model.Change
 
 object MatrixVarImpl {
@@ -41,6 +42,8 @@ object MatrixVarImpl {
     with MatrixProxy[S] with VarImpl[S, Matrix.Update[S], Matrix[S], Matrix.Var.Update[S]] {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = ref()
+
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)
 
     // ---- event ----
 

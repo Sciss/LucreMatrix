@@ -15,7 +15,6 @@
 package de.sciss.lucre
 package matrix
 
-import de.sciss.lucre.stm
 import de.sciss.lucre.{event => evt}
 import evt.{InMemory, Publisher}
 import de.sciss.serial.{DataInput, Writable}
@@ -26,6 +25,8 @@ import de.sciss.model.Change
 
 object Matrix {
   final val typeID = 0x30001
+
+  // ---- variables ----
 
   object Var {
     def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Var[S] = impl.MatrixVarImpl(init)
@@ -45,6 +46,8 @@ object Matrix {
   }
   trait Var[S <: Sys[S]] extends Matrix[S] with matrix.Var[S, Matrix[S]] with Publisher[S, Var.Update[S]]
 
+  // ---- events ----
+
   object Update {
     case class Generic[S <: Sys[S]](matrix: Matrix[S]) extends Update[S]
   }
@@ -52,10 +55,22 @@ object Matrix {
     def matrix: Matrix[S]
   }
 
+  // ---- reader ----
+
+  trait Reader {
+    def numFrames: Long
+    def numChannels: Int
+    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit
+  }
+
+  // ---- serialization ----
+
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
     anySer.asInstanceOf[Ser[S]]
 
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
+
+  // ---- impl ----
 
   private val anySer = new Ser[InMemory]
 
@@ -125,4 +140,6 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   // def read(...) = ...
 
   // def view[I <: Sys[S]](implicit bridge: S#Tx => I#Tx): Matrix[I]
+
+  def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader
 }

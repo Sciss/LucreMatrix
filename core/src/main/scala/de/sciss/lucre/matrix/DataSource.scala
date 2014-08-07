@@ -58,6 +58,8 @@ object DataSource {
   object Resolver {
     def seq[S <: Sys[S]](files: nc2.NetcdfFile*): Resolver[S] = new Seq(files.map(net => (net.getLocation, net))(breakOut))
 
+    def empty[S <: Sys[S]]: Resolver[S] = new Seq(Map.empty)
+
     private final class Seq[S <: Sys[S]](map: Map[String, nc2.NetcdfFile]) extends Resolver[S] {
       def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile = {
         val p = file.getPath

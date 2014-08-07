@@ -15,6 +15,10 @@
 package de.sciss.lucre.matrix
 package impl
 
+import java.{util => ju}
+
+import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.{event => evt}
 import evt.EventLike
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
@@ -32,6 +36,24 @@ object ZeroMatrixImpl {
 
   private val intVecSer = ImmutableSerializer.indexedSeq[Int]
 
+  private final class ReaderImpl(shape: Vec[Int], streamDim: Int) extends Matrix.Reader {
+    val numFrames: Long = if (streamDim < 0) 1 else shape(streamDim)
+
+    val numChannels: Int = {
+      val sz = (1L /: shape)(_ * _)
+      val n  = if (streamDim < 0) sz else sz / shape(streamDim)
+      if (n > 0x7FFFFFFF) throw new IndexOutOfBoundsException(s"numChannels $n exceeds 32-bit range")
+      n.toInt
+    }
+
+    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
+      var ch = 0; while (ch < numChannels) {
+        ju.Arrays.fill(buf(ch), off, off + len, 0f)
+        ch += 1
+      }
+    }
+  }
+
   private final class Impl[S <: Sys[S]](shapeConst: Vec[Int])
     extends Matrix[S] {
 
@@ -45,6 +67,9 @@ object ZeroMatrixImpl {
       shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
 
     def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
+
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
+      new ReaderImpl(shapeConst, streamDim)
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size

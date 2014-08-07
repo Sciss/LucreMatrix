@@ -16,6 +16,8 @@ package de.sciss.lucre
 package matrix
 package impl
 
+import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.{event => evt}
 import evt.EventLike
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
@@ -57,6 +59,73 @@ object ConstMatrixImpl {
   private val intVecSer     = ImmutableSerializer.indexedSeq[Int   ]
   private val doubleVecSer  = ImmutableSerializer.indexedSeq[Double]
 
+  /*
+
+    ex. shape = [4, 3, 2]
+
+    data =
+
+       0:  000 001 | 010 011 | 020 021 ||
+       6:  100 101 | 110 111 | 120 121 ||
+      12:  200 201 | 210 211 | 222 221 ||
+      18:  300 301 | 310 311 | 320 321 ||
+      24:
+
+    scans      = [4*3*2*1, 3*2*1, 2*1, 1] = [24, 6, 2, 1]
+    streamScan = scans(streamDim + 1)
+    streamSkip = if (streamDim < 0) 0 else scans(streamDim)
+
+    numFrames   = if (streamDim < 0) 1 else shape(streamDim)
+    numChannels = shape.product / numFrames = scans.head / numFrames
+
+    read:
+      flat-offset = pos * streamScan
+      for each frame:
+        flat-offset' = flat-offset + sc where sc = 0 until streamScan
+        then increase flat-offset by streamSkip
+        until numChannels values have been processed
+   */
+
+  private final class ReaderImpl(shape: Vec[Int], flatData: Vec[Double], streamDim: Int) extends Matrix.Reader {
+    private val numFramesI = if (streamDim < 0) 1 else shape(streamDim)
+
+    def numFrames = numFramesI.toLong
+
+    //    val numChannels: Int = {
+    //      val sz = (1L /: shape)(_ * _)
+    //      val n  = if (streamDim < 0) sz else sz / shape(streamDim)
+    //      if (n > 0x7FFFFFFF) throw new IndexOutOfBoundsException(s"numChannels $n exceeds 32-bit range")
+    //      n.toInt
+    //    }
+
+    private val scans       = Vec.tabulate(shape.size + 1)(d => shape.drop(d).product)  // numFrames must be 32-bit
+    val numChannels         = scans.head / numFramesI
+    private val streamScan  = scans(streamDim + 1)
+    private val streamSkip  = if (streamDim < 0) 0 else scans(streamDim)
+
+    private var pos = 0
+
+    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
+      val stop = pos + len
+      var off1 = off
+      var dOff = pos * streamScan
+      while (pos < stop) {
+        var sc   = 0
+        var ch = 0; while (ch < numChannels) {
+          buf(ch)(off1) = flatData(dOff + sc).toFloat
+          ch += 1
+          sc += 1
+          if (sc == streamScan) {
+            sc    = 0
+            dOff += streamSkip
+          }
+        }
+        pos  += 1
+        off1 += 1
+      }
+    }
+  }
+
   private final class Impl[S <: Sys[S]](shapeConst: Vec[Int], flatData: Vec[Double])
     extends Matrix[S] {
 
@@ -68,6 +137,9 @@ object ConstMatrixImpl {
     def ranges    (implicit tx: S#Tx): Vec[Range]           = shape.map(0 until _)
     def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
       shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
+
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
+      new ReaderImpl(shapeConst, flatData, streamDim)
 
     def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 

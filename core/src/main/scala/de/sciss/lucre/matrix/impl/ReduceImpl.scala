@@ -17,7 +17,9 @@ package matrix
 package impl
 
 import Reduce.Op
-import de.sciss.lucre.{event => evt,expr}
+import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Matrix.Reader
+import de.sciss.lucre.{event => evt}
 import expr.Expr
 import evt.EventLike
 import Dimension.Selection
@@ -222,6 +224,8 @@ object ReduceImpl {
     override def toString() = s"Reduce$id($in, $dim, $op)"
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
+
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val data  = in.debugFlatten
