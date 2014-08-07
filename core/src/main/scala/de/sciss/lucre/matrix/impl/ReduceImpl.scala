@@ -359,7 +359,7 @@ object ReduceImpl {
         }
 
       case op =>
-        val rd = op.map(rInF.make(), idx, streamDim)
+        val rd = op.map(rInF.make(), r.in.shape, idx, streamDim)
         new ReaderFactory.Opaque(rd)
     }
   }
@@ -544,7 +544,7 @@ object ReduceImpl {
       //   copy `lo * block + offset` until `hi * block + offset`
       // }
 
-      val (lo, hi) = ??? : (Int, Int) // rangeOfDim(idx)
+      val (lo, hi): (Int, Int) = throw new Exception() // rangeOfDim(idx)
       val sz = hi - lo + 1
       // if (sz <= 0) return Vec.empty  // or throw exception?
 
