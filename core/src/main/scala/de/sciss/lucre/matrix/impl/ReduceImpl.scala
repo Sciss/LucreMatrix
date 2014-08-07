@@ -162,7 +162,7 @@ object ReduceImpl {
 
     protected def writeOpData(out: DataOutput): Unit
 
-    def map(in: Range)(implicit tx: S#Tx): Range = ???
+    def map(in: Range)(implicit tx: S#Tx): Range
 
     // ---- impl ----
 
@@ -189,6 +189,16 @@ object ReduceImpl {
 
     def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
 
+    def map(in: Range)(implicit tx: S#Tx): Range = {
+      val iv = index.value
+      if (iv >= 0 && iv < in.size) {
+        val x = in(iv)
+        Range.inclusive(x, x)
+      } else {
+        Range(in.start, in.start) // empty -- which index to choose?
+      }
+    }
+
     protected def writeOpData(out: DataOutput): Unit = {
       // out writeByte 1 // cookie
       // out writeInt Op.typeID
@@ -205,6 +215,20 @@ object ReduceImpl {
     def disconnect()(implicit tx: S#Tx): Unit = index.changed -/-> this
   }
 
+  private def sampleRange(in: Range, by: Range): Range = {
+    val drop  = by.start
+    val stepM = by.step
+    require(drop >= 0 && stepM > 0)
+    val in1 = in.drop(drop)
+    val in2 = if (stepM == 1)
+      in1
+    else if (in1.isInclusive)  // copy-method is protected
+      new Range.Inclusive(start = in1.start, end = in1.end, step = in1.step * stepM)
+    else
+      new Range(start = in1.start, end = in1.end, step = in1.step * stepM)
+    in2.take(by.size)
+  }
+
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val from: Expr[S, Int], val to: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Slice[S] {
@@ -218,6 +242,13 @@ object ReduceImpl {
       val hi1 = math.min(in, hi + 1)
       val res = hi1 - lo1
       math.max(0, res)
+    }
+
+    def map(in: Range)(implicit tx: S#Tx): Range = {
+      val lo  = from .value
+      val hi  = to   .value
+      val by  = lo to hi
+      sampleRange(in, by)
     }
 
     protected def writeOpData(out: DataOutput): Unit = {
@@ -265,6 +296,14 @@ object ReduceImpl {
       val gap = hi1 - lo1
       val res = gap / s + 1
       math.max(0, res)
+    }
+
+    def map(in: Range)(implicit tx: S#Tx): Range = {
+      val lo  = from .value
+      val hi  = to   .value
+      val s   = step .value
+      val by  = lo to hi by s
+      sampleRange(in, by)
     }
 
     protected def writeOpData(out: DataOutput): Unit = {
