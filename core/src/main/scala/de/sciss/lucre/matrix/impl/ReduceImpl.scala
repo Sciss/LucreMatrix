@@ -16,6 +16,9 @@ package de.sciss.lucre
 package matrix
 package impl
 
+import java.io.EOFException
+import java.{util => ju}
+
 import Reduce.Op
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
@@ -23,6 +26,7 @@ import de.sciss.lucre.{event => evt}
 import expr.Expr
 import evt.EventLike
 import Dimension.Selection
+import ucar.{ma2, nc2}
 import scala.annotation.{switch, tailrec}
 import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
@@ -374,6 +378,93 @@ object ReduceImpl {
         new ReaderFactory.Opaque(m.reader(streamDim))
     }
 
+  // Note: will throw exception if range is empty or going backwards
+  private def toUcarRange(in: Range): ma2.Range = {
+    // val inc = if (in.isInclusive) in else new Range.Inclusive(in.start, in.last, in.step)
+    new ma2.Range(in.start, in.last, in.step)
+  }
+
+  private def toUcarSection(in: Vec[Range]): ma2.Section = {
+    val sz      = in.size
+    val list    = new ju.ArrayList[ma2.Range](sz)
+    var i = 0; while (i < sz) {
+      list.add(toUcarRange(in(i)))
+      i += 1
+    }
+    new ma2.Section(list)
+  }
+
+  private sealed trait IndexMap {
+    def next(ma: ma2.IndexIterator): Float
+  }
+
+  private object IntIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getIntNext().toFloat
+  }
+
+  private object FloatIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getFloatNext()
+  }
+
+  private object DoubleIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getDoubleNext().toFloat
+  }
+
+  private final class TransparentReader(v: nc2.Variable, streamDim: Int, section: Vec[Range])
+    extends Reader {
+
+    private val numFramesI = if (streamDim < 0) 1 else section(streamDim).size
+
+    val numChannels: Int  = {
+      val size          = (1L /: section)((prod, r) => prod * r.size)
+      val numChannelsL  = size / numFramesI
+      if (numChannelsL > 0xFFFF)
+        throw new UnsupportedOperationException(s"The number of channels ($numChannelsL) is larger than supported")
+      numChannelsL.toInt
+    }
+
+    private var pos = 0
+
+    // NetcdfFile is not thread-safe
+    private val sync = v.getParentGroup.getNetcdfFile
+
+    private val indexMap = v.getDataType match {
+      case ma2.DataType.FLOAT   => FloatIndexMap
+      case ma2.DataType.DOUBLE  => DoubleIndexMap
+      case ma2.DataType.INT     => IntIndexMap
+      case other                => throw new UnsupportedOperationException(s"Unsupported variable data type $other")
+    }
+
+    def numFrames = numFramesI.toLong
+
+    def read(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
+      if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
+      val stop = pos + len
+      if (stop > numFramesI) throw new EOFException(s"Reading past the end ($stop > $numFramesI)")
+      val sect1 = if (pos == 0 && stop == numFramesI) section else {
+        val newRange = sampleRange(section(streamDim), pos until stop)
+        section.updated(streamDim, newRange)
+      }
+      val arr = sync.synchronized(v.read(toUcarSection(sect1)))
+      // cf. Arrays.txt for (de-)interleaving scheme
+      val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
+      val it  = arr.getIndexIterator
+
+      var i = off
+      val j = off + len
+      while (i < j) {
+        var ch = 0
+        while (ch < numChannels) {
+          fBuf(ch)(i) = indexMap.next(it)
+          ch += 1
+        }
+        i += 1
+      }
+
+      pos = stop
+    }
+  }
+
   private object ReaderFactory {
     sealed trait HasSection[S <: Sys[S]] extends ReaderFactory[S] {
       var section: Vec[Range]
@@ -382,22 +473,25 @@ object ReduceImpl {
     final class Transparent[S <: Sys[S]](source: DataSource.Variable[S], streamDim: Int, var section: Vec[Range])
       extends HasSection[S] {
 
-      def make()(implicit tx: S#Tx): Reader = ???
+      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
+        val v = source.data()
+        new TransparentReader(v, streamDim, section)
+      }
     }
 
     final class Cloudy[S <: Sys[S]](source: Reader, streamDim: Int, var section: Vec[Range])
       extends HasSection[S] {
 
-      def make()(implicit tx: S#Tx): Reader = ???
+      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = ???
     }
 
     /** Takes an eagerly instantiated reader, no possibility to optimize. */
     final class Opaque[S <: Sys[S]](val source: Reader) extends ReaderFactory[S] {
-      def make()(implicit tx: S#Tx): Reader = source
+      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
     }
   }
   private sealed trait ReaderFactory[S <: Sys[S]] {
-    def make()(implicit tx: S#Tx): Reader
+    def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader
   }
 
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
@@ -416,6 +510,13 @@ object ReduceImpl {
     }
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+      implicit val resolver = DataSource.Resolver.empty[S]
+      val r   = reader(-1)
+      val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
+      r.read(buf, 0, 1)
+      val res = Vec.tabulate(r.numChannels)(ch => buf(ch)(0).toDouble)
+      return res
+
       val data  = in.debugFlatten
       val idx   = indexOfDim
       if (idx == -1) return data
