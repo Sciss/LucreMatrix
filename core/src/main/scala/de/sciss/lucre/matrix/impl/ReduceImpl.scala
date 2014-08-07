@@ -94,6 +94,12 @@ object ReduceImpl {
           val to    = expr.Int.read(in, access)
           new OpSliceImpl[S](targets, from, to)
 
+        case Op.Stride.opID =>
+          val from  = expr.Int.read(in, access)
+          val to    = expr.Int.read(in, access)
+          val step  = expr.Int.read(in, access)
+          new OpStrideImpl[S](targets, from, to, step)
+
         case _ => sys.error(s"Unsupported operator id $opID")
       }
     }
@@ -140,6 +146,8 @@ object ReduceImpl {
                                              protected val ref: S#Var[Op[S]])
     extends Op.Var[S] with VarImpl[S, Op.Update[S], Op[S], Op.Update[S]] {
 
+    def size(in: Int)(implicit tx: S#Tx): Int = apply().size(in)
+
     protected def mapUpdate(in: Update[S]): Op.Update[S] = in.copy(op = this)
 
     protected def mkUpdate(before: Op[S], now: Op[S]): Op.Update[S] = Op.Update(this)
@@ -152,6 +160,8 @@ object ReduceImpl {
     extends Op.Apply[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
 
     override def toString() = s"Apply$id($index)"
+
+    def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1 // cookie
@@ -180,6 +190,15 @@ object ReduceImpl {
     extends Op.Slice[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
 
     override def toString() = s"Slice$id($from, $to)"
+
+    def size(in: Int)(implicit tx: S#Tx): Int = {
+      val lo  = from .value
+      val hi  = to   .value
+      val lo1 = math.max(0, lo)
+      val hi1 = math.min(in, hi + 1)
+      val res = hi1 - lo1
+      math.max(0, res)
+    }
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
@@ -215,6 +234,83 @@ object ReduceImpl {
     }
   }
 
+  private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
+                                                val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
+    extends Op.Stride[S] with evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
+
+    override def toString() = s"Stride$id($from, $to, $step)"
+
+    def size(in: Int)(implicit tx: S#Tx): Int = {
+      val lo  = from .value
+      val hi  = to   .value
+      val s   = step .value
+      // note: in NetCDF, ranges must be non-negative, so
+      // we don't check invalid cases here, but simply truncate.
+      val lo1 = math.max(0, lo)
+      val hi1 = math.min(in - 1, hi)
+      val gap = hi1 - lo1
+      val res = gap / s + 1
+      math.max(0, res)
+    }
+
+    protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1   // cookie
+      out writeInt Op.typeID
+      out writeInt Op.Stride.opID
+      from  write out
+      to    write out
+      step  write out
+    }
+
+    protected def disposeData()(implicit tx: S#Tx) = ()
+
+    // ---- event ----
+
+    def changed: EventLike[S, Op.Update[S]] = this
+
+    protected def reader: evt.Reader[S, Op[S]] = Op.serializer
+
+    def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
+      val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
+      val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
+      val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
+
+      if (e1) Some(Op.Update(this)) else None
+    }
+
+    def connect()(implicit tx: S#Tx): Unit = {
+      from .changed ---> this
+      to   .changed ---> this
+      step .changed ---> this
+    }
+
+    def disconnect()(implicit tx: S#Tx): Unit = {
+      from .changed -/-> this
+      to   .changed -/-> this
+      step .changed -/-> this
+    }
+  }
+
+  private object CombinedOp {
+    final class NativeSection[S <: Sys[S]](val source: DataSource.Variable[S], val section: Vec[Range]) extends CombinedOp[S]
+    final class OtherSection [S <: Sys[S]](val source: Reader                , val section: Vec[Range]) extends CombinedOp[S]
+    final class Other        [S <: Sys[S]](val source: Reader                , val op     : Op[S])      extends CombinedOp[S]
+  }
+  private sealed trait CombinedOp[S <: Sys[S]]
+
+  private def foo[S <: Sys[S]](in: Reduce[S])(implicit tx: S#Tx): CombinedOp[S] = {
+    def loop(in0: Matrix[S]): CombinedOp[S] = in0 match {
+      case Matrix.Var(in1) => loop(in1)
+      case dv: DataSource.Variable[S] =>
+        val all = in0.shape.map(0 until _)
+        new CombinedOp.NativeSection(dv, all)
+      case Reduce(in1, dim1, op1) =>
+
+        ???
+    }
+    loop(in)
+  }
+
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
                                         val dim: Selection[S], val op: Op[S])
     extends Reduce[S]
@@ -225,7 +321,9 @@ object ReduceImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+      ???
+    }
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val data  = in.debugFlatten
@@ -255,7 +353,7 @@ object ReduceImpl {
       //   copy `lo * block + offset` until `hi * block + offset`
       // }
 
-      val (lo, hi) = rangeOfDim(idx)
+      val (lo, hi) = ??? : (Int, Int) // rangeOfDim(idx)
       val sz = hi - lo + 1
       // if (sz <= 0) return Vec.empty  // or throw exception?
 
@@ -279,9 +377,11 @@ object ReduceImpl {
 
     override def shape(implicit tx: S#Tx): Vec[Int] = {
       val sh        = in.shape
-      val (idx, sz) = indexAndSize
+      val idx       = indexOfDim
       if (idx == -1) return sh
 
+      val szIn      = sh(idx)
+      val sz        = op.size(szIn) // val (idx, sz) = indexAndSize
       if (sz <= 0) Vec.empty  // or throw exception?
       else sh.updated(idx, sz)
     }
@@ -298,33 +398,35 @@ object ReduceImpl {
       validateIndex(loop(dim))
     }
 
-    private def rangeOfDim(idx: Int)(implicit tx: S#Tx): (Int, Int) = {
-      @tailrec def loop(_op: Op[S]): (Int, Int) = _op match {
-        case oa: Op.Apply[S] =>
-          val _lo  = oa.index.value
-          val _hi  = _lo // + 1
-          (_lo, _hi)
+//    private def rangeOfDim(idx: Int)(implicit tx: S#Tx): (Int, Int) = {
+//      @tailrec def loop(_op: Op[S]): (Int, Int) = _op match {
+//        case oa: Op.Apply[S] =>
+//          val _lo  = oa.index.value
+//          val _hi  = _lo // + 1
+//          (_lo, _hi)
+//
+//        case os: Op.Slice[S] =>
+//          val _lo = os.from .value
+//          val _hi = os.to   .value
+//          (_lo, _hi)
+//
+//        case os: Op.Stride[S] => ...
+//
+//        case ov: Op.Var  [S] => loop(ov())
+//      }
+//
+//      val (lo, hi) = loop(op)
+//      (math.max(0, lo), math.min(in.shape.apply(idx) - 1, hi))
+//    }
 
-        case os: Op.Slice[S] =>
-          val _lo = os.from .value
-          val _hi = os.to   .value
-          (_lo, _hi)
-
-        case ov: Op.Var  [S] => loop(ov())
-      }
-
-      val (lo, hi) = loop(op)
-      (math.max(0, lo), math.min(in.shape.apply(idx) - 1, hi))
-    }
-
-    private def indexAndSize(implicit tx: S#Tx): (Int, Int) = {
-      val idx = indexOfDim
-      if (idx == -1) return (-1, -1)   // or throw exception?
-
-      val (lo, hi) = rangeOfDim(idx)
-      val sz = hi - lo + 1
-      (idx, sz)
-    }
+//    private def indexAndSize(implicit tx: S#Tx): (Int, Int) = {
+//      val idx = indexOfDim
+//      if (idx == -1) return (-1, -1)   // or throw exception?
+//
+//      val (lo, hi) = rangeOfDim(idx)
+//      val sz = hi - lo + 1
+//      (idx, sz)
+//    }
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie

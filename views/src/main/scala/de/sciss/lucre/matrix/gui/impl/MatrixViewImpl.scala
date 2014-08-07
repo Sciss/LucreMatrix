@@ -313,6 +313,8 @@ object MatrixViewImpl {
           }
           (ReduceOpEnum.Slice, view, os, vr)
 
+        case os: Reduce.Op.Stride[S] => ???
+
         case dv: Reduce.Op.Var[S] =>
           loopOp(dv(), Some(dv))
       }

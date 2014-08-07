@@ -6,7 +6,7 @@ lazy val projectVersion     = "0.3.0-SNAPSHOT"
 
 lazy val eventVersion       = "2.6.1"
 
-lazy val netCDFVersion      = "4.3.21"  // be careful: 4.5 will drop Java 6 support
+lazy val netCDFVersion      = "4.3.22"  // be careful: 4.5 will drop Java 6 support
 
 lazy val fileUtilVersion    = "1.1.1"
 
