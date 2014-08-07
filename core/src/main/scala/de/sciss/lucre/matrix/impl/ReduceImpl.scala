@@ -351,7 +351,7 @@ object ReduceImpl {
           case t: ReaderFactory.Opaque[S] =>
             var section = mkAllRange(r.in.shape)
             if (idx >= 0) section = section.updated(idx, op.map(section(idx)))
-            new ReaderFactory.Cloudy(t.source, section)
+            new ReaderFactory.Cloudy(t.source, streamDim, section)
         }
 
       case op =>
@@ -368,7 +368,7 @@ object ReduceImpl {
       case Matrix.Var(in1) =>
         mkReaderFactory(in1, streamDim)
       case dv: DataSource.Variable[S] =>
-        new ReaderFactory.Transparent(dv, mkAllRange(dv.shape))
+        new ReaderFactory.Transparent(dv, streamDim, mkAllRange(dv.shape))
       case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
       case _ => // "opaque"
         new ReaderFactory.Opaque(m.reader(streamDim))
@@ -379,18 +379,19 @@ object ReduceImpl {
       var section: Vec[Range]
     }
 
-    final class Transparent[S <: Sys[S]](val source: DataSource.Variable[S], var section: Vec[Range])
+    final class Transparent[S <: Sys[S]](source: DataSource.Variable[S], streamDim: Int, var section: Vec[Range])
       extends HasSection[S] {
 
       def make()(implicit tx: S#Tx): Reader = ???
     }
 
-    final class Cloudy[S <: Sys[S]](val source: Reader, var section: Vec[Range])
+    final class Cloudy[S <: Sys[S]](source: Reader, streamDim: Int, var section: Vec[Range])
       extends HasSection[S] {
 
       def make()(implicit tx: S#Tx): Reader = ???
     }
 
+    /** Takes an eagerly instantiated reader, no possibility to optimize. */
     final class Opaque[S <: Sys[S]](val source: Reader) extends ReaderFactory[S] {
       def make()(implicit tx: S#Tx): Reader = source
     }
