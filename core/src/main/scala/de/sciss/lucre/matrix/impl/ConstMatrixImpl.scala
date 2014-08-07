@@ -108,8 +108,8 @@ object ConstMatrixImpl {
     def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
       val stop = pos + len
       var off1 = off
-      var dOff = pos * streamScan
       while (pos < stop) {
+        var dOff = pos * streamScan
         var sc   = 0
         var ch = 0; while (ch < numChannels) {
           buf(ch)(off1) = flatData(dOff + sc).toFloat
