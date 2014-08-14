@@ -41,7 +41,7 @@ object ZeroMatrixImpl {
 
     val numChannels: Int = {
       val sz = (1L /: shape)(_ * _)
-      val n  = if (streamDim < 0) sz else sz / shape(streamDim)
+      val n  = sz / numFrames
       if (n > 0x7FFFFFFF) throw new IndexOutOfBoundsException(s"numChannels $n exceeds 32-bit range")
       n.toInt
     }

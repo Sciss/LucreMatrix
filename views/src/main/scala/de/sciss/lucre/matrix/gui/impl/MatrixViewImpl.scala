@@ -17,6 +17,7 @@ package gui
 package impl
 
 import de.sciss.lucre.{expr, stm}
+import de.sciss.model.Model
 import scala.swing.{Insets, GridBagPanel, ScrollPane, MenuItem, Action, Orientation, BoxPanel, Button, Swing, Label, Component}
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing._
@@ -72,10 +73,11 @@ object MatrixViewImpl {
   private object DimensionView {
     def apply[S <: Sys[S]](varOpt: Option[Matrix.Var[S]], name: String)
                           (implicit tx: S#Tx, cursor: stm.Cursor[S], undo: UndoManager): DimensionView[S] = {
-      val red     = ReductionsView[S](name)
-      val varOptH = varOpt.map(tx.newHandle(_))
-      val res     = new Impl[S](varOptH, name, red)
-      deferTx(res.guiInit())
+      val red         = ReductionsView[S](name)
+      val varOptH     = varOpt.map(tx.newHandle(_))
+      val res         = new Impl[S](varOptH, name, red)
+      val redIsEmpty  = red.isEmpty
+      deferTx(res.guiInit(redIsEmpty = redIsEmpty))
       res
     }
 
@@ -94,10 +96,16 @@ object MatrixViewImpl {
               Reduce.Op.Apply[S](expr.Int.newVar(expr.Int.newConst(0)))
             case ReduceOpEnum.Slice =>
               Reduce.Op.Slice[S](
-                expr.Int.newVar(expr.Int.newConst(0)),
-                expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1))
+                from = expr.Int.newVar(expr.Int.newConst(0)),
+                to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1))
               )
-            }
+            case ReduceOpEnum.Stride =>
+              Reduce.Op.Stride[S](
+                from = expr.Int.newVar(expr.Int.newConst(0)),
+                to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1)),
+                gap  = expr.Int.newVar(expr.Int.newConst(0))
+              )
+          }
           val newRed = Reduce(prev, dim, op)
           EditVar[S, Matrix[S], Matrix.Var[S]](s"Add ${opV.name} to $name", vr, newRed)
         }
@@ -152,7 +160,7 @@ object MatrixViewImpl {
       }
       private lazy val ggAdd     = new Button(addAction)
 
-      def guiInit(): Unit = {
+      def guiInit(redIsEmpty: Boolean): Unit = {
         val lb    = new Label(name)
         val lbd   = lb.preferredSize
         lbd.width = 96
@@ -170,6 +178,19 @@ object MatrixViewImpl {
           ggRemove.tooltip = "Remove Reduction"
           ggAdd.borderPainted = false
           ggAdd.tooltip = "Add New Reduction"
+
+          // dynamically hide minus-button
+          ggRemove.visible = !redIsEmpty
+          reductions.addListener {
+            case u: ReductionsView.Update =>
+              val vis = !u.isEmpty
+              if (vis != ggRemove.visible) {
+                ggRemove.visible = vis
+                component.revalidate()
+                component.repaint()
+              }
+          }
+
           c1 ++ List(ggRemove, ggAdd)
         }
 
@@ -194,8 +215,12 @@ object MatrixViewImpl {
       res
     }
 
+    case class Update(size: Int) {
+      def isEmpty = size == 0
+    }
+
     private final class Impl[S <: Sys[S]](val dimName: String)
-      extends ReductionsView[S] with ComponentHolder[BoxPanel] {
+      extends ReductionsView[S] with ComponentHolder[BoxPanel] with ModelImpl[ReductionsView.Update] {
 
       private val children = Ref(Vec.empty[ReductionView[S]])
 
@@ -210,9 +235,10 @@ object MatrixViewImpl {
       }
 
       def insert(idx: Int, view: ReductionView[S])(implicit tx: S#Tx): Unit = {
-        children.transform(_.patch(idx, view :: Nil, 0))(tx.peer)
+        val vec1 = children.transformAndGet(_.patch(idx, view :: Nil, 0))(tx.peer)
         deferTx {
           component.contents.insert(idx, view.component)
+          dispatch(ReductionsView.Update(size = vec1.size))
         }
       }
 
@@ -224,6 +250,7 @@ object MatrixViewImpl {
 
         deferTx {
           component.contents.remove(idx)
+          dispatch(ReductionsView.Update(size = vec1.size))
         }
 
         view.dispose()
@@ -232,12 +259,16 @@ object MatrixViewImpl {
       def apply(idx: Int)(implicit tx: S#Tx): ReductionView[S] = children.get(tx.peer).apply(idx)
 
       def size(implicit tx: S#Tx): Int = children.get(tx.peer).size
+
+      def isEmpty(implicit tx: S#Tx): Boolean = children.get(tx.peer).isEmpty
     }
   }
-  private trait ReductionsView[S <: Sys[S]] extends View[S] {
+  private trait ReductionsView[S <: Sys[S]] extends View[S] with Model[ReductionsView.Update] {
     def dimName: String
 
     def size(implicit tx: S#Tx): Int
+
+    def isEmpty(implicit tx: S#Tx): Boolean
 
     def apply(idx: Int)(implicit tx: S#Tx): ReductionView[S]
 
@@ -249,10 +280,11 @@ object MatrixViewImpl {
   }
 
   private object ReduceOpEnum {
-    case object Apply extends ReduceOpEnum { val id = 0; val name = "Index" }
-    case object Slice extends ReduceOpEnum { val id = 1; val name = "Slice" }
+    case object Apply  extends ReduceOpEnum { val id = 0; val name = "Index"  }
+    case object Slice  extends ReduceOpEnum { val id = 1; val name = "Slice"  }
+    case object Stride extends ReduceOpEnum { val id = 2; val name = "Stride" }
 
-    val seq = Vec[ReduceOpEnum](Apply, Slice)
+    val seq = Vec[ReduceOpEnum](Apply, Slice, Stride)
   }
   private sealed trait ReduceOpEnum {
     def id  : Int
@@ -313,13 +345,37 @@ object MatrixViewImpl {
           }
           (ReduceOpEnum.Slice, view, os, vr)
 
-        case os: Reduce.Op.Stride[S] => ???
+        case os: Reduce.Op.Stride[S] =>
+          val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
+          val viewSlice = IntRangeSliderView(rm, s"Stride in ${dimVal.name}")
+          viewSlice.rangeLo = Some(os.from)
+          viewSlice.rangeHi = Some(os.to  )
+          viewSlice.value   = Some(os.gap )
+          val view      = View.wrap[S] {
+            val cl = new ChangeListener {
+              def stateChanged(e: ChangeEvent): Unit = {
+                val lo   = rm.rangeLo
+                val hi   = rm.rangeHi
+                val txt0 = if (hi == lo) lo.toString else s"$lo to $hi"
+                val txt  = s"$txt0 by ${math.max(0, rm.value) + 1}"
+                viewSlice.component.tooltip = txt
+              }
+            }
+            rm.addChangeListener(cl)
+            cl.stateChanged(null)
+
+            new BoxPanel(Orientation.Horizontal) {
+              contents += new Label("Stride")
+              contents += viewSlice.component
+            }
+          }
+          (ReduceOpEnum.Stride, view, os, vr)
 
         case dv: Reduce.Op.Var[S] =>
           loopOp(dv(), Some(dv))
       }
 
-      val (opComboItem, opView, _, opVarOpt) = loopOp(red.op, None)
+      val (_, opView, _, _) = loopOp(red.op, None)
       val res = new Impl(opView, tx.newHandle(red))
       res
     }
@@ -434,7 +490,7 @@ object MatrixViewImpl {
               (m, vr, dimViews0)
           }
 
-        val (mBase, _mEdit, _dimViews0) = loopMatrix(m0, None, Vec.fill(numDims)(Nil))
+        val (_, _mEdit, _dimViews0) = loopMatrix(m0, None, Vec.fill(numDims)(Nil))
 
         val __matrixName  = m0.name
         val _dimViews1    = (_dimViews0 zip dims).map { case (list, dimVal) =>

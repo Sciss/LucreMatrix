@@ -30,6 +30,7 @@ import ucar.{ma2, nc2}
 import scala.annotation.{switch, tailrec}
 import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
+import scala.collection.breakOut
 
 object ReduceImpl {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -101,8 +102,8 @@ object ReduceImpl {
         case Op.Stride.opID =>
           val from  = expr.Int.read(in, access)
           val to    = expr.Int.read(in, access)
-          val step  = expr.Int.read(in, access)
-          new OpStrideImpl[S](targets, from, to, step)
+          val gap   = expr.Int.read(in, access)
+          new OpStrideImpl[S](targets, from = from, to = to, gap = gap)
 
         case _ => sys.error(s"Unsupported operator id $opID")
       }
@@ -142,6 +143,12 @@ object ReduceImpl {
   def applyOpSlice[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Op.Slice[S] = {
     val targets = evt.Targets[S]
     new OpSliceImpl[S](targets, from = from, to = to)
+  }
+
+  def applyOpStride[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], gap: Expr[S, Int])
+                                (implicit tx: S#Tx): Op.Stride[S] = {
+    val targets = evt.Targets[S]
+    new OpStrideImpl[S](targets, from = from, to = to, gap = gap)
   }
 
   // ---- actual implementations ----
@@ -284,28 +291,28 @@ object ReduceImpl {
   }
 
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
+                                                val from: Expr[S, Int], val to: Expr[S, Int], val gap: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Stride[S] {
 
-    override def toString() = s"Stride$id($from, $to, $step)"
+    override def toString() = s"Stride$id($from, $to, $gap)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = {
       val lo  = from .value
       val hi  = to   .value
-      val s   = step .value
+      val s   = gap  .value + 1
       // note: in NetCDF, ranges must be non-negative, so
       // we don't check invalid cases here, but simply truncate.
       val lo1 = math.max(0, lo)
       val hi1 = math.min(in - 1, hi)
-      val gap = hi1 - lo1
-      val res = gap / s + 1
+      val szm = hi1 - lo1
+      val res = szm / s + 1
       math.max(0, res)
     }
 
     def map(in: Range)(implicit tx: S#Tx): Range = {
       val lo  = from .value
       val hi  = to   .value
-      val s   = step .value
+      val s   = gap  .value + 1
       val by  = lo to hi by s
       sampleRange(in, by)
     }
@@ -316,7 +323,7 @@ object ReduceImpl {
       out writeInt Op.Stride.opID
       from  write out
       to    write out
-      step  write out
+      gap   write out
     }
 
     // ---- event ----
@@ -324,7 +331,7 @@ object ReduceImpl {
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
       val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
       val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
-      val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
+      val e2 = e1 || pull.contains(gap  .changed) && pull(gap  .changed).isDefined
 
       if (e2) Some(Op.Update(this)) else None
     }
@@ -332,13 +339,13 @@ object ReduceImpl {
     def connect()(implicit tx: S#Tx): Unit = {
       from .changed ---> this
       to   .changed ---> this
-      step .changed ---> this
+      gap  .changed ---> this
     }
 
     def disconnect()(implicit tx: S#Tx): Unit = {
       from .changed -/-> this
       to   .changed -/-> this
-      step .changed -/-> this
+      gap  .changed -/-> this
     }
   }
 
@@ -364,7 +371,7 @@ object ReduceImpl {
     }
   }
 
-  private def mkAllRange(shape: Vec[Int]): Vec[Range] = shape.map(0 until _)
+  def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
 
   @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
                                                    (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] =
@@ -410,7 +417,7 @@ object ReduceImpl {
     def next(ma: ma2.IndexIterator): Float = ma.getDoubleNext().toFloat
   }
 
-  private final class TransparentReader(v: nc2.Variable, streamDim: Int, section: Vec[Range])
+  final class TransparentReader(v: nc2.Variable, streamDim: Int, section: Vec[Range])
     extends Reader {
 
     private val numFramesI = if (streamDim < 0) 1 else section(streamDim).size

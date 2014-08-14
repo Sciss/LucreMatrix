@@ -47,7 +47,8 @@ object DataSourceImpl {
       val file              = f0
       protected val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
       import JavaConversions._
-      varRef() = netFile.getVariables.map(variable(ds, _))(breakOut)   // tricky decoupling of recursive serialization
+      val v: List[Variable[S]] = netFile.getVariables.map(variable(ds, _))(breakOut)
+      varRef() = v   // tricky decoupling of recursive serialization
     }
   }
 
@@ -155,6 +156,25 @@ object DataSourceImpl {
 
   private val shapeSer    = ImmutableSerializer.indexedSeq[ShapeInfo]
 
+  //  private final class ReaderImpl[S <: Sys[S]](shapeInfo: Vec[ShapeInfo], streamDim: Int, v: nc2.Variable)
+  //    extends Matrix.Reader {
+  //
+  //    private val numFramesI = if (streamDim < 0) 1 else shapeInfo(streamDim).dim.size
+  //
+  //    def numFrames: Long = numFramesI
+  //
+  //    val numChannels: Int = {
+  //      val sz = (1L /: shapeInfo)(_ * _.dim.size)
+  //      val n  = sz / numFramesI
+  //      if (n > 0x7FFFFFFF) throw new IndexOutOfBoundsException(s"numChannels $n exceeds 32-bit range")
+  //      n.toInt
+  //    }
+  //
+  //    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
+  //      ...
+  //    }
+  //  }
+
   private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val source: DataSource[S] /* sourceRef: S#Var[DataSource[S]] */,
                                                 val parents: List[String],
@@ -182,7 +202,11 @@ object DataSourceImpl {
     def ranges    (implicit tx: S#Tx): Vec[Range          ] = shapeInfo.map(_.range)
     def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
+    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+      val v   = data()
+      val all = ReduceImpl.mkAllRange(v.getShape)
+      new ReduceImpl.TransparentReader(v, streamDim = streamDim, section = all)
+    }
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie

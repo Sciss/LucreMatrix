@@ -66,14 +66,14 @@ object Reduce {
     object Stride {
       final val opID = 2
 
-      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], step: Expr[S, Int])(implicit tx: S#Tx): Stride[S] =
-        ??? // Impl.applyOpSlice(from, to)
+      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], gap: Expr[S, Int])(implicit tx: S#Tx): Stride[S] =
+        Impl.applyOpStride(from, to, gap)
     }
     /** A range selection with gaps or strides. */
     trait Stride[S <: Sys[S]] extends Op[S] with evt.Node[S] {
       def from : Expr[S, Int]
       def to   : Expr[S, Int]
-      def step : Expr[S, Int]
+      def gap  : Expr[S, Int]
     }
 
     case class Update[S <: Sys[S]](op: Op[S])
