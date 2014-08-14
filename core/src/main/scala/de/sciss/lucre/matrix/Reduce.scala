@@ -4,7 +4,7 @@ package matrix
 import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.{event => evt}
 import evt.Publisher
-import de.sciss.serial.{DataInput, Writable, Serializer}
+import de.sciss.serial.{DataInput, Writable}
 import de.sciss.lucre.stm.Disposable
 import impl.{ReduceImpl => Impl}
 
@@ -66,14 +66,14 @@ object Reduce {
     object Stride {
       final val opID = 2
 
-      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], gap: Expr[S, Int])(implicit tx: S#Tx): Stride[S] =
-        Impl.applyOpStride(from, to, gap)
+      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], step: Expr[S, Int])(implicit tx: S#Tx): Stride[S] =
+        Impl.applyOpStride(from = from, to = to, step = step)
     }
     /** A range selection with gaps or strides. */
     trait Stride[S <: Sys[S]] extends Op[S] with evt.Node[S] {
       def from : Expr[S, Int]
       def to   : Expr[S, Int]
-      def gap  : Expr[S, Int]
+      def step : Expr[S, Int]
     }
 
     case class Update[S <: Sys[S]](op: Op[S])

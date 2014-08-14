@@ -103,7 +103,7 @@ object MatrixViewImpl {
               Reduce.Op.Stride[S](
                 from = expr.Int.newVar(expr.Int.newConst(0)),
                 to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1)),
-                gap  = expr.Int.newVar(expr.Int.newConst(0))
+                step = expr.Int.newVar(expr.Int.newConst(1))
               )
           }
           val newRed = Reduce(prev, dim, op)
@@ -350,14 +350,14 @@ object MatrixViewImpl {
           val viewSlice = IntRangeSliderView(rm, s"Stride in ${dimVal.name}")
           viewSlice.rangeLo = Some(os.from)
           viewSlice.rangeHi = Some(os.to  )
-          viewSlice.value   = Some(os.gap )
+          viewSlice.value   = Some(os.step)
           val view      = View.wrap[S] {
             val cl = new ChangeListener {
               def stateChanged(e: ChangeEvent): Unit = {
                 val lo   = rm.rangeLo
                 val hi   = rm.rangeHi
                 val txt0 = if (hi == lo) lo.toString else s"$lo to $hi"
-                val txt  = s"$txt0 by ${math.max(0, rm.value) + 1}"
+                val txt  = s"$txt0 by ${math.max(1, rm.value)}"
                 viewSlice.component.tooltip = txt
               }
             }

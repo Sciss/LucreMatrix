@@ -102,8 +102,8 @@ object ReduceImpl {
         case Op.Stride.opID =>
           val from  = expr.Int.read(in, access)
           val to    = expr.Int.read(in, access)
-          val gap   = expr.Int.read(in, access)
-          new OpStrideImpl[S](targets, from = from, to = to, gap = gap)
+          val step  = expr.Int.read(in, access)
+          new OpStrideImpl[S](targets, from = from, to = to, step = step)
 
         case _ => sys.error(s"Unsupported operator id $opID")
       }
@@ -145,10 +145,10 @@ object ReduceImpl {
     new OpSliceImpl[S](targets, from = from, to = to)
   }
 
-  def applyOpStride[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], gap: Expr[S, Int])
+  def applyOpStride[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], step: Expr[S, Int])
                                 (implicit tx: S#Tx): Op.Stride[S] = {
     val targets = evt.Targets[S]
-    new OpStrideImpl[S](targets, from = from, to = to, gap = gap)
+    new OpStrideImpl[S](targets, from = from, to = to, step = step)
   }
 
   // ---- actual implementations ----
@@ -291,15 +291,15 @@ object ReduceImpl {
   }
 
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val from: Expr[S, Int], val to: Expr[S, Int], val gap: Expr[S, Int])
+                                                val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Stride[S] {
 
-    override def toString() = s"Stride$id($from, $to, $gap)"
+    override def toString() = s"Stride$id($from, $to, $step)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = {
       val lo  = from .value
       val hi  = to   .value
-      val s   = gap  .value + 1
+      val s   = step .value
       // note: in NetCDF, ranges must be non-negative, so
       // we don't check invalid cases here, but simply truncate.
       val lo1 = math.max(0, lo)
@@ -312,7 +312,7 @@ object ReduceImpl {
     def map(in: Range)(implicit tx: S#Tx): Range = {
       val lo  = from .value
       val hi  = to   .value
-      val s   = gap  .value + 1
+      val s   = step .value
       val by  = lo to hi by s
       sampleRange(in, by)
     }
@@ -323,7 +323,7 @@ object ReduceImpl {
       out writeInt Op.Stride.opID
       from  write out
       to    write out
-      gap   write out
+      step  write out
     }
 
     // ---- event ----
@@ -331,7 +331,7 @@ object ReduceImpl {
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
       val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
       val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
-      val e2 = e1 || pull.contains(gap  .changed) && pull(gap  .changed).isDefined
+      val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
 
       if (e2) Some(Op.Update(this)) else None
     }
@@ -339,13 +339,13 @@ object ReduceImpl {
     def connect()(implicit tx: S#Tx): Unit = {
       from .changed ---> this
       to   .changed ---> this
-      gap  .changed ---> this
+      step .changed ---> this
     }
 
     def disconnect()(implicit tx: S#Tx): Unit = {
       from .changed -/-> this
       to   .changed -/-> this
-      gap  .changed -/-> this
+      step .changed -/-> this
     }
   }
 
@@ -353,7 +353,8 @@ object ReduceImpl {
                                                 (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] = {
     val idx   = r.indexOfDim
     val rInF  = mkReaderFactory(r.in, streamDim)
-    r.op match {
+
+    @tailrec def loop(op: Reduce.Op[S]):  ReaderFactory[S] = op match {
       case op: OpNativeImpl[S] =>
         rInF match {
           case t: ReaderFactory.HasSection[S] =>
@@ -365,10 +366,14 @@ object ReduceImpl {
             new ReaderFactory.Cloudy(t.source, streamDim, section)
         }
 
+      case op: Op.Var[S] => loop(op())
+
       case op =>
         val rd = op.map(rInF.make(), r.in.shape, idx, streamDim)
         new ReaderFactory.Opaque(rd)
     }
+
+    loop(r.op)
   }
 
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
