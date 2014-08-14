@@ -30,7 +30,7 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   scalaVersion       := "2.11.2",
   crossScalaVersions := Seq("2.11.2", "2.10.4"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
-  licenses           := Seq("GPL v2+" -> url("https://www.gnu.org/licenses/gpl-2.0.txt")),
+  licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   retrieveManaged    := true,
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture"),
   // ---- publishing ----
