@@ -57,7 +57,7 @@ object MatrixVarImpl {
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getKey(streamDim)
 
     // ---- event ----
 

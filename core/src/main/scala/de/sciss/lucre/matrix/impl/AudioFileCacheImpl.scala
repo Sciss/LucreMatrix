@@ -86,32 +86,33 @@ object AudioFileCacheImpl {
   //    AudioFileSpec(numFrames = numFrames, numChannels = numChannels, sampleRate = 44100 /* rate */)
   //  }
 
-  private object CacheValue {
-    implicit object Serializer extends ImmutableSerializer[CacheValue] {
-      def write(v: CacheValue, out: DataOutput): Unit = {
-        import v._
-        out writeInt  VAL_COOKIE
-        out writeLong netSize
-        out writeLong netModified
-        out writeUTF  data.getPath
-        AudioFileSpec.Serializer.write(spec, out)
-      }
-
-      def read(in: DataInput): CacheValue = {
-        val cookie = in.readInt()
-        require(cookie == VAL_COOKIE, s"Serialized version $cookie does not match $VAL_COOKIE")
-        val netSize       = in.readLong()
-        val netModified   = in.readLong()
-        val data          = new File(in.readUTF())
-        val spec          = AudioFileSpec.Serializer.read(in)
-        CacheValue(netSize = netSize, netModified = netModified, data = data, spec = spec)
-      }
-    }
-  }
-  private case class CacheValue(netSize: Long, netModified: Long, data: File, spec: AudioFileSpec) {
-    override def toString =
-      s"$productPrefix(size = $netSize, lastModified = ${new java.util.Date(netModified)}, data = ${data.getName})"
-  }
+  //  private object CacheValue {
+  //    implicit object Serializer extends ImmutableSerializer[CacheValue] {
+  //      def write(v: CacheValue, out: DataOutput): Unit = {
+  //        import v._
+  //        out writeInt  VAL_COOKIE
+  //        out writeLong netSize
+  //        out writeLong netModified
+  //        out writeUTF  data.getPath
+  //        AudioFileSpec.Serializer.write(spec, out)
+  //      }
+  //
+  //      def read(in: DataInput): CacheValue = {
+  //        val cookie = in.readInt()
+  //        require(cookie == VAL_COOKIE, s"Serialized version $cookie does not match $VAL_COOKIE")
+  //        val netSize       = in.readLong()
+  //        val netModified   = in.readLong()
+  //        val data          = new File(in.readUTF())
+  //        val spec          = AudioFileSpec.Serializer.read(in)
+  //        CacheValue(netSize = netSize, netModified = netModified, data = data, spec = spec)
+  //      }
+  //    }
+  //  }
+  //  private case class CacheValue(netSize: Long, netModified: Long, data: File, spec: AudioFileSpec) {
+  //    override def toString =
+  //      s"$productPrefix(size = $netSize, lastModified = ${new java.util.Date(netModified)}, data = ${data.getName})"
+  //  }
+  private type CacheValue = AudioFileCache.Value
 
   //  // note: `S#Tx` is only needed for the `name` method. This is a constant in DataSource.Variable,
   //  // so if necessary, we could remove `S#Tx` and add a `nameConst` method.
@@ -147,10 +148,10 @@ object AudioFileCacheImpl {
         // debug(s"accept key = ${key.file.name} (lastModified = ${new java.util.Date(key.file.lastModified())}}), value = $value? $res")
         res
       }
-      config.space            = (_  , value) => value.data.length()
+      config.space            = (_  , value) => value.file /* data */.length()
       config.evict            = (_  , value) => {
         debug(s"evict $value")
-        value.data.delete()
+        value.file /* data */.delete()
       }
       config.folder           = folder
       config.executionContext = executionContext
@@ -216,11 +217,12 @@ object AudioFileCacheImpl {
             produceValue(reader)
           }
         }
-        // import cache.executionContext
-        val fut = fut0.map { value =>
-          // Grapheme.Value.Audio(artifact = value.data, spec = value.spec, offset = 0L, gain = 1.0)
-          AudioFileCache.Value(value.data, value.spec)
-        } (executionContext)
+//        // import cache.executionContext
+//        val fut = fut0.map { value =>
+//          // Grapheme.Value.Audio(artifact = value.data, spec = value.spec, offset = 0L, gain = 1.0)
+//          AudioFileCache.Value(value.data, value.spec)
+//        } (executionContext)
+        val fut = fut0
         val e = new Entry(future = fut)
         map.put(key, e)
         fut.recover {

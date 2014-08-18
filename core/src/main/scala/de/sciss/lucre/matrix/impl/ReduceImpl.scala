@@ -20,6 +20,7 @@ import java.io.EOFException
 import java.{util => ju}
 
 import Reduce.Op
+import de.sciss.file._
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.{event => evt}
@@ -30,7 +31,7 @@ import ucar.{ma2, nc2}
 import scala.annotation.{switch, tailrec}
 import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
-import scala.collection.breakOut
+import scala.collection.{JavaConversions, breakOut}
 
 object ReduceImpl {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -384,7 +385,9 @@ object ReduceImpl {
       case Matrix.Var(in1) =>
         mkReaderFactory(in1, streamDim)
       case dv: DataSource.Variable[S] =>
-        new ReaderFactory.Transparent(dv, streamDim, mkAllRange(dv.shape))
+        val file  = dv.source.file
+        val name  = dv.name
+        new ReaderFactory.Transparent(file, name, streamDim, mkAllRange(dv.shape))
       case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
       case _ => // "opaque"
         new ReaderFactory.Opaque(m.reader(streamDim))
@@ -482,13 +485,17 @@ object ReduceImpl {
       var section: Vec[Range]
     }
 
-    final class Transparent[S <: Sys[S]](source: DataSource.Variable[S], streamDim: Int, var section: Vec[Range])
+    final class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
-        // val v = source.data()
-        // new TransparentReader(v, streamDim, section)
-        ???
+        val net = resolver.resolve(file)
+        import JavaConversions._
+        val v = net.getVariables.find(_.getShortName == name).getOrElse(
+          sys.error(s"Variable '$name' does not exist in data source ${file.base}")
+        )
+
+        new TransparentReader(v, streamDim, section)
       }
 
       protected def writeData(out: DataOutput): Unit = {

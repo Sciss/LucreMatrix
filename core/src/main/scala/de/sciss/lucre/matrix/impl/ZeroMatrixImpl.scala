@@ -17,6 +17,8 @@ package impl
 
 import java.{util => ju}
 
+import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 
 object ZeroMatrixImpl {
@@ -50,6 +52,15 @@ object ZeroMatrixImpl {
     }
   }
 
+  private final class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
+    protected def opID: Int = ZeroMatrixImpl.opID
+
+    protected def writeData(out: DataOutput): Unit = ???
+
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
+      new ReaderImpl(shapeConst, streamDim)
+  }
+
   private final class Impl[S <: Sys[S]](protected val shapeConst: Vec[Int])
     extends ConstImpl[S] {
 
@@ -60,7 +71,7 @@ object ZeroMatrixImpl {
 
     protected def opID: Int = ZeroMatrixImpl.opID
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = new KeyImpl(shapeConst, streamDim)
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size
