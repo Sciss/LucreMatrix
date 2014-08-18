@@ -17,10 +17,6 @@ package impl
 
 import java.{util => ju}
 
-import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.matrix.Matrix.Reader
-import de.sciss.lucre.{event => evt}
-import evt.EventLike
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 
 object ZeroMatrixImpl {
@@ -54,22 +50,17 @@ object ZeroMatrixImpl {
     }
   }
 
-  private final class Impl[S <: Sys[S]](shapeConst: Vec[Int])
-    extends Matrix[S] {
-
-    def name(implicit tx: S#Tx): String = toString
+  private final class Impl[S <: Sys[S]](protected val shapeConst: Vec[Int])
+    extends ConstImpl[S] {
 
     override def toString = s"zeros${shapeConst.mkString("[","][","]")}"
 
-    def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
-    def ranges    (implicit tx: S#Tx): Vec[Range]           = shape.map(0 until _)
-    def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
-      shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
+    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
+    //      new ReaderImpl(shapeConst, streamDim)
 
-    def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
+    protected def opID: Int = ZeroMatrixImpl.opID
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
-      new ReaderImpl(shapeConst, streamDim)
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size
@@ -78,12 +69,9 @@ object ZeroMatrixImpl {
       Vec.fill(szI)(0.0)
     }
 
-    def write(out: DataOutput): Unit = {
-      out.writeByte(3)    // 'constant'
-      out.writeInt(opID)  // type
+    protected def writeData(out: DataOutput): Unit = {
+      // out.writeInt(streamDim)
       intVecSer.write(shapeConst, out)
     }
-
-    def dispose()(implicit tx: S#Tx) = ()
   }
 }

@@ -18,8 +18,6 @@ package impl
 
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
-import de.sciss.lucre.{event => evt}
-import evt.EventLike
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 
 object ConstMatrixImpl {
@@ -27,7 +25,8 @@ object ConstMatrixImpl {
 
   def apply1D[S <: Sys[S]](v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
-    new Impl[S](shape, v)
+    val data  = new Data(shape, v)
+    new Impl[S](data)
   }
 
   def apply2D[S <: Sys[S]](v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
@@ -35,7 +34,8 @@ object ConstMatrixImpl {
     val shape = Vec(v.size, sz1)
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
-    new Impl[S](shape, flat)
+    val data  = new Data(shape, flat)
+    new Impl[S](data)
   }
 
   def apply3D[S <: Sys[S]](v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
@@ -47,13 +47,15 @@ object ConstMatrixImpl {
       d1.size == sz1 && d1.forall(_.size == sz2)
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
-    new Impl[S](shape, flat)
+    val data  = new Data(shape, flat)
+    new Impl[S](data)
   }
 
   private[matrix] def readIdentified[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
     val shape = intVecSer   .read(in)
     val flat  = doubleVecSer.read(in)
-    new Impl[S](shape, flat)
+    val data  = new Data(shape, flat)
+    new Impl[S](data)
   }
 
   private val intVecSer     = ImmutableSerializer.indexedSeq[Int   ]
@@ -86,8 +88,11 @@ object ConstMatrixImpl {
         until numChannels values have been processed
    */
 
-  private final class ReaderImpl(shape: Vec[Int], flatData: Vec[Double], streamDim: Int) extends Matrix.Reader {
-    private val numFramesI = if (streamDim < 0) 1 else shape(streamDim)
+  private final class ReaderImpl(key: KeyImpl) extends Matrix.Reader {
+    import key.streamDim
+    import key.data._
+
+    private val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
 
     def numFrames = numFramesI.toLong
 
@@ -98,7 +103,7 @@ object ConstMatrixImpl {
     //      n.toInt
     //    }
 
-    private val scans       = Vec.tabulate(shape.size + 1)(d => shape.drop(d).product)  // numFrames must be 32-bit
+    private val scans       = Vec.tabulate(shapeConst.size + 1)(d => shapeConst.drop(d).product)  // numFrames must be 32-bit
     val numChannels         = scans.head / numFramesI
     private val streamScan  = scans(streamDim + 1)
     private val streamSkip  = if (streamDim < 0) 0 else scans(streamDim)
@@ -126,32 +131,44 @@ object ConstMatrixImpl {
     }
   }
 
-  private final class Impl[S <: Sys[S]](shapeConst: Vec[Int], flatData: Vec[Double])
-    extends Matrix[S] {
+  private final case class KeyImpl(data: Data, streamDim: Int)
+    extends impl.KeyImpl {
 
-    def name(implicit tx: S#Tx): String = toString
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = new ReaderImpl(this)
 
-    override def toString = s"Matrix@${hashCode.toHexString}${shapeConst.mkString("[","][","]")}"
+    protected def opID: Int = ConstMatrixImpl.opID
 
-    def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
-    def ranges    (implicit tx: S#Tx): Vec[Range]           = shape.map(0 until _)
-    def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
-      shape.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
+    protected def writeData(out: DataOutput): Unit = {
+      out.writeInt(streamDim)
+      data.write(out)
+    }
+  }
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
-      new ReaderImpl(shapeConst, flatData, streamDim)
-
-    def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
-
-    def debugFlatten(implicit tx: S#Tx): Vec[Double] = flatData
-
+  private final case class Data(shapeConst: Vec[Int], flatData: Vec[Double]) {
     def write(out: DataOutput): Unit = {
-      out.writeByte(3)    // 'constant'
-      out.writeInt(opID)  // type
       intVecSer   .write(shapeConst, out)
       doubleVecSer.write(flatData  , out)
     }
+  }
 
-    def dispose()(implicit tx: S#Tx) = ()
+  private final class Impl[S <: Sys[S]](data: Data)
+    extends ConstImpl[S] {
+
+    import data.flatData
+
+    protected def shapeConst = data.shapeConst
+
+    override def toString = s"Matrix@${hashCode.toHexString}${shapeConst.mkString("[","][","]")}"
+
+    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
+    //      new ReaderImpl(shapeConst, flatData, streamDim)
+
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = new KeyImpl(data, streamDim)
+
+    def debugFlatten(implicit tx: S#Tx): Vec[Double] = flatData
+
+    protected def opID: Int = ConstMatrixImpl.opID
+
+    protected def writeData(out: DataOutput): Unit = data.write(out)
   }
 }

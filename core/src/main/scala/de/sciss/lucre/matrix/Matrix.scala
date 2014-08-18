@@ -16,12 +16,11 @@ package de.sciss.lucre
 package matrix
 
 import de.sciss.lucre.{event => evt}
-import evt.{InMemory, Publisher}
-import de.sciss.serial.{DataInput, Writable}
+import evt.Publisher
+import de.sciss.serial.{ImmutableSerializer, DataInput, Writable, Serializer}
 import stm.Disposable
-import scala.annotation.switch
-import de.sciss.serial.Serializer
 import de.sciss.model.Change
+import impl.{MatrixImpl => Impl}
 
 object Matrix {
   final val typeID = 0x30001
@@ -63,57 +62,26 @@ object Matrix {
     def read(buf: Array[Array[Float]], off: Int, len: Int): Unit
   }
 
+  // ---- key ----
+
+  object Key {
+    def read(in: DataInput): Key = impl.KeyImpl.read(in)
+
+    implicit def serializer: ImmutableSerializer[Key] = impl.KeyImpl.serializer
+  }
+  trait Key extends Writable {
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader
+  }
+
   // ---- serialization ----
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
-    anySer.asInstanceOf[Ser[S]]
+    Impl.serializer[S]
 
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
-
-  // ---- impl ----
-
-  private val anySer = new Ser[InMemory]
-
-  private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Matrix[S]] {
-    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
-      // 0 = var, 1 = op
-      (in.readByte(): @switch) match {
-        case 0      => readVar (in, access, targets)
-        case 1      => readNode(in, access, targets)
-        case other  => sys.error(s"Unexpected cookie $other")
-      }
-    }
-
-    private def readVar(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Var[S] =
-      impl.MatrixVarImpl.readIdentified(in, access, targets)
-
-    private def readNode(in: DataInput, access: S#Acc, targets: evt.Targets[S])
-                        (implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {
-      val tpe   = in.readInt()
-      require(tpe == typeID, s"Unexpected type (found $tpe, expected $typeID)")
-      val opID  = in.readInt()
-      (opID: @switch) match {
-        case Reduce.opID              => Reduce             .readIdentified        (in, access, targets)
-        case DataSource.Variable.opID => impl.DataSourceImpl.readIdentifiedVariable(in, access, targets)
-        case _                        => sys.error(s"Unknown operator id $opID")
-      }
-    }
-
-    def readConstant(in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
-      val opID = in.readInt()
-      (opID: @switch) match {
-        case impl.ZeroMatrixImpl .opID => impl.ZeroMatrixImpl .readIdentified(in)
-        case impl.ConstMatrixImpl.opID => impl.ConstMatrixImpl.readIdentified(in)
-        case _                         => sys.error(s"Unexpected operator $opID")
-      }
-    }
-  }
 }
 trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
   def name(implicit tx: S#Tx): String
-
-  // def rank: Expr[S, Int   ]
-  // def size: Expr[S, Long  ]
 
   def rank(implicit tx: S#Tx): Int    = shape.size
   def size(implicit tx: S#Tx): Long   = (1L /: shape)(_ * _)
@@ -132,14 +100,10 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   private def reduce[A](coll: Vec[A])(implicit tx: S#Tx): Vec[A] =
     (coll zip shape).collect { case (x, sz) if sz > 1 => x }
 
-  // def shape: Expr[S, Vec[Dimension[S]]]   // ...or use a mutable collection?
-  // def shape(implicit tx: S#Tx): Vec[Dimension.Value]
-
   private[matrix] def debugFlatten(implicit tx: S#Tx): Vec[Double]
 
-  // def read(...) = ...
+  def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader =
+    getKey(streamDim).reader()
 
-  // def view[I <: Sys[S]](implicit bridge: S#Tx => I#Tx): Matrix[I]
-
-  def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader
+  def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key
 }

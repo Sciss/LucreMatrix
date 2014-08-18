@@ -16,8 +16,6 @@ package de.sciss.lucre
 package matrix
 package impl
 
-import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.serial.DataInput
 import de.sciss.lucre.{event => evt}
 import de.sciss.model.Change
@@ -57,7 +55,9 @@ object MatrixVarImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = ref()
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)
+    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)
+
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
 
     // ---- event ----
 

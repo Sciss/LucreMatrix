@@ -24,7 +24,7 @@ import de.sciss.lucre.stm.Mutable
 import scala.collection.{JavaConversions, breakOut}
 import scala.annotation.tailrec
 import de.sciss.lucre.event.{Event, EventLike}
-import de.sciss.lucre.matrix.Matrix.{Reader, Update}
+import de.sciss.lucre.matrix.Matrix.{Key, Reader, Update}
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
@@ -202,11 +202,13 @@ object DataSourceImpl {
     def ranges    (implicit tx: S#Tx): Vec[Range          ] = shapeInfo.map(_.range)
     def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
-      val v   = data()
-      val all = ReduceImpl.mkAllRange(v.getShape)
-      new ReduceImpl.TransparentReader(v, streamDim = streamDim, section = all)
-    }
+    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+    //      val v   = data()
+    //      val all = ReduceImpl.mkAllRange(v.getShape)
+    //      new ReduceImpl.TransparentReader(v, streamDim = streamDim, section = all)
+    //    }
+
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie

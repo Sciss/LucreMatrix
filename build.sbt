@@ -8,7 +8,11 @@ lazy val eventVersion       = "2.6.1"
 
 lazy val netCDFVersion      = "4.3.22"  // be careful: 4.5 will drop Java 6 support
 
-lazy val fileUtilVersion    = "1.1.1"
+// lazy val fileUtilVersion    = "1.1.1"
+
+lazy val audioFileVersion   = "1.4.3"
+
+lazy val fileCacheVersion   = "0.3.2"
 
 // ---- core/test ----
 
@@ -31,7 +35,7 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   crossScalaVersions := Seq("2.11.2", "2.10.4"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
-  retrieveManaged    := true,
+  // retrieveManaged    := true,
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture"),
   // ---- publishing ----
   publishMavenStyle := true,
@@ -82,7 +86,9 @@ lazy val core = Project(
     libraryDependencies ++= Seq(
       "de.sciss"      %% "lucreevent"      % eventVersion,
       "edu.ucar"      %  "netcdf"          % netCDFVersion,
-      "de.sciss"      %% "fileutil"        % fileUtilVersion,
+      // "de.sciss"      %% "fileutil"        % fileUtilVersion,
+      "de.sciss"      %% "filecache-txn"   % fileCacheVersion,
+      "de.sciss"      %% "scalaaudiofile"  % audioFileVersion,
       "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",
       "de.sciss"      %% "lucrestm-bdb"    % lucreSTMVersion  % "test"
     ),

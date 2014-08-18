@@ -350,17 +350,17 @@ object ReduceImpl {
   }
 
   private def mkReduceReaderFactory[S <: Sys[S]](r: Reduce[S], streamDim: Int)
-                                                (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] = {
+                                                (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory = {
     val idx   = r.indexOfDim
     val rInF  = mkReaderFactory(r.in, streamDim)
 
-    @tailrec def loop(op: Reduce.Op[S]):  ReaderFactory[S] = op match {
+    @tailrec def loop(op: Reduce.Op[S]):  ReaderFactory = op match {
       case op: OpNativeImpl[S] =>
         rInF match {
-          case t: ReaderFactory.HasSection[S] =>
+          case t: ReaderFactory.HasSection =>
             if (idx >= 0) t.section = t.section.updated(idx, op.map(t.section(idx)))
             t
-          case t: ReaderFactory.Opaque[S] =>
+          case t: ReaderFactory.Opaque =>
             var section = mkAllRange(r.in.shape)
             if (idx >= 0) section = section.updated(idx, op.map(section(idx)))
             new ReaderFactory.Cloudy(t.source, streamDim, section)
@@ -369,7 +369,7 @@ object ReduceImpl {
       case op: Op.Var[S] => loop(op())
 
       case op =>
-        val rd = op.map(rInF.make(), r.in.shape, idx, streamDim)
+        val rd = op.map(rInF.reader(), r.in.shape, idx, streamDim)
         new ReaderFactory.Opaque(rd)
     }
 
@@ -379,7 +379,7 @@ object ReduceImpl {
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
 
   @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
-                                                   (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory[S] =
+                                                   (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory =
     m match {
       case Matrix.Var(in1) =>
         mkReaderFactory(in1, streamDim)
@@ -478,33 +478,60 @@ object ReduceImpl {
   }
 
   private object ReaderFactory {
-    sealed trait HasSection[S <: Sys[S]] extends ReaderFactory[S] {
+    sealed trait HasSection extends ReaderFactory {
       var section: Vec[Range]
     }
 
     final class Transparent[S <: Sys[S]](source: DataSource.Variable[S], streamDim: Int, var section: Vec[Range])
-      extends HasSection[S] {
+      extends HasSection {
 
-      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
-        val v = source.data()
-        new TransparentReader(v, streamDim, section)
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
+        // val v = source.data()
+        // new TransparentReader(v, streamDim, section)
+        ???
+      }
+
+      protected def writeData(out: DataOutput): Unit = {
+        out.writeInt(streamDim)
+        ???
       }
     }
 
-    final class Cloudy[S <: Sys[S]](source: Reader, streamDim: Int, var section: Vec[Range])
-      extends HasSection[S] {
+    final class Cloudy(source: Reader, val streamDim: Int, var section: Vec[Range])
+      extends HasSection {
 
-      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = ???
+      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = ...
+
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
+
+      protected def writeData(out: DataOutput): Unit = ???
     }
 
     /** Takes an eagerly instantiated reader, no possibility to optimize. */
-    final class Opaque[S <: Sys[S]](val source: Reader) extends ReaderFactory[S] {
-      def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
+    final class Opaque(val source: Reader) extends ReaderFactory {
+      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
+
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source
+
+      protected def writeData(out: DataOutput): Unit = ???
     }
   }
-  private sealed trait ReaderFactory[S <: Sys[S]] {
-    def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader
+  private sealed trait ReaderFactory extends impl.KeyImpl {
+    protected def opID: Int = Reduce.opID
+
+    // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader
   }
+
+  //  private final class KeyImpl[S](reduce: Reduce[S], val streamDim: Int) extends impl.KeyImpl[S] {
+  //    protected def opID: Int = Reduce.opID
+  //
+  //    def reader()(implicit resolver: Resolver[S]): Reader = {
+  //      val rf = mkReduceReaderFactory(reduce, streamDim)
+  //      rf.make()
+  //    }
+  //
+  //    protected def writeData(out: DataOutput): Unit = ???
+  //  }
 
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
                                         val dim: Selection[S], val op: Op[S])
@@ -516,10 +543,12 @@ object ReduceImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
-    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
-      val rf = mkReduceReaderFactory(this, streamDim)
-      rf.make()
-    }
+    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+    //      val rf = mkReduceReaderFactory(this, streamDim)
+    //      rf.make()
+    //    }
+
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       implicit val resolver = DataSource.Resolver.empty[S]
