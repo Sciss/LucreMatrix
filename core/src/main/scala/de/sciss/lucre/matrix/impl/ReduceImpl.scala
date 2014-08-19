@@ -227,20 +227,6 @@ object ReduceImpl {
     def disconnect()(implicit tx: S#Tx): Unit = index.changed -/-> this
   }
 
-  private def sampleRange(in: Range, by: Range): Range = {
-    val drop  = by.start
-    val stepM = by.step
-    require(drop >= 0 && stepM > 0)
-    val in1 = in.drop(drop)
-    val in2 = if (stepM == 1)
-      in1
-    else if (in1.isInclusive)  // copy-method is protected
-      new Range.Inclusive(start = in1.start, end = in1.end, step = in1.step * stepM)
-    else
-      new Range(start = in1.start, end = in1.end, step = in1.step * stepM)
-    in2.take(by.size)
-  }
-
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val from: Expr[S, Int], val to: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Slice[S] {

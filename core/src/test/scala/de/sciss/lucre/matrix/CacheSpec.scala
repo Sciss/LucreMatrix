@@ -35,7 +35,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  implicit def mkConst(i: Int): Expr.Const[S, Int] = expr.Int.newConst(i)
+  implicit def mkIntConst   (i: Int   ): Expr.Const[S, Int   ] = expr.Int   .newConst(i)
+  implicit def mkStringConst(s: String): Expr.Const[S, String] = expr.String.newConst(s)
 
   "A Zeros Matrix" should "sing while you sell" in { args =>
     implicit val (cursor, cache) = args
@@ -62,9 +63,13 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       for (ch <- 0 until numCh) assert(buf(ch).toVector === Vector.fill(numFr)(0f))
     }
 
-    testKey(km, numCh = 13 * 21, numFr = 1)
-    testKey(k0, numCh = 21, numFr = 13)
-    testKey(k1, numCh = 13, numFr = 21)
+    showLog = true
+    for (_ <- 1 to 2) {
+      testKey(km, numCh = 13 * 21, numFr = 1)
+      testKey(k0, numCh = 21, numFr = 13)
+      testKey(k1, numCh = 13, numFr = 21)
+    }
+    showLog = false
   }
 
   // cf. http://www.unidata.ucar.edu/software/thredds/current/netcdf-java/tutorial/NetcdfWriting.html
@@ -72,11 +77,12 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val f         = File.createTemp(suffix = ".nc")
     val location  = f.path
     val writer    = nc2.NetcdfFileWriter.createNew(nc2.NetcdfFileWriter.Version.netcdf3, location, null)
-    val latDim    = writer.addDimension(null, "lat",  64)
-    val lonDim    = writer.addDimension(null, "lon", 128)
+    val latDim    = writer.addDimension(null, "lat", 13 /*  64 */)
+    val lonDim    = writer.addDimension(null, "lon", 21 /* 128 */)
     val dims      = new ju.ArrayList[nc2.Dimension]()
     dims.add(latDim)
     dims.add(lonDim)
+    // use float instead of double, because sysson plot in previous version restricted to float
     val t         = writer.addVariable(null, "temperature", ma2.DataType.FLOAT /* DOUBLE */, dims)
     t.addAttribute(new nc2.Attribute("units", "K"))
     val data      = ma2.Array.factory(classOf[Int], Array(3), Array(1, 2, 3))
@@ -107,7 +113,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val ima = A.getIndex
     for (i <- 0 until shape(0)) {
       for (j <- 0 until shape(1)) {
-        A.setFloat /* .setDouble */ (ima.set(i, j), (i * 1000000 + j * 1000).toFloat /* .toDouble */)
+        A.setFloat /* .setDouble */ (ima.set(i, j), (i * 100 + j).toFloat /* .toDouble */)
       }
     }
     val origin = new Array[Int](2)
@@ -118,7 +124,90 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   }
 
   "A NetCDF Matrix" should "sing while you sell" in { args =>
-    val f = createData()
+    val f   = createData()
+    val ncf = nc2.NetcdfFile.open(f.path)
 
+    implicit val (cursor, cache) = args
+    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+
+    val Seq(km, k0, k1) = cursor.step { implicit tx =>
+      val ds  = DataSource(f)
+      val _z  = ds.variables.find(_.name == "temperature").get
+      (-1 to 1).map(_z.getKey)
+    }
+
+    def testKey(key: Matrix.Key, numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
+      val fut   = cursor.step { implicit tx => cache.acquire(key) }
+      val value = Await.result(fut, Duration.Inf)
+
+      assert(value.spec.numChannels === numCh)
+      assert(value.spec.numFrames   === numFr)
+
+      val af = AudioFile.openRead(value.file)
+      assert(af.spec.copy(byteOrder = None) === value.spec)
+
+      val buf = af.buffer(numFr)
+      af.read(buf)
+      val flat = buf.flatten.toVector
+
+      assert(flat === data)
+    }
+
+    showLog = true
+    val dm = (0 until 13).flatMap(lat => (0 until 21).map(lon => (lat * 100 + lon).toFloat))
+    val d0 = (0 until 21).flatMap(lon => (0 until 13).map(lat => (lat * 100 + lon).toFloat))
+    val d1 = dm
+    for (_ <- 1 to 2) {
+      testKey(km, numCh = 13 * 21, numFr =  1, data = dm)
+      testKey(k0, numCh = 21     , numFr = 13, data = d0)
+      testKey(k1, numCh = 13     , numFr = 21, data = d1)
+    }
+    showLog = false
+  }
+
+  "A Reduced NetCDF Matrix" should "sing while you sell" in { args =>
+    val f   = createData()
+    val ncf = nc2.NetcdfFile.open(f.path)
+
+    implicit val (cursor, cache) = args
+    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+
+    val Seq(km, k0, k1) = cursor.step { implicit tx =>
+      val ds  = DataSource(f)
+      val v   = ds.variables.find(_.name == "temperature").get
+      val v1  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Stride[S](2, 16, 3))
+      val _z  = Reduce(v1, Dimension.Selection.Name("lat"), Reduce.Op.Slice [S](3, 8))
+      (-1 to 1).map(_z.getKey)
+    }
+
+    def testKey(key: Matrix.Key, numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
+      val fut   = cursor.step { implicit tx => cache.acquire(key) }
+      val value = Await.result(fut, Duration.Inf)
+
+      assert(value.spec.numChannels === numCh)
+      assert(value.spec.numFrames   === numFr)
+
+      val af = AudioFile.openRead(value.file)
+      assert(af.spec.copy(byteOrder = None) === value.spec)
+
+      val buf = af.buffer(numFr)
+      af.read(buf)
+      val flat = buf.flatten.toVector
+
+      assert(flat === data)
+    }
+
+    showLog = true
+    val latRange = sampleRange(0 until 13, 3 to 8)
+    val lonRange = sampleRange(0 until 21, 2 to 16 by 3)
+    val dm = latRange.flatMap(lat => lonRange.map(lon => (lat * 100 + lon).toFloat))
+    val d0 = lonRange.flatMap(lon => latRange.map(lat => (lat * 100 + lon).toFloat))
+    val d1 = dm
+    for (_ <- 1 to 2) {
+      testKey(km, numCh = 6 * 5, numFr = 1, data = dm)
+      testKey(k0, numCh = 5    , numFr = 6, data = d0)
+      testKey(k1, numCh = 6    , numFr = 5, data = d1)
+    }
+    showLog = false
   }
 }

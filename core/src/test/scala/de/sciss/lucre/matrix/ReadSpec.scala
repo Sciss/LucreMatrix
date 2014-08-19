@@ -14,7 +14,7 @@ import language.implicitConversions
   test-only de.sciss.lucre.matrix.ReadSpec
  */
 class ReadSpec extends fixture.FlatSpec with Matchers {
-  type S = InMemory
+  type S            = InMemory
   type FixtureParam = InMemory
 
   def withFixture(test: OneArgTest): Outcome = {

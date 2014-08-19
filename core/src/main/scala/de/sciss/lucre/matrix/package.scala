@@ -36,4 +36,18 @@ package object matrix {
 
   @elidable(CONFIG) private[matrix] def log(what: => String): Unit =
     if (showLog) println(s"${logHeader.format(new Date())} - $what")
+
+  def sampleRange(in: Range, by: Range): Range = {
+    val drop  = by.start
+    val stepM = by.step
+    require(drop >= 0 && stepM > 0)
+    val in1 = in.drop(drop)
+    val in2 = if (stepM == 1)
+      in1
+    else if (in1.isInclusive)  // copy-method is protected
+      new Range.Inclusive(start = in1.start, end = in1.end, step = in1.step * stepM)
+    else
+      new Range(start = in1.start, end = in1.end, step = in1.step * stepM)
+    in2.take(by.size)
+  }
 }
