@@ -15,7 +15,7 @@ object AudioFileCache {
   def apply(config: Config = Config().build): AudioFileCache = Impl(config)
 
   object Value {
-    implicit def serializer: ImmutableSerializer[Value] = ???
+    implicit def serializer: ImmutableSerializer[Value] = Impl.valueSerializer
   }
   final case class Value(file: File, spec: AudioFileSpec)
 

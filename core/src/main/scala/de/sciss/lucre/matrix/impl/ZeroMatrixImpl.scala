@@ -55,7 +55,10 @@ object ZeroMatrixImpl {
   private final class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
     protected def opID: Int = ZeroMatrixImpl.opID
 
-    protected def writeData(out: DataOutput): Unit = ???
+    protected def writeData(out: DataOutput): Unit = {
+      out.writeInt(streamDim)
+      intVecSer.write(shapeConst, out)
+    }
 
     def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
       new ReaderImpl(shapeConst, streamDim)

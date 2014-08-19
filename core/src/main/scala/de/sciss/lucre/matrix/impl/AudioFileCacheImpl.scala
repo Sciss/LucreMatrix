@@ -4,6 +4,7 @@ package impl
 import de.sciss.filecache
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.file._
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 import de.sciss.synth.io.{AudioFileSpec, AudioFile}
 import de.sciss.lucre.event.Sys
 import scala.concurrent.stm.TMap
@@ -14,7 +15,7 @@ import de.sciss.lucre.stm
 
 object AudioFileCacheImpl {
   //  private val KEY_COOKIE  = 0x6166636B  // "afck"
-  //  private val VAL_COOKIE  = 0x61666376  // "afcv"
+  private val VAL_COOKIE  = 0x61666376  // "afcv"
 
   def apply(config: AudioFileCache.Config): AudioFileCache = new Impl(config)
 
@@ -81,33 +82,29 @@ object AudioFileCacheImpl {
   //    AudioFileSpec(numFrames = numFrames, numChannels = numChannels, sampleRate = 44100 /* rate */)
   //  }
 
-  //  private object CacheValue {
-  //    implicit object Serializer extends ImmutableSerializer[CacheValue] {
-  //      def write(v: CacheValue, out: DataOutput): Unit = {
-  //        import v._
-  //        out writeInt  VAL_COOKIE
-  //        out writeLong netSize
-  //        out writeLong netModified
-  //        out writeUTF  data.getPath
-  //        AudioFileSpec.Serializer.write(spec, out)
-  //      }
-  //
-  //      def read(in: DataInput): CacheValue = {
-  //        val cookie = in.readInt()
-  //        require(cookie == VAL_COOKIE, s"Serialized version $cookie does not match $VAL_COOKIE")
-  //        val netSize       = in.readLong()
-  //        val netModified   = in.readLong()
-  //        val data          = new File(in.readUTF())
-  //        val spec          = AudioFileSpec.Serializer.read(in)
-  //        CacheValue(netSize = netSize, netModified = netModified, data = data, spec = spec)
-  //      }
-  //    }
-  //  }
+  object valueSerializer extends ImmutableSerializer[CacheValue] {
+    def write(v: CacheValue, out: DataOutput): Unit = {
+      import v._
+      out writeInt  VAL_COOKIE
+      out writeUTF  file.getPath
+      AudioFileSpec.Serializer.write(spec, out)
+    }
+
+    def read(in: DataInput): CacheValue = {
+      val cookie = in.readInt()
+      require(cookie == VAL_COOKIE, s"Serialized version $cookie does not match $VAL_COOKIE")
+      val f     = new File(in.readUTF())
+      val spec  = AudioFileSpec.Serializer.read(in)
+      CacheValue(file = f, spec = spec)
+    }
+  }
+
   //  private case class CacheValue(netSize: Long, netModified: Long, data: File, spec: AudioFileSpec) {
   //    override def toString =
   //      s"$productPrefix(size = $netSize, lastModified = ${new java.util.Date(netModified)}, data = ${data.getName})"
   //  }
   private type CacheValue = AudioFileCache.Value
+  private val  CacheValue = AudioFileCache.Value
 
   //  // note: `S#Tx` is only needed for the `name` method. This is a constant in DataSource.Variable,
   //  // so if necessary, we could remove `S#Tx` and add a `nameConst` method.
@@ -176,28 +173,28 @@ object AudioFileCacheImpl {
 
       val fBuf          = af.buffer(fBufSize)
       var framesWritten = 0L
-      ???
       //      val t             = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
       //      import at.iem.sysson.Implicits._
       //      val it            = t.float1Diterator
-      //      while (framesWritten < numFrames) {
-      //        val chunk = math.min(fBufSize, numFrames - framesWritten).toInt
-      //        var i = 0
-      //        while (i < chunk) {
-      //          var ch = 0
-      //          while (ch < numChannels) {
-      //            fBuf(ch)(i) = it.next() // XXX TODO: would be better to have inner loop iterate for frames
-      //            ch += 1
-      //          }
-      //          i += 1
-      //        }
-      //        af.write(fBuf, 0, chunk)
-      //        framesWritten += chunk
-      //      }
-      //      af.close()
+      while (framesWritten < numFrames) {
+        val chunk = math.min(fBufSize, numFrames - framesWritten).toInt
+        reader.read(fBuf, 0, chunk)
+        //        var i = 0
+        //        while (i < chunk) {
+        //          var ch = 0
+        //          while (ch < numChannels) {
+        //            fBuf(ch)(i) = it.next() // XXX TODO: would be better to have inner loop iterate for frames
+        //            ch += 1
+        //          }
+        //          i += 1
+        //        }
+        af.write(fBuf, 0, chunk)
+        framesWritten += chunk
+      }
+      af.close()
       //
       //      val file = vs.file.file
-      //      CacheValue(netSize = file.length(), netModified = file.lastModified(), data = afF, spec = spec)
+      CacheValue(/* netSize = file.length(), netModified = file.lastModified(), */ file = afF, spec = spec)
     }
 
     def acquire[S <: Sys[S]](key: Matrix.Key)

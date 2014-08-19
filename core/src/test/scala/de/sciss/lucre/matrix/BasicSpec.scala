@@ -75,7 +75,7 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  "Matrix Reductions" should "yield correct cell data" in { cursor =>
+  ignore /* "Matrix Reductions" */ should "yield correct cell data" in { cursor =>
     cursor.step { implicit tx =>
       val m0 = Matrix.newConst3D(Vec(
         Vec(

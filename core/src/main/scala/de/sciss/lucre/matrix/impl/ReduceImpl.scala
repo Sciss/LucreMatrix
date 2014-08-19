@@ -351,7 +351,7 @@ object ReduceImpl {
   }
 
   private def mkReduceReaderFactory[S <: Sys[S]](r: Reduce[S], streamDim: Int)
-                                                (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory = {
+                                                (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): ReaderFactory = {
     val idx   = r.indexOfDim
     val rInF  = mkReaderFactory(r.in, streamDim)
 
@@ -369,9 +369,10 @@ object ReduceImpl {
 
       case op: Op.Var[S] => loop(op())
 
-      case op =>
-        val rd = op.map(rInF.reader(), r.in.shape, idx, streamDim)
-        new ReaderFactory.Opaque(rd)
+      case _ =>
+        // val rd = op.map(rInF.reader(), r.in.shape, idx, streamDim)
+        // new ReaderFactory.Opaque(rd)
+        ???
     }
 
     loop(r.op)
@@ -380,7 +381,7 @@ object ReduceImpl {
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
 
   @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
-                                                   (implicit tx: S#Tx, resolver: DataSource.Resolver[S]): ReaderFactory =
+                                                   (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): ReaderFactory =
     m match {
       case Matrix.Var(in1) =>
         mkReaderFactory(in1, streamDim)
@@ -390,7 +391,8 @@ object ReduceImpl {
         new ReaderFactory.Transparent(file, name, streamDim, mkAllRange(dv.shape))
       case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
       case _ => // "opaque"
-        new ReaderFactory.Opaque(m.reader(streamDim))
+        val source = m.getKey(streamDim)
+        new ReaderFactory.Opaque(source) // m.reader(streamDim))
     }
 
   // Note: will throw exception if range is empty or going backwards
@@ -463,7 +465,7 @@ object ReduceImpl {
       val arr = sync.synchronized(v.read(toUcarSection(sect1)))
       // cf. Arrays.txt for (de-)interleaving scheme
       val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
-      val it  = arr.getIndexIterator
+      val it  = t.getIndexIterator
 
       var i = off
       val j = off + len
@@ -504,7 +506,7 @@ object ReduceImpl {
       }
     }
 
-    final class Cloudy(source: Reader, val streamDim: Int, var section: Vec[Range])
+    final class Cloudy(source: Matrix.Key, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
       // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = ...
@@ -515,10 +517,10 @@ object ReduceImpl {
     }
 
     /** Takes an eagerly instantiated reader, no possibility to optimize. */
-    final class Opaque(val source: Reader) extends ReaderFactory {
+    final class Opaque(val source: Matrix.Key) extends ReaderFactory {
       // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
 
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source.reader()
 
       protected def writeData(out: DataOutput): Unit = ???
     }
@@ -537,7 +539,7 @@ object ReduceImpl {
   //      rf.make()
   //    }
   //
-  //    protected def writeData(out: DataOutput): Unit = ???
+  //    protected def writeData(out: DataOutput): Unit = ...
   //  }
 
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
@@ -555,7 +557,7 @@ object ReduceImpl {
     //      rf.make()
     //    }
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = ???
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = mkReduceReaderFactory(this, streamDim)
 
     override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       implicit val resolver = DataSource.Resolver.empty[S]
