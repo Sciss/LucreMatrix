@@ -3,31 +3,26 @@ package impl
 
 import de.sciss.filecache
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.serial.{DataOutput, DataInput, ImmutableSerializer}
 import de.sciss.file._
 import de.sciss.synth.io.{AudioFileSpec, AudioFile}
 import de.sciss.lucre.event.Sys
 import scala.concurrent.stm.TMap
 import scala.util.control.NonFatal
 import scala.concurrent.stm.atomic
-import scala.concurrent.{Future, ExecutionContext, blocking}
+import scala.concurrent.{Future, blocking}
 import de.sciss.lucre.stm
 
 object AudioFileCacheImpl {
-  private val KEY_COOKIE  = 0x6166636B  // "afck"
-  private val VAL_COOKIE  = 0x61666376  // "afcv"
+  //  private val KEY_COOKIE  = 0x6166636B  // "afck"
+  //  private val VAL_COOKIE  = 0x61666376  // "afcv"
+
+  def apply(config: AudioFileCache.Config): AudioFileCache = new Impl(config)
 
   private val DEBUG   = false
 
   private def debug(what: => String): Unit = if (DEBUG) println(s"<cache> $what")
 
   type Result = AudioFileCache.Value // (File, AudioFileSpec) // Grapheme.Value.Audio
-
-  implicit val executionContext: ExecutionContext = ExecutionContext.global
-
-  import de.sciss.lucre.matrix.Serializers.RangeSerializer
-  private val parentsSer  = ImmutableSerializer.list[String]
-  private val sectionSer  = ImmutableSerializer.indexedSeq[Range]
 
   //  private object CacheKey {
   //    implicit object Serializer extends ImmutableSerializer[CacheKey] {
@@ -127,9 +122,7 @@ object AudioFileCacheImpl {
   //    CacheKey(f, source.parents, source.name, section /* sectClosed */, streamDim)
   //  }
 
-  private final class Impl(dataDir: File)(implicit executionContext: ExecutionContext) {
-    private val folder: File = dataDir / "cache"
-
+  private final class Impl(config: AudioFileCache.Config) extends AudioFileCache {
     /*
       The cache is organised as follows:
       - the lookup part of the key is the NetCDF file (`get` takes a `NetcdfFile`, we actually just use its path).
@@ -141,22 +134,22 @@ object AudioFileCacheImpl {
 
      */
     private val cache = {
-      val config              = filecache.Config[CacheKey, CacheValue]()
-      config.capacity         = filecache.Limit(count = 500, space = 10L * 1024 * 1024 * 1024)  // 10 GB
-      config.accept           = (key, value) => {
-        val res = ??? : Boolean // key.file.lastModified() == value.netModified && key.file.length() == value.netSize
+      val cfg2              = filecache.Config[CacheKey, CacheValue]()
+      cfg2.capacity         = config.capacity
+      cfg2.accept           = (key, value) => {
+        val res = true // XXX TODO - check if netcdf file changed: key.file.lastModified() == value.netModified && key.file.length() == value.netSize
         // debug(s"accept key = ${key.file.name} (lastModified = ${new java.util.Date(key.file.lastModified())}}), value = $value? $res")
         res
       }
-      config.space            = (_  , value) => value.file /* data */.length()
-      config.evict            = (_  , value) => {
+      cfg2.space            = (_  , value) => value.file /* data */.length()
+      cfg2.evict            = (_  , value) => {
         debug(s"evict $value")
         value.file /* data */.delete()
       }
-      config.folder           = folder
-      config.executionContext = executionContext
+      cfg2.folder           = config.folder
+      cfg2.executionContext = config.executionContext
       atomic { implicit tx =>
-        filecache.TxnProducer(config)
+        filecache.TxnProducer(cfg2)
       }
     }
 
@@ -174,7 +167,7 @@ object AudioFileCacheImpl {
         sampleRate = 44100 /* rate */)
       import spec.{numFrames, numChannels}
       // val afF           = File.createTemp("sysson", ".aif")
-      val afF           = java.io.File.createTempFile("sysson", ".aif", folder)
+      val afF           = java.io.File.createTempFile("sysson", ".aif", config.folder)
       val af            = AudioFile.openWrite(afF, spec)
       val fBufSize      = math.max(1, math.min(8192 / numChannels, numFrames)).toInt // file buffer
       assert(fBufSize > 0)
@@ -229,7 +222,7 @@ object AudioFileCacheImpl {
           case NonFatal(t) =>
             map.single.remove(key)
             throw t
-        }
+        } (config.executionContext)
         fut
 
       } { e0 =>
