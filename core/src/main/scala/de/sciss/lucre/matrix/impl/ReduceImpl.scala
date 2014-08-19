@@ -29,7 +29,7 @@ import evt.EventLike
 import Dimension.Selection
 import ucar.{ma2, nc2}
 import scala.annotation.{switch, tailrec}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{ImmutableSerializer, DataInput, DataOutput}
 import de.sciss.lucre.matrix.Reduce.Op.Update
 import scala.collection.{JavaConversions, breakOut}
 
@@ -482,6 +482,8 @@ object ReduceImpl {
     }
   }
 
+  private val rangeVecSer = ImmutableSerializer.indexedSeq[Range](Serializers.RangeSerializer)
+
   private object ReaderFactory {
     sealed trait HasSection extends ReaderFactory {
       var section: Vec[Range]
@@ -489,6 +491,8 @@ object ReduceImpl {
 
     final class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
       extends HasSection {
+
+      protected def tpeID: Int = 0
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
         val net = resolver.resolve(file)
@@ -500,35 +504,48 @@ object ReduceImpl {
         new TransparentReader(v, streamDim, section)
       }
 
-      protected def writeData(out: DataOutput): Unit = {
+      protected def writeFactoryData(out: DataOutput): Unit = {
+        out.writeUTF(file.getPath)
         out.writeInt(streamDim)
-        ???
+        rangeVecSer.write(section, out)
       }
     }
 
     final class Cloudy(source: Matrix.Key, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
-      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = ...
+      protected def tpeID: Int = 1
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
 
-      protected def writeData(out: DataOutput): Unit = ???
+      protected def writeFactoryData(out: DataOutput): Unit = {
+        source.write(out)
+        out.writeInt(streamDim)
+        rangeVecSer.write(section, out)
+      }
     }
 
     /** Takes an eagerly instantiated reader, no possibility to optimize. */
     final class Opaque(val source: Matrix.Key) extends ReaderFactory {
       // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
 
+      def tpeID: Int = ???
+
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source.reader()
 
-      protected def writeData(out: DataOutput): Unit = ???
+      protected def writeFactoryData(out: DataOutput): Unit = ???
     }
   }
   private sealed trait ReaderFactory extends impl.KeyImpl {
-    protected def opID: Int = Reduce.opID
+    protected def opID : Int = Reduce.opID
+    protected def tpeID: Int
 
-    // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader
+    final protected def writeData(out: DataOutput): Unit = {
+      out.writeInt(opID)
+      writeFactoryData(out)
+    }
+
+    protected def writeFactoryData(out: DataOutput): Unit
   }
 
   //  private final class KeyImpl[S](reduce: Reduce[S], val streamDim: Int) extends impl.KeyImpl[S] {
