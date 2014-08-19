@@ -90,6 +90,9 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
         )
       ))
 
+      //      val b0 = Array.ofDim[Float](24, 1)
+      //      m0.reader(-1).read(b0, 0, 24)
+      //      assert (b0.flatten.toVector === (1 to 24))
       assert (m0.debugFlatten === (1 to 24))
 
       val si  = expr.Int.newVar[S](0)
