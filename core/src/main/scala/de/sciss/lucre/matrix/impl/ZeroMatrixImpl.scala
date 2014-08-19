@@ -52,11 +52,17 @@ object ZeroMatrixImpl {
     }
   }
 
+  private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
+    val streamDim   = in.readShort()
+    val shapeConst  = intVecSer.read(in)
+    new KeyImpl(shapeConst, streamDim)
+  }
+
   private final class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
     protected def opID: Int = ZeroMatrixImpl.opID
 
     protected def writeData(out: DataOutput): Unit = {
-      out.writeInt(streamDim)
+      out.writeShort(streamDim)
       intVecSer.write(shapeConst, out)
     }
 

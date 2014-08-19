@@ -46,11 +46,11 @@ object ReduceImpl {
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Reduce[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Reduce[S] = {
       val cookie = in.readByte() // 'node'
-      require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
+      if (cookie != 1) sys.error(s"Unexpected cookie (found $cookie, expected 1")
       val tpe     = in.readInt()  // 'type'
-      require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
+      if (tpe != Matrix.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
       val opID  = in.readInt()    // 'op'
-      require (opID == Reduce.opID, s"Unexpected operator id (found $opID, expected ${Reduce.opID})")
+      if (opID != Reduce.opID) sys.error(s"Unexpected operator id (found $opID, expected ${Reduce.opID})")
       readIdentified[S](in, access, targets)
     }
 
@@ -351,20 +351,20 @@ object ReduceImpl {
   }
 
   private def mkReduceReaderFactory[S <: Sys[S]](r: Reduce[S], streamDim: Int)
-                                                (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): ReaderFactory = {
+                                                (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): Matrix.Key = {
     val idx   = r.indexOfDim
-    val rInF  = mkReaderFactory(r.in, streamDim)
+    val rInF  = r.in.getKey(streamDim) // mkReaderFactory(r.in, streamDim)
 
-    @tailrec def loop(op: Reduce.Op[S]):  ReaderFactory = op match {
+    @tailrec def loop(op: Reduce.Op[S]): Matrix.Key = op match {
       case op: OpNativeImpl[S] =>
         rInF match {
           case t: ReaderFactory.HasSection =>
             if (idx >= 0) t.section = t.section.updated(idx, op.map(t.section(idx)))
             t
-          case t: ReaderFactory.Opaque =>
+          case t /* t: ReaderFactory.Opaque */ =>
             var section = mkAllRange(r.in.shape)
             if (idx >= 0) section = section.updated(idx, op.map(section(idx)))
-            new ReaderFactory.Cloudy(t.source, streamDim, section)
+            new ReaderFactory.Cloudy(t /*.source */, streamDim, section)
         }
 
       case op: Op.Var[S] => loop(op())
@@ -372,7 +372,7 @@ object ReduceImpl {
       case _ =>
         // val rd = op.map(rInF.reader(), r.in.shape, idx, streamDim)
         // new ReaderFactory.Opaque(rd)
-        ???
+        ??? // later
     }
 
     loop(r.op)
@@ -380,20 +380,21 @@ object ReduceImpl {
 
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
 
-  @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
-                                                   (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): ReaderFactory =
-    m match {
-      case Matrix.Var(in1) =>
-        mkReaderFactory(in1, streamDim)
-      case dv: DataSource.Variable[S] =>
-        val file  = dv.source.file
-        val name  = dv.name
-        new ReaderFactory.Transparent(file, name, streamDim, mkAllRange(dv.shape))
-      case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
-      case _ => // "opaque"
-        val source = m.getKey(streamDim)
-        new ReaderFactory.Opaque(source) // m.reader(streamDim))
-    }
+  //  @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
+  //                                                   (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): Matrix.Key =
+  //    m match {
+  //      case Matrix.Var(in1) =>
+  //        mkReaderFactory(in1, streamDim)
+  //      case dv: DataSource.Variable[S] =>
+  //        val f     = dv.source.file
+  //        val name  = dv.name
+  //        new ReaderFactory.Transparent(file = f, name = name, streamDim = streamDim, section = mkAllRange(dv.shape))
+  //      case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
+  //      case _ => // "opaque"
+  //        val source = m.getKey(streamDim)
+  //        // new ReaderFactory.Opaque(source) // m.reader(streamDim))
+  //        source
+  //    }
 
   // Note: will throw exception if range is empty or going backwards
   private def toUcarRange(in: Range): ma2.Range = {
@@ -484,7 +485,30 @@ object ReduceImpl {
 
   private val rangeVecSer = ImmutableSerializer.indexedSeq[Range](Serializers.RangeSerializer)
 
-  private object ReaderFactory {
+  private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
+    val tpeID     = in.readShort()
+    (tpeID: @switch) match {
+      case ReaderFactory.TransparentType =>
+        val f         = file(in.readUTF())
+        val name      = in.readUTF()
+        val streamDim = in.readShort()
+        val section   = rangeVecSer.read(in)
+        new ReaderFactory.Transparent(file = f, name = name, streamDim = streamDim, section = section)
+
+      case ReaderFactory.CloudyType =>
+        val source    = Matrix.Key.read(in)
+        val streamDim = in.readShort()
+        val section   = rangeVecSer.read(in)
+        new ReaderFactory.Cloudy(source = source, streamDim = streamDim, section = section)
+
+      case _ => sys.error(s"Unexpected reduce key op $tpeID")
+    }
+  }
+
+  object ReaderFactory {
+    final val TransparentType = 0
+    final val CloudyType      = 1
+
     sealed trait HasSection extends ReaderFactory {
       var section: Vec[Range]
     }
@@ -492,7 +516,7 @@ object ReduceImpl {
     final class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
-      protected def tpeID: Int = 0
+      protected def tpeID: Int = TransparentType
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
         val net = resolver.resolve(file)
@@ -506,7 +530,8 @@ object ReduceImpl {
 
       protected def writeFactoryData(out: DataOutput): Unit = {
         out.writeUTF(file.getPath)
-        out.writeInt(streamDim)
+        out.writeUTF(name)
+        out.writeShort(streamDim)
         rangeVecSer.write(section, out)
       }
     }
@@ -514,34 +539,34 @@ object ReduceImpl {
     final class Cloudy(source: Matrix.Key, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
-      protected def tpeID: Int = 1
+      protected def tpeID: Int = CloudyType
 
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ???
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ??? // later
 
       protected def writeFactoryData(out: DataOutput): Unit = {
         source.write(out)
-        out.writeInt(streamDim)
+        out.writeShort(streamDim)
         rangeVecSer.write(section, out)
       }
     }
 
-    /** Takes an eagerly instantiated reader, no possibility to optimize. */
-    final class Opaque(val source: Matrix.Key) extends ReaderFactory {
-      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
-
-      def tpeID: Int = ???
-
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source.reader()
-
-      protected def writeFactoryData(out: DataOutput): Unit = ???
-    }
+    //    /** Takes an eagerly instantiated reader, no possibility to optimize. */
+    //    final class Opaque(val source: Matrix.Key) extends ReaderFactory {
+    //      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
+    //
+    //      def tpeID: Int = ...
+    //
+    //      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source.reader()
+    //
+    //      protected def writeFactoryData(out: DataOutput): Unit = ...
+    //    }
   }
-  private sealed trait ReaderFactory extends impl.KeyImpl {
+  sealed trait ReaderFactory extends impl.KeyImpl {
     protected def opID : Int = Reduce.opID
     protected def tpeID: Int
 
     final protected def writeData(out: DataOutput): Unit = {
-      out.writeInt(opID)
+      out.writeShort(opID)
       writeFactoryData(out)
     }
 

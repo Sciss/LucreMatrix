@@ -208,9 +208,9 @@ object DataSourceImpl {
     //      new ReduceImpl.TransparentReader(v, streamDim = streamDim, section = all)
     //    }
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = {
-      ??? // new ReaderFactory.Transparent(dv, streamDim, mkAllRange(dv.shape))
-    }
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
+      new ReduceImpl.ReaderFactory.Transparent(file = source.file, name = name, streamDim = streamDim,
+        section = ReduceImpl.mkAllRange(shape))
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie

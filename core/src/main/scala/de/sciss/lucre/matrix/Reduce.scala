@@ -97,7 +97,7 @@ object Reduce {
 
     def size(in: Int)(implicit tx: S#Tx): Int
 
-    def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ???
+    def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ??? // later
   }
 }
 trait Reduce[S <: Sys[S]] extends Matrix[S] with evt.Node[S] {

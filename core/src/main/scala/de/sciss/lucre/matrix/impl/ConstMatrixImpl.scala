@@ -131,6 +131,12 @@ object ConstMatrixImpl {
     }
   }
 
+  private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
+    val streamDim = in.readShort()
+    val data      = readData(in)
+    new KeyImpl(data, streamDim)
+  }
+
   private final case class KeyImpl(data: Data, streamDim: Int)
     extends impl.KeyImpl {
 
@@ -139,9 +145,15 @@ object ConstMatrixImpl {
     protected def opID: Int = ConstMatrixImpl.opID
 
     protected def writeData(out: DataOutput): Unit = {
-      out.writeInt(streamDim)
+      out.writeShort(streamDim)
       data.write(out)
     }
+  }
+
+  private def readData(in: DataInput): Data = {
+    val shapeConst  = intVecSer   .read(in)
+    val flatData    = doubleVecSer.read(in)
+    new Data(shapeConst, flatData)
   }
 
   private final case class Data(shapeConst: Vec[Int], flatData: Vec[Double]) {

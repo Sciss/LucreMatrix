@@ -23,7 +23,10 @@ object KeyImpl {
   def read(in: DataInput): Matrix.Key = {
     val opID = in.readInt()
     (opID: @switch) match {
-      case other => sys.error(s"")
+      case Reduce         .opID => ReduceImpl     .readIdentifiedKey(in)
+      case ConstMatrixImpl.opID => ConstMatrixImpl.readIdentifiedKey(in)
+      case ZeroMatrixImpl .opID => ZeroMatrixImpl .readIdentifiedKey(in)
+      case _ => sys.error(s"Unexpected matrix key type $opID")
     }
   }
 
