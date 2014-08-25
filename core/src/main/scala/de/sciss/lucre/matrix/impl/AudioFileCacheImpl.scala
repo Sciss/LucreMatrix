@@ -4,6 +4,7 @@ package impl
 import de.sciss.filecache
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.file._
+import de.sciss.lucre.stm.TxnLike
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 import de.sciss.synth.io.{AudioFileSpec, AudioFile}
 import de.sciss.lucre.event.Sys
@@ -228,10 +229,24 @@ object AudioFileCacheImpl {
         e1.future
       }
     }
+
+    def release(key: Matrix.Key)(implicit tx: TxnLike): Unit = {
+      implicit val itx = tx.peer
+      map.get(key).foreach { e0 =>
+        val e1 = e0.dec
+        if (e1.isEmpty) {
+          map.remove(key)
+          cache.release(key)
+        } else {
+          map.put(key, e1)
+        }
+      }
+    }
   }
 
   final private class Entry(val useCount: Int = 1, val future: Future[Result]) {
     def inc = new Entry(useCount + 1, future)
     def dec = new Entry(useCount - 1, future)
+    def isEmpty = useCount == 0
   }
 }

@@ -4,6 +4,7 @@ import de.sciss.file.File
 import de.sciss.filecache.Limit
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.stm
+import de.sciss.lucre.stm.TxnLike
 import de.sciss.serial.ImmutableSerializer
 import de.sciss.synth.io.AudioFileSpec
 import impl.{AudioFileCacheImpl => Impl}
@@ -86,4 +87,6 @@ trait AudioFileCache {
   import AudioFileCache.Value
   def acquire[S <: Sys[S]](key: Matrix.Key)
                           (implicit tx: S#Tx, resolver: Resolver[S], cursor: stm.Cursor[S]): Future[Value]
+
+  def release(key: Matrix.Key)(implicit tx: TxnLike): Unit
 }
