@@ -24,7 +24,7 @@ import de.sciss.lucre.stm.Mutable
 import scala.collection.mutable
 import scala.collection.{JavaConversions, breakOut}
 import scala.annotation.tailrec
-import de.sciss.lucre.event.{Event, EventLike}
+import de.sciss.lucre.event.{InMemory, Event, EventLike}
 import de.sciss.lucre.expr.{Int => IntEx}
 
 object DataSourceImpl {
@@ -89,6 +89,8 @@ object DataSourceImpl {
       ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
     }
 
+    ??? // for 1D matricies, the only dimension is most likely referring to itself
+
     // we assume that there are no recursive variable references... (we don't check for that condition)
     // -- if not, we could also use an S#Var in this case
     val dimensions: Vec[Matrix[S]] = shapeInfo.map { i =>
@@ -117,7 +119,7 @@ object DataSourceImpl {
       }
     }
 
-    new VariableImpl(targets, source /* sourceRef */, parents, name, shapeInfo, dimensions)
+    new VariableImpl(targets, source /* sourceRef */, parents, name, /* shapeInfo, */ dimensions)
   }
 
   def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
@@ -137,7 +139,7 @@ object DataSourceImpl {
     // val sourceRef = tx.readVar[DataSource[S]](id, in)
     val parents   = parentsSer.read(in)
     val name      = in.readUTF()
-    val shape     = shapeSer.read(in)
+    // val shape     = shapeSer.read(in)
     ??? // new VariableImpl(targets, source /* sourceRef */, parents, name, shape)
   }
   
@@ -199,7 +201,13 @@ object DataSourceImpl {
   }
   private final case class ShapeInfo(dim: Dimension.Value, range: Range)
 
-  private val shapeSer    = ImmutableSerializer.indexedSeq[ShapeInfo]
+  private def dimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
+    anyDimsSer.asInstanceOf[Serializer[S#Tx, S#Acc, Vec[Matrix[S]]]]
+
+  private val anyDimsSer = mkDimsSer[InMemory]
+
+  private def mkDimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
+    Serializer.indexedSeq[S#Tx, S#Acc, Matrix[S]]
 
   //  private final class ReaderImpl[S <: Sys[S]](shapeInfo: Vec[ShapeInfo], streamDim: Int, v: nc2.Variable)
   //    extends Matrix.Reader {
@@ -221,12 +229,10 @@ object DataSourceImpl {
   //  }
 
   private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val source: DataSource[S] /* sourceRef: S#Var[DataSource[S]] */,
+                                                val source: DataSource[S],
                                                 val parents: List[String],
-                                                _name: String, shapeInfo: Vec[ShapeInfo], dimConst: Vec[Matrix[S]])
+                                                _name: String, dimConst: Vec[Matrix[S]])
     extends Variable[S] with evt.Node[S] {
-
-    // def source(implicit tx: S#Tx): DataSource[S] = _source // sourceRef()
 
     // ---- event dummy ----
 
@@ -243,17 +249,9 @@ object DataSourceImpl {
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }
 
-    // def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = shapeInfo.map(_.dim)
-    def ranges    (implicit tx: S#Tx): Vec[Range          ] = shapeInfo.map(_.range)
-    def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
+    def shape     (implicit tx: S#Tx): Vec[Int            ] = dimConst.map(_.size.toInt)  // XXX TODO - check Int overflow
 
     def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = dimConst
-
-    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
-    //      val v   = data()
-    //      val all = ReduceImpl.mkAllRange(v.getShape)
-    //      new ReduceImpl.TransparentReader(v, streamDim = streamDim, section = all)
-    //    }
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
       new ReduceImpl.ReaderFactory.Transparent(file = source.file, name = name, streamDim = streamDim,
@@ -266,21 +264,10 @@ object DataSourceImpl {
       source    .write(out)
       parentsSer.write(parents, out)
       out       .writeUTF(_name)
-      shapeSer  .write(shapeInfo, out)
-      ??? // dimConst
+      dimsSer   .write(dimConst, out)
     }
 
-    protected def disposeData()(implicit tx: S#Tx): Unit = {
-      // sourceRef.dispose()
-    }
-
-    def rank: Int = shapeInfo.size
-
-    lazy val size: Long = {
-      var res = 0L
-      shapeInfo.foreach { tup => res += tup.range.size }
-      res
-    }
+    protected def disposeData()(implicit tx: S#Tx): Unit = dimConst.foreach(_.dispose())
 
     def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable = {
       val net = source.data()
