@@ -65,7 +65,7 @@ object DataSourceImpl {
   }
 
   // ---- create a new variable ----
-
+  // stores the result in `matMap` and returns it.
   private def mkVariable[S <: Sys[S]](source: DataSource[S], net: nc2.Variable,
                                       netMap: mutable.Map[String, nc2.Variable],
                                       matMap: mutable.Map[String, Variable[S]])(implicit tx: S#Tx): Variable[S] = {
@@ -80,46 +80,61 @@ object DataSourceImpl {
     if (rank != rangeArr.size()) throw new IllegalStateException(
       s"For variable $name, nr of dimensions ($rank) is different from nr of ranges (${rangeArr.size()})")
 
-    val shapeInfo = Vec.tabulate(rank) { i =>
-      val dim     = dimArr  .get(i)
-      val rangeJ  = rangeArr.get(i)
-      val range   = Range.inclusive(rangeJ.first(), rangeJ.last(), rangeJ.stride())
-      val n0      = dim.getShortName
-      val dimName = if (n0 == null) "?" else n0
-      ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
-    }
+    // a 1D recursive variable indicates a pure dimension
+    val res: Variable[S] = if (rank == 1 && dimArr.get(0).getShortName == name) {
+      val size = dimArr.get(0).getLength
+      new DimensionImpl(targets, source, parents, name, size)
 
-    ??? // for 1D matricies, the only dimension is most likely referring to itself
+    } else {
+      //      val shapeInfo = Vec.tabulate(rank) { i =>
+      //        val dim     = dimArr  .get(i)
+      //        val rangeJ  = rangeArr.get(i)
+      //        val range   = Range.inclusive(rangeJ.first(), rangeJ.last(), rangeJ.stride())
+      //        val n0      = dim.getShortName
+      //        val dimName = if (n0 == null) "?" else n0
+      //        ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
+      //      }
 
-    // we assume that there are no recursive variable references... (we don't check for that condition)
-    // -- if not, we could also use an S#Var in this case
-    val dimensions: Vec[Matrix[S]] = shapeInfo.map { i =>
-      val dimName = i.dim.name
-      val r       = i.range // guaranteed to be inclusive, therefore we can directly test for `end == size - 1`
-      val full    = matMap.getOrElse(dimName, netMap.get(dimName).fold[Matrix[S]] {
-        // dimension not found (perhaps not numeric)
-        // we're creating a dummy matrix then.
-        MatrixFactoryImpl.newConst1D[S](dimName, r.map(_.toDouble))
-      } { net1 =>
-        mkVariable(source, net1, netMap, matMap)
-      })
-      // if the variable's dimensional range covers the whole range, then just
-      // use the matrix wrapper for the dimensional variable. otherwise, we must
-      // reduce it.
-      if (r.start == 0 && r.step == 1 && r.end == full.size - 1) full else {
-        val dimSel = Dimension.Selection.Index[S](IntEx.newConst(0))
-        val op = if (r.size == 1)
-          Reduce.Op.Apply [S](IntEx.newConst(r.start))
-        else if (r.step == 1)
-          Reduce.Op.Slice [S](IntEx.newConst(r.start), IntEx.newConst(r.end))
-        else
-          Reduce.Op.Stride[S](IntEx.newConst(r.start), IntEx.newConst(r.end), IntEx.newConst(r.step))
+      // we assume that there are no recursive variable references... (we don't check for that condition)
+      // -- if not, we could also use an S#Var in this case
+      val dimensions: Vec[Matrix[S]] = Vec.tabulate(rank) { i =>
+        val dim     = dimArr  .get(i)
+        val n0      = dim.getShortName
+        val dimName = if (n0 == null) "?" else n0
+        // val dimName = i.dim.name
+        val rangeJ  = rangeArr.get(i)
+        // val r       = i.range // guaranteed to be inclusive, therefore we can directly test for `end == size - 1`
+        val rStart  = rangeJ.first()
+        val rEnd    = rangeJ.last()
+        val rStep   = rangeJ.stride()
+        val full    = matMap.getOrElse(dimName, netMap.get(dimName).fold[Matrix[S]] {
+          // dimension not found (perhaps not numeric)
+          // we're creating a dummy matrix then.
+          MatrixFactoryImpl.newConst1D[S](dimName, Range.Double.inclusive(rStart, rEnd, rStep))
+        } { net1 =>
+          mkVariable(source, net1, netMap, matMap)
+        })
+        // if the variable's dimensional range covers the whole range, then just
+        // use the matrix wrapper for the dimensional variable. otherwise, we must
+        // reduce it.
+        if (rStart == 0 && rStep == 1 && rEnd == full.size - 1) full else {
+          val dimSel = Dimension.Selection.Index[S](IntEx.newConst(0))
+          val op = if (rStart == rEnd)
+            Reduce.Op.Apply [S](IntEx.newConst(rStart))
+          else if (rStep == 1)
+            Reduce.Op.Slice [S](IntEx.newConst(rStart), IntEx.newConst(rEnd))
+          else
+            Reduce.Op.Stride[S](IntEx.newConst(rStart), IntEx.newConst(rEnd), IntEx.newConst(rStep))
 
-        Reduce(full, dimSel, op)
+          Reduce(full, dimSel, op)
+        }
       }
+
+      new VariableImpl(targets, source, parents, name, dimensions)
     }
 
-    new VariableImpl(targets, source /* sourceRef */, parents, name, /* shapeInfo, */ dimensions)
+    matMap.put(name, res)
+    res
   }
 
   def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
@@ -135,12 +150,17 @@ object DataSourceImpl {
 
   def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
                                          (implicit tx: S#Tx): Variable[S] with evt.Node[S] = {
-    val source    = DataSource.read(in, access)
-    // val sourceRef = tx.readVar[DataSource[S]](id, in)
-    val parents   = parentsSer.read(in)
-    val name      = in.readUTF()
-    // val shape     = shapeSer.read(in)
-    ??? // new VariableImpl(targets, source /* sourceRef */, parents, name, shape)
+    val source      = DataSource.read(in, access)
+    val parents     = parentsSer.read(in)
+    val name        = in.readUTF()
+    val isLeaf      = in.readBoolean()
+    if (isLeaf) {
+      val size      = in.readInt()
+      new DimensionImpl(targets, source, parents, name, size)
+    } else {
+      val dimensions  = dimsSer[S].read(in, access)
+      new VariableImpl(targets, source, parents, name, dimensions)
+    }
   }
   
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
@@ -177,29 +197,7 @@ object DataSourceImpl {
   private val parentsSer  = ImmutableSerializer.list[String]
   import Serializers.RangeSerializer
 
-  private object ShapeInfo {
-    private val SHAPE_COOKIE = 0x73686170 // "shap"
-
-    implicit object Ser extends ImmutableSerializer[ShapeInfo] {
-      def read(in: DataInput): ShapeInfo = {
-        val cookie = in.readInt()
-        require (cookie == SHAPE_COOKIE, s"Unexpected cookie (found $cookie, expected $SHAPE_COOKIE)")
-        val dName = in.readUTF()
-        val dSize = in.readInt()
-        val range = RangeSerializer.read(in)
-        ShapeInfo(Dimension.Value(dName, dSize), range)
-      }
-
-      def write(info: ShapeInfo, out: DataOutput): Unit = {
-        out.writeInt(SHAPE_COOKIE)
-        val dim = info.dim
-        out.writeUTF(dim.name)
-        out.writeInt(dim.size)
-        RangeSerializer.write(info.range, out)
-      }
-    }
-  }
-  private final case class ShapeInfo(dim: Dimension.Value, range: Range)
+  // private final case class ShapeInfo(dim: Dimension.Value, range: Range)
 
   private def dimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     anyDimsSer.asInstanceOf[Serializer[S#Tx, S#Acc, Vec[Matrix[S]]]]
@@ -209,71 +207,89 @@ object DataSourceImpl {
   private def mkDimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     Serializer.indexedSeq[S#Tx, S#Acc, Matrix[S]]
 
-  //  private final class ReaderImpl[S <: Sys[S]](shapeInfo: Vec[ShapeInfo], streamDim: Int, v: nc2.Variable)
-  //    extends Matrix.Reader {
-  //
-  //    private val numFramesI = if (streamDim < 0) 1 else shapeInfo(streamDim).dim.size
-  //
-  //    def numFrames: Long = numFramesI
-  //
-  //    val numChannels: Int = {
-  //      val sz = (1L /: shapeInfo)(_ * _.dim.size)
-  //      val n  = sz / numFramesI
-  //      if (n > 0x7FFFFFFF) throw new IndexOutOfBoundsException(s"numChannels $n exceeds 32-bit range")
-  //      n.toInt
-  //    }
-  //
-  //    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
-  //      ...
-  //    }
-  //  }
-
   private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val source: DataSource[S],
                                                 val parents: List[String],
-                                                _name: String, dimConst: Vec[Matrix[S]])
+                                                protected val nameConst: String, dimConst: Vec[Matrix[S]])
+    extends VariableImplLike[S] {
+
+    protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
+
+    def shape(implicit tx: S#Tx): Vec[Int] = dimConst.map(_.size.toInt)  // XXX TODO - check Int overflow
+
+    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = dimConst
+
+    def isLeaf = false
+
+    protected def disposeData()(implicit tx: S#Tx): Unit = dimConst.foreach(_.dispose())
+  }
+
+  private final class DimensionImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
+                                                 val source: DataSource[S],
+                                                 val parents: List[String],
+                                                 protected val nameConst: String, sizeConst: Int)
+    extends VariableImplLike[S] {
+
+    protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
+
+    def shape(implicit tx: S#Tx): Vec[Int] = Vec(sizeConst)
+
+    override def rank(implicit tx: S#Tx) = 1
+    override def size(implicit tx: S#Tx) = sizeConst.toLong
+
+    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = Vec(this)
+
+    def isLeaf = true
+
+    protected def disposeData()(implicit tx: S#Tx) = ()
+  }
+
+  private abstract class VariableImplLike[S <: Sys[S]]
     extends Variable[S] with evt.Node[S] {
+
+    // ---- abstract ----
+
+    protected def nameConst: String
+
+    protected def isLeaf: Boolean
+
+    protected def writeDimensions(out: DataOutput): Unit
 
     // ---- event dummy ----
 
-    def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
+    final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 
-    def select(slot: Int): Event[S, Any, Any] = throw new UnsupportedOperationException
+    final def select(slot: Int): Event[S, Any, Any] = throw new UnsupportedOperationException
 
     // ----
 
-    def name(implicit tx: S#Tx): String = _name
+    final def name(implicit tx: S#Tx): String = nameConst
 
-    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+    final def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       // if (size > 256) throw new UnsupportedOperationException(s"debugFlatten is restricted to matrices with size <= 256")
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }
 
-    def shape     (implicit tx: S#Tx): Vec[Int            ] = dimConst.map(_.size.toInt)  // XXX TODO - check Int overflow
-
-    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = dimConst
-
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
+    final def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
       new ReduceImpl.ReaderFactory.Transparent(file = source.file, name = name, streamDim = streamDim,
         section = ReduceImpl.mkAllRange(shape))
 
-    protected def writeData(out: DataOutput): Unit = {
+    final protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
       out writeInt Matrix.typeID
       out writeInt Variable.opID
       source    .write(out)
       parentsSer.write(parents, out)
-      out       .writeUTF(_name)
-      dimsSer   .write(dimConst, out)
+      out       .writeUTF(nameConst)
+      out       .writeBoolean(isLeaf)
+      writeDimensions(out)
     }
 
-    protected def disposeData()(implicit tx: S#Tx): Unit = dimConst.foreach(_.dispose())
-
-    def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable = {
+    final def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable = {
       val net = source.data()
       import JavaConversions._
-      net.getVariables.find(_.getShortName == _name).getOrElse(
-        sys.error(s"Variable '$name' does not exist in data source ${source.file.base}")
+      net.getVariables.find(_.getShortName == nameConst).getOrElse(
+        sys.error(s"Variable '$nameConst' does not exist in data source ${source.file.base}")
       )
     }
   }
@@ -295,9 +311,7 @@ object DataSourceImpl {
       varRef.write(out)
     }
 
-    protected def disposeData()(implicit tx: S#Tx): Unit = {
-      varRef.dispose()
-    }
+    protected def disposeData()(implicit tx: S#Tx): Unit = varRef.dispose()
 
     def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
 
