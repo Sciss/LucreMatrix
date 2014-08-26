@@ -73,5 +73,5 @@ object Dimension {
 //  def name: Expr[S, String]
 //  def size: Expr[S, Int   ]
 //
-//  def flatten(implicit tx: S#Tx): Vec[Double]
+//  // def flatten(implicit tx: S#Tx): Vec[Double]
 //}

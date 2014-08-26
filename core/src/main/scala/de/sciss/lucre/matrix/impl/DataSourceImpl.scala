@@ -198,9 +198,11 @@ object DataSourceImpl {
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }
 
-    def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = shapeInfo.map(_.dim)
+    // def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] = shapeInfo.map(_.dim)
     def ranges    (implicit tx: S#Tx): Vec[Range          ] = shapeInfo.map(_.range)
     def shape     (implicit tx: S#Tx): Vec[Int            ] = shapeInfo.map(_.range.size)
+
+    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = ???
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
     //      val v   = data()

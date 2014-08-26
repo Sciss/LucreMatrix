@@ -32,8 +32,11 @@ trait ConstImpl[S <: Sys[S]] extends Matrix[S] {
 
   final def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
   final def ranges    (implicit tx: S#Tx): Vec[Range]           = shapeConst.map(0 until _)
-  final def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
-    shapeConst.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
+
+  //  final def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
+  //    shapeConst.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
+
+  final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = ???
 
   final def write(out: DataOutput): Unit = {
     out.writeByte(3)    // 'constant'

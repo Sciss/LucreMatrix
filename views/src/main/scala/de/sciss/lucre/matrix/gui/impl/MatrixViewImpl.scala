@@ -475,7 +475,9 @@ object MatrixViewImpl {
               val dIdx = loopDim(red.dim)
 
               val dimViews1: Vec[List[ReductionView[S]]] = if (dIdx < 0 || dIdx >= numDims) dimViews0 else {
-                val redView = ReductionView(dims(dIdx), red)
+                val dim     = dims(dIdx)
+                val dimVal  = Dimension.Value(dim.name, dim.size.toInt)
+                val redView = ReductionView(dimVal /* dims(dIdx) */, red)
                 val before  = dimViews0(dIdx)
                 val now     = redView :: before
                 dimViews0.updated(dIdx, now)

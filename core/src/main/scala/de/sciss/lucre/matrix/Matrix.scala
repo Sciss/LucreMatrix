@@ -56,9 +56,39 @@ object Matrix {
 
   // ---- reader ----
 
+  /** A reader is a two dimensional view of the matrix, where time
+    * proceeds along the streaming dimension used when calling `getKey`.
+    * The streaming dimension is reflected by the number of frames.
+    *
+    * The reader is stateful and remembers the number of frames read
+    * (current position). When created, the reader's position is zero.
+    * If one tries to read more than `numFrames` frames, an exception
+    * will be thrown.
+    */
   trait Reader {
+    /** The number of frames which is the size of the streaming dimension,
+      * or `1` if no streaming is used.
+      */
     def numFrames: Long
+
+    /** The number of channels is the matrix size divided by the number of frames. */
     def numChannels: Int
+
+    /** Reads a chunk of matrix data into a provided buffer. If the stream-transposed
+      * matrix has more than two dimensions, the de-interleaving is regularly from
+      * from to back. E.g. in a matrix of shape `[a][b][c]`, if `a` is the streaming
+      * dimension, the first channel is `b0, c0`, the second channel is `b0, c1`,
+      * and so on until `b0, ck-1` where `k` is the size of third dimension, followed
+      * by `b1, c0` etc.
+      *
+      * @param buf  the buffer to read into. This must be two-dimensional with the
+      *             outer dimension corresponding to channels, and the inner arrays
+      *             having at least a size of `off + len`.
+      * @param off  the offset into each channel of `buf`
+      * @param len  the number of frames to read
+      *
+      * see [[de.sciss.synth.io.AudioFile]]
+      */
     def read(buf: Array[Array[Float]], off: Int, len: Int): Unit
   }
 
@@ -70,6 +100,10 @@ object Matrix {
     implicit def serializer: ImmutableSerializer[Key] = impl.KeyImpl.serializer
   }
   trait Key extends Writable {
+    /** Creates a reader instance that can the be used to retrieve the actual matrix data.
+      *
+      * @param resolver   the resolver is used for matrices backed up by NetCDF files.
+      */
     def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader
   }
 
@@ -81,21 +115,33 @@ object Matrix {
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
 }
 trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
+  /** A matrix has a name. For example, when coming from a NetCDF data source,
+    * the matrix name corresponds to a variable name.
+    */
   def name(implicit tx: S#Tx): String
 
+  /** The rank is the number of dimensions. */
   def rank(implicit tx: S#Tx): Int    = shape.size
+
+  /** The size is the number of matrix cells, that is the product of the shape. */
   def size(implicit tx: S#Tx): Long   = (1L /: shape)(_ * _)
 
+  /** The shape is the vector of dimensional sizes. */
   def shape(implicit tx: S#Tx): Vec[Int]
 
-  def dimensions(implicit tx: S#Tx): Vec[Dimension.Value]
+  //  /** A collection of dimensional information, reduced to their names and sizes. */
+  //  def dimensions(implicit tx: S#Tx): Vec[Dimension.Value]
+
+  def dimensions(implicit tx: S#Tx): Vec[Matrix[S]]
 
   def ranges(implicit tx: S#Tx): Vec[Range] // XXX TODO: this might get problematic with averaging reductions
 
   def reducedRank      (implicit tx: S#Tx): Int                   = shape.count (_ > 1)
   def reducedShape     (implicit tx: S#Tx): Vec[Int]              = shape.filter(_ > 1)
-  def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
+  // def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
   def reducedRanges    (implicit tx: S#Tx): Vec[Range]            = reduce(ranges)
+
+  def reducedDimensions(implicit tx: S#Tx): Vec[Matrix[S]]  = reduce(dimensions)
 
   private def reduce[A](coll: Vec[A])(implicit tx: S#Tx): Vec[A] =
     (coll zip shape).collect { case (x, sz) if sz > 1 => x }
@@ -105,5 +151,11 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Matrix.Reader =
     getKey(streamDim).reader()
 
+  /** The key of a matrix is an immutable value that represents its current state,
+    * possibly prepared with a transposition to be streamed along one of its dimensions.
+    *
+    * @param streamDim  the index of the dimension to stream the matrix data through, or `-1`
+    *                   to read the whole matrix in one frame.
+    */
   def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key
 }
