@@ -73,10 +73,10 @@ object ZeroMatrixImpl {
   private final class Impl[S <: Sys[S]](protected val shapeConst: Vec[Int])
     extends ConstImpl[S] {
 
-    override def toString = s"zeros${shapeConst.mkString("[","][","]")}"
-
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, streamDim)
+
+    protected def nameConst = s"zeros${shapeConst.mkString("[","][","]")}"
 
     protected def opID: Int = ZeroMatrixImpl.opID
 

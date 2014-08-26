@@ -23,22 +23,22 @@ import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 object ConstMatrixImpl {
   final val opID = 1
 
-  def apply1D[S <: Sys[S]](v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
+  def apply1D[S <: Sys[S]](name: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
-    val data  = new Data(shape, v)
+    val data  = new Data(name, shape, v)
     new Impl[S](data)
   }
 
-  def apply2D[S <: Sys[S]](v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
+  def apply2D[S <: Sys[S]](name: String, v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
     val sz1   = v.headOption.fold(0)(_.size)
     val shape = Vec(v.size, sz1)
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
-    val data  = new Data(shape, flat)
+    val data  = new Data(name, shape, flat)
     new Impl[S](data)
   }
 
-  def apply3D[S <: Sys[S]](v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
+  def apply3D[S <: Sys[S]](name: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
     val h1    = v.headOption
     val sz1   = h1.fold(0)(_.size)
     val sz2   = h1.flatMap(_.headOption).fold(0)(_.size)
@@ -47,14 +47,12 @@ object ConstMatrixImpl {
       d1.size == sz1 && d1.forall(_.size == sz2)
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
-    val data  = new Data(shape, flat)
+    val data  = new Data(name, shape, flat)
     new Impl[S](data)
   }
 
   private[matrix] def readIdentified[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
-    val shape = intVecSer   .read(in)
-    val flat  = doubleVecSer.read(in)
-    val data  = new Data(shape, flat)
+    val data = readData(in)
     new Impl[S](data)
   }
 
@@ -151,13 +149,15 @@ object ConstMatrixImpl {
   }
 
   private def readData(in: DataInput): Data = {
+    val name        = in.readUTF()
     val shapeConst  = intVecSer   .read(in)
     val flatData    = doubleVecSer.read(in)
-    new Data(shapeConst, flatData)
+    new Data(name, shapeConst, flatData)
   }
 
-  private final case class Data(shapeConst: Vec[Int], flatData: Vec[Double]) {
+  private final case class Data(name: String, shapeConst: Vec[Int], flatData: Vec[Double]) {
     def write(out: DataOutput): Unit = {
+      out.writeUTF(name)
       intVecSer   .write(shapeConst, out)
       doubleVecSer.write(flatData  , out)
     }
@@ -170,7 +170,9 @@ object ConstMatrixImpl {
 
     protected def shapeConst = data.shapeConst
 
-    override def toString = s"Matrix@${hashCode.toHexString}${shapeConst.mkString("[","][","]")}"
+    protected def nameConst = data.name
+
+    override def toString = s"$nameConst${shapeConst.mkString("[","][","]")}"
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, flatData, streamDim)

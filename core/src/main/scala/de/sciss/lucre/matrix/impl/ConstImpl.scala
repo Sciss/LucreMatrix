@@ -36,7 +36,11 @@ trait ConstImpl[S <: Sys[S]] extends Matrix[S] {
   //  final def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
   //    shapeConst.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
 
-  final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = ???
+  final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] =
+    shapeConst.zipWithIndex.map { case (sz, idx) =>
+      val name = s"dim$idx"
+      MatrixFactoryImpl.newConst1D(name, Range.Double(0.0, sz, 1.0))
+    }
 
   final def write(out: DataOutput): Unit = {
     out.writeByte(3)    // 'constant'
@@ -46,7 +50,9 @@ trait ConstImpl[S <: Sys[S]] extends Matrix[S] {
 
   final def dispose()(implicit tx: S#Tx) = ()
 
-  final def name(implicit tx: S#Tx): String = toString
+  protected def nameConst: String
+
+  final def name(implicit tx: S#Tx): String = nameConst
 
   final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 }

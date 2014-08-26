@@ -89,7 +89,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
 
   "A Constant Matrix" should "read data" in { cursor =>
     cursor.step { implicit tx =>
-      val _z = Matrix.newConst3D(
+      val _z = Matrix.newConst3D("M",
         Vec(
           Vec(Vec( 0f,  1f), Vec( 2f,  3f), Vec( 4f,  5f)),
           Vec(Vec( 6f,  7f), Vec( 8f,  9f), Vec(10f, 11f)),

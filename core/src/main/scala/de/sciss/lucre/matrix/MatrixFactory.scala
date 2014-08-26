@@ -17,9 +17,9 @@ package de.sciss.lucre.matrix
 trait MatrixFactory extends Any {
   def zeros[S <: Sys[S]](ns: Int*)(implicit tx: S#Tx): Matrix[S]
 
-  def newConst1D[S <: Sys[S]](v: Vec[        Double  ])(implicit tx: S#Tx): Matrix[S]
-  def newConst2D[S <: Sys[S]](v: Vec[Vec[    Double ]])(implicit tx: S#Tx): Matrix[S]
-  def newConst3D[S <: Sys[S]](v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S]
+  def newConst1D[S <: Sys[S]](name: String, v: Vec[        Double  ])(implicit tx: S#Tx): Matrix[S]
+  def newConst2D[S <: Sys[S]](name: String, v: Vec[Vec[    Double ]])(implicit tx: S#Tx): Matrix[S]
+  def newConst3D[S <: Sys[S]](name: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S]
 
   // def newVar[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix[S]
 }

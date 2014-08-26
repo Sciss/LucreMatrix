@@ -41,7 +41,7 @@ object Demo extends SimpleSwingApplication {
 
     val view = system.step { implicit tx =>
       val m         = MatrixView[S]
-      val m0        = Matrix.Var[S](Matrix.newConst2D[S](Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
+      val m0        = Matrix.Var[S](Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
       m.matrix      = Some(m0)
       m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
       m

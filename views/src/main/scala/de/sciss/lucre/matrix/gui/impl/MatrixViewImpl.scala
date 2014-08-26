@@ -332,7 +332,7 @@ object MatrixViewImpl {
                 val lo  = rm.rangeLo
                 val hi  = rm.rangeHi
                 val txt = if (hi == lo) lo.toString else s"$lo to $hi"
-                viewSlice.component.tooltip = txt
+                viewSlice.component.tooltip = txt // s"<HTML><BODY>$txt<BR><I>Yo Chuck!</I></BODY>"
               }
             }
             rm.addChangeListener(cl)
