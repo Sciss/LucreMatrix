@@ -86,8 +86,6 @@ object Matrix {
       *             having at least a size of `off + len`.
       * @param off  the offset into each channel of `buf`
       * @param len  the number of frames to read
-      *
-      * see [[de.sciss.synth.io.AudioFile]]
       */
     def read(buf: Array[Array[Float]], off: Int, len: Int): Unit
   }
@@ -134,12 +132,12 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
 
   def dimensions(implicit tx: S#Tx): Vec[Matrix[S]]
 
-  def ranges(implicit tx: S#Tx): Vec[Range] // XXX TODO: this might get problematic with averaging reductions
+  // def ranges(implicit tx: S#Tx): Vec[Range] // -- this might get problematic with averaging reductions
 
   def reducedRank      (implicit tx: S#Tx): Int                   = shape.count (_ > 1)
   def reducedShape     (implicit tx: S#Tx): Vec[Int]              = shape.filter(_ > 1)
   // def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
-  def reducedRanges    (implicit tx: S#Tx): Vec[Range]            = reduce(ranges)
+  // def reducedRanges    (implicit tx: S#Tx): Vec[Range]            = reduce(ranges)
 
   def reducedDimensions(implicit tx: S#Tx): Vec[Matrix[S]]  = reduce(dimensions)
 

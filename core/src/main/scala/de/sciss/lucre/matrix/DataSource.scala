@@ -22,6 +22,12 @@ import de.sciss.lucre.stm.Mutable
 import scala.collection.breakOut
 
 object DataSource {
+  /** Creates a new data source from a given path that points to a NetCDF file. This
+    * will open the file and build a model of its variables.
+    *
+    * @param file       file reference pointing to a NetCDF file
+    * @param resolver   the resolver is used to actually open (a possibly cached) NetCDF file
+    */
   def apply[S <: Sys[S]](file: File)(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = Impl(file)
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =

@@ -68,6 +68,11 @@ object Reduce {
     object Slice {
       final val opID = 1
 
+      /** Creates a new slice operation.
+        *
+        * @param from the start index
+        * @param to   the end index (inclusive!)
+        */
       def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Slice[S] =
         Impl.applyOpSlice(from, to)
     }

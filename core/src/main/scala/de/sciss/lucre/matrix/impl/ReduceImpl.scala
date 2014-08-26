@@ -402,8 +402,20 @@ object ReduceImpl {
     def next(ma: ma2.IndexIterator): Float
   }
 
+  private object ByteIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getByteNext().toFloat
+  }
+
+  private object ShortIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getShortNext().toFloat
+  }
+
   private object IntIndexMap extends IndexMap {
     def next(ma: ma2.IndexIterator): Float = ma.getIntNext().toFloat
+  }
+
+  private object LongIndexMap extends IndexMap {
+    def next(ma: ma2.IndexIterator): Float = ma.getLongNext().toFloat
   }
 
   private object FloatIndexMap extends IndexMap {
@@ -432,10 +444,15 @@ object ReduceImpl {
     // NetcdfFile is not thread-safe
     private val sync = v.getParentGroup.getNetcdfFile
 
+    // `isNumeric` is guaranteed. The types are: BYTE, FLOAT, DOUBLE, INT, SHORT, LONG
+
     private val indexMap = v.getDataType match {
       case ma2.DataType.FLOAT   => FloatIndexMap
       case ma2.DataType.DOUBLE  => DoubleIndexMap
       case ma2.DataType.INT     => IntIndexMap
+      case ma2.DataType.LONG    => LongIndexMap
+      case ma2.DataType.BYTE    => ByteIndexMap
+      case ma2.DataType.SHORT   => ShortIndexMap
       case other                => throw new UnsupportedOperationException(s"Unsupported variable data type $other")
     }
 
