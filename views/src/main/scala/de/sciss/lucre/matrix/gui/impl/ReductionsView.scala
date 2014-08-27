@@ -94,4 +94,3 @@ trait ReductionsView[S <: Sys[S]] extends View[S] with Model[ReductionsView.Upda
 
   def insert(idx: Int, view: ReductionView[S])(implicit tx: S#Tx): Unit
 }
-

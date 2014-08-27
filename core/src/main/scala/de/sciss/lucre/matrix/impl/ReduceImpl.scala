@@ -672,6 +672,22 @@ object ReduceImpl {
       else sh.updated(idx, sz)
     }
 
+    override def ranges(implicit tx: S#Tx): Vec[Range] = {
+      val section = in.ranges
+      val idx     = indexOfDim
+      if (idx < 0) section else {
+        val s0 = section(idx)
+        @tailrec def loop(op1: Reduce.Op[S]): Range = op match {
+          case op2: OpNativeImpl[S] => op2.map(s0)
+          case op2: Op.Var[S] => loop(op2())
+          case _ =>
+            ??? // later
+        }
+        val s1 = loop(op)
+        section.updated(idx, s1)
+      }
+    }
+
     private def validateIndex(idx: Int)(implicit tx: S#Tx): Int =
       if (idx >= 0 && idx < in.rank) idx else -1
 

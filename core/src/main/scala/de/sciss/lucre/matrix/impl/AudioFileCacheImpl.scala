@@ -107,19 +107,6 @@ object AudioFileCacheImpl {
   private type CacheValue = AudioFileCache.Value
   private val  CacheValue = AudioFileCache.Value
 
-  //  // note: `S#Tx` is only needed for the `name` method. This is a constant in DataSource.Variable,
-  //  // so if necessary, we could remove `S#Tx` and add a `nameConst` method.
-  //  private def sectionToKey[S <: Sys[S]](source: DataSource.Variable[S], section: Vec[Range],
-  //                                        streamDim: Int)(implicit tx: S#Tx): CacheKey = {
-  //    // val v = section.variable
-  //    val f = file(source.source.path) // v.file.path
-  //
-  //    //    val sectClosed: Vec[Range] = section.ranges.map { r =>
-  //    //      Range.inclusive(r.first(), r.last(), r.stride())
-  //    //    }
-  //    CacheKey(f, source.parents, source.name, section /* sectClosed */, streamDim)
-  //  }
-
   private final class Impl(config: AudioFileCache.Config) extends AudioFileCache {
     /*
       The cache is organised as follows:

@@ -37,9 +37,12 @@ object ReductionView {
         val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
         val viewIdx   = IntRangeSliderView(rm, s"Index in ${dimVal.name}")
         viewIdx.value = Some(oi.index)
+        // DimensionIndex(red.dimensions)
         val view    = View.wrap[S] {
           val cl = new ChangeListener {
-            def stateChanged(e: ChangeEvent): Unit = viewIdx.component.tooltip = rm.value.toString
+            def stateChanged(e: ChangeEvent): Unit = {
+              viewIdx.component.tooltip = rm.value.toString
+            }
           }
           rm.addChangeListener(cl)
           cl.stateChanged(null)

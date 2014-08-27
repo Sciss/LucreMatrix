@@ -215,7 +215,8 @@ object DataSourceImpl {
 
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
 
-    def shape(implicit tx: S#Tx): Vec[Int] = dimConst.map(_.size.toInt)  // XXX TODO - check Int overflow
+    def shape (implicit tx: S#Tx): Vec[Int  ] = dimConst.map(        _.size.toInt)  // XXX TODO - check Int overflow
+    def ranges(implicit tx: S#Tx): Vec[Range] = dimConst.map(0 until _.size.toInt)
 
     def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = dimConst
 
@@ -232,7 +233,8 @@ object DataSourceImpl {
 
     protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
 
-    def shape(implicit tx: S#Tx): Vec[Int] = Vec(sizeConst)
+    def shape (implicit tx: S#Tx): Vec[Int  ] = Vec(        sizeConst)
+    def ranges(implicit tx: S#Tx): Vec[Range] = Vec(0 until sizeConst)
 
     override def rank(implicit tx: S#Tx) = 1
     override def size(implicit tx: S#Tx) = sizeConst.toLong

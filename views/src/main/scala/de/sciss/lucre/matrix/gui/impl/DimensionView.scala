@@ -19,7 +19,7 @@ package impl
 import de.sciss.desktop.UndoManager
 import de.sciss.lucre.swing.edit.EditVar
 import de.sciss.lucre.{expr, stm}
-import de.sciss.lucre.swing._
+import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.swingplus.PopupMenu
 
