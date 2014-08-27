@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -16,7 +16,6 @@ package de.sciss.lucre.matrix
 package gui
 package impl
 
-import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.model.impl.ModelImpl
 import de.sciss.lucre.swing.defer
@@ -46,7 +45,7 @@ object DimensionIndexImpl {
       }
       p.completeWith(fut1)
     }
-    val unitsFun = mkUnitsString(None)
+    val unitsFun = mkUnitsString(dim.units)
     val res = new Impl[S](arr, fut, unitsFun)
     fut.foreach(_ => defer(res.fireReady()))
     res
@@ -55,34 +54,31 @@ object DimensionIndexImpl {
   // def expr[S <: Sys[S]](dim: Matrix[S], index: Expr[S, Int])(fun: Int => Unit): DimensionIndex[S] = ...
 
   // XXX TODO - these could be configurable / extensible
-  private def mkUnitsString(unitsOpt: Option[String]): Double => String =
-    unitsOpt.fold((d: Double) => f"$d%1.2f") {
-      case "degrees_north"  => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0N" else f"${-d}%1.2f \u00B0S"
-      case "degrees_east"   => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0E" else f"${-d}%1.2f \u00B0W"
-      case "(0 - 1)"        => (d: Double) => f"${d * 100}%1.1f%%"
-      case "kg m-2 s-1"     => (d: Double) => f"$d%1.2f kg/(m\u00B2s)"
-      case "W m-2"          => (d: Double) => f"$d%1.2f W/m\u00B2"
-      case "m s-1"          => (d: Double) => f"$d%1.2f m/s"
-      case "Pa"             => (d: Double) => f"${d.toInt}%d Pa"
-      case units            =>
-        if (units.startsWith("days since")) {
-          val date = CalendarDateFormatter.isoStringToCalendarDate(null, units.substring(11))
-          (d: Double) => {
-            val dt = date.add(d, CalendarPeriod.Field.Day)
-            CalendarDateFormatter.toDateTimeString(dt)
-          }
+  private def mkUnitsString(units: String): Double => String = units match {
+    case ""               => (d: Double) => f"$d%1.2f"
+    case "degrees_north"  => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0N" else f"${-d}%1.2f \u00B0S"
+    case "degrees_east"   => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0E" else f"${-d}%1.2f \u00B0W"
+    case "(0 - 1)"        => (d: Double) => f"${d * 100}%1.1f%%"
+    case "kg m-2 s-1"     => (d: Double) => f"$d%1.2f kg/(m\u00B2s)"
+    case "W m-2"          => (d: Double) => f"$d%1.2f W/m\u00B2"
+    case "m s-1"          => (d: Double) => f"$d%1.2f m/s"
+    case "Pa"             => (d: Double) => f"${d.toInt}%d Pa"
+    case _ if units.startsWith("days since") =>
+      val date = CalendarDateFormatter.isoStringToCalendarDate(null, units.substring(11))
+      (d: Double) => {
+        val dt = date.add(d, CalendarPeriod.Field.Day)
+        CalendarDateFormatter.toDateTimeString(dt)
+      }
 
-        } else if (units.startsWith("hours since")) {
-          val date = CalendarDateFormatter.isoStringToCalendarDate(null, units.substring(12))
-          (d: Double) => {
-            val dt = date.add(d, CalendarPeriod.Field.Hour)
-            CalendarDateFormatter.toDateTimeString(dt)
-          }
+    case _ if units.startsWith("hours since") =>
+      val date = CalendarDateFormatter.isoStringToCalendarDate(null, units.substring(12))
+      (d: Double) => {
+        val dt = date.add(d, CalendarPeriod.Field.Hour)
+        CalendarDateFormatter.toDateTimeString(dt)
+      }
 
-        } else {
-          (d: Double) => f"$d%1.2f $units"
-        }
-    }
+    case _ => (d: Double) => f"$d%1.2f $units"
+  }
 
   private final class Impl[S <: Sys[S]](arr: Array[Float], fut: Future[Unit], unitsFun: Double => String)
     extends DimensionIndex[S] with ModelImpl[DimensionIndex.Update] with ComponentHolder[Component] {

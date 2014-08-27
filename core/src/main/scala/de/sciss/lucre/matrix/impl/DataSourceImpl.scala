@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -73,6 +73,8 @@ object DataSourceImpl {
     // val sourceRef = tx.newVar(id, source)
     val parents   = parentsLoop(net.getParentGroup, Nil)
     val name      = net.getShortName
+    val units0    = net.getUnitsString
+    val units     = if (units0 == null) "" else units0
 
     val dimArr    = net.getDimensions
     val rangeArr  = net.getRanges
@@ -83,18 +85,9 @@ object DataSourceImpl {
     // a 1D recursive variable indicates a pure dimension
     val res: Variable[S] = if (rank == 1 && dimArr.get(0).getShortName == name) {
       val size = dimArr.get(0).getLength
-      new DimensionImpl(targets, source, parents, name, size)
+      new DimensionImpl(targets, source, parents, name, units, size)
 
     } else {
-      //      val shapeInfo = Vec.tabulate(rank) { i =>
-      //        val dim     = dimArr  .get(i)
-      //        val rangeJ  = rangeArr.get(i)
-      //        val range   = Range.inclusive(rangeJ.first(), rangeJ.last(), rangeJ.stride())
-      //        val n0      = dim.getShortName
-      //        val dimName = if (n0 == null) "?" else n0
-      //        ShapeInfo(Dimension.Value(dimName, dim.getLength), range)
-      //      }
-
       // we assume that there are no recursive variable references... (we don't check for that condition)
       // -- if not, we could also use an S#Var in this case
       val dimensions: Vec[Matrix[S]] = Vec.tabulate(rank) { i =>
@@ -130,7 +123,7 @@ object DataSourceImpl {
         }
       }
 
-      new VariableImpl(targets, source, parents, name, dimensions)
+      new VariableImpl(targets, source, parents, name, units, dimensions)
     }
 
     matMap.put(name, res)
@@ -153,13 +146,14 @@ object DataSourceImpl {
     val source      = DataSource.read(in, access)
     val parents     = parentsSer.read(in)
     val name        = in.readUTF()
+    val units       = in.readUTF()
     val isLeaf      = in.readBoolean()
     if (isLeaf) {
       val size      = in.readInt()
-      new DimensionImpl(targets, source, parents, name, size)
+      new DimensionImpl(targets, source, parents, name, units, size)
     } else {
       val dimensions  = dimsSer[S].read(in, access)
-      new VariableImpl(targets, source, parents, name, dimensions)
+      new VariableImpl(targets, source, parents, name, units, dimensions)
     }
   }
   
@@ -210,7 +204,9 @@ object DataSourceImpl {
   private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val source: DataSource[S],
                                                 val parents: List[String],
-                                                protected val nameConst: String, dimConst: Vec[Matrix[S]])
+                                                protected val nameConst: String,
+                                                protected val unitsConst: String,
+                                                dimConst: Vec[Matrix[S]])
     extends VariableImplLike[S] {
 
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
@@ -228,7 +224,9 @@ object DataSourceImpl {
   private final class DimensionImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                  val source: DataSource[S],
                                                  val parents: List[String],
-                                                 protected val nameConst: String, sizeConst: Int)
+                                                 protected val nameConst: String,
+                                                 protected val unitsConst: String,
+                                                 sizeConst: Int)
     extends VariableImplLike[S] {
 
     protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
@@ -251,7 +249,8 @@ object DataSourceImpl {
 
     // ---- abstract ----
 
-    protected def nameConst: String
+    protected def nameConst : String
+    protected def unitsConst: String
 
     protected def isLeaf: Boolean
 
@@ -265,7 +264,8 @@ object DataSourceImpl {
 
     // ----
 
-    final def name(implicit tx: S#Tx): String = nameConst
+    final def name (implicit tx: S#Tx): String = nameConst
+    final def units(implicit tx: S#Tx): String = unitsConst
 
     final def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       // if (size > 256) throw new UnsupportedOperationException(s"debugFlatten is restricted to matrices with size <= 256")
@@ -283,6 +283,7 @@ object DataSourceImpl {
       source    .write(out)
       parentsSer.write(parents, out)
       out       .writeUTF(nameConst)
+      out       .writeUTF(unitsConst)
       out       .writeBoolean(isLeaf)
       writeDimensions(out)
     }

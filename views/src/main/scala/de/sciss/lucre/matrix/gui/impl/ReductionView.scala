@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -35,7 +35,20 @@ object ReductionView {
     val dims        = red.dimensions
     val dimIdx      = dims.indexWhere(_.name == dimVal.name)
     val dimIdxView  = DimensionIndex(dims(dimIdx))
-    val dimRange    = red.ranges.apply(dimIdx)    // XXX TODO - should be dynamic
+    // important: we need the range of the reduction's input!
+    val dimRange    = red.in.ranges.apply(dimIdx)    // XXX TODO - should be dynamic
+
+    // println(s"DIM NAME = ${dimVal.name}; SIZE = ${dimVal.size}; IDX = $dimIdx, RANGE = $dimRange")
+
+    def mkUnit(valIdx: Int): Option[String] =
+      if (valIdx < 0 || valIdx >= dimRange.size) None else {
+        val idxInDim = dimRange(valIdx)
+        dimIdxView.value(idxInDim).map { mag =>
+          dimIdxView.format(mag)
+        }
+      }
+
+    def mkHTML(up: String, down: String): String = s"<HTML><BODY>$up<BR><I>$down</I></BODY>"
 
     @tailrec def loopOp(op: Reduce.Op[S], vr: Option[Reduce.Op.Var[S]]):
     (ReduceOpEnum, View[S], Reduce.Op[S], Option[Reduce.Op.Var[S]]) = op match {
@@ -48,16 +61,9 @@ object ReductionView {
         val view    = View.wrap[S] {
           val cl = new ChangeListener {
             def stateChanged(e: ChangeEvent): Unit = {
-              val valIdx = rm.value
-              val tt = if (valIdx < 0 || valIdx >= dimRange.size) {
-                valIdx.toString
-              } else {
-                val idxInDim = dimRange(valIdx)
-                dimIdxView.value(idxInDim).fold(valIdx.toString) { mag =>
-                  val s = dimIdxView.format(mag)
-                  s"<HTML><BODY>$valIdx<BR><I>$s</I></BODY>"
-                }
-              }
+              val valIdx  = rm.value
+              val unitOpt = mkUnit(valIdx)
+              val tt = unitOpt.fold(valIdx.toString)(u => mkHTML(valIdx.toString, u))
               viewIdx.component.tooltip = tt
             }
           }
@@ -82,10 +88,18 @@ object ReductionView {
         val view      = View.wrap[S] {
           val cl = new ChangeListener {
             def stateChanged(e: ChangeEvent): Unit = {
-              val lo  = rm.rangeLo
-              val hi  = rm.rangeHi
-              val txt = if (hi == lo) lo.toString else s"$lo to $hi"
-              viewSlice.component.tooltip = txt // s"<HTML><BODY>$txt<BR><I>Yo Chuck!</I></BODY>"
+              val lo      = rm.rangeLo
+              val loUnit  = mkUnit(lo)
+              val hi      = rm.rangeHi
+              val hiUnit  = mkUnit(hi)
+              val up      = if (hi == lo) lo.toString else s"$lo to $hi"
+              val tt = loUnit.fold(up) { lu =>
+                hiUnit.fold(up) { hu =>
+                  val down = if (hi == lo) lu else s"$lu to $hu"
+                  mkHTML(up, down)
+                }
+              }
+              viewSlice.component.tooltip = tt
             }
           }
           rm.addChangeListener(cl)
@@ -107,11 +121,20 @@ object ReductionView {
         val view      = View.wrap[S] {
           val cl = new ChangeListener {
             def stateChanged(e: ChangeEvent): Unit = {
-              val lo   = rm.rangeLo
-              val hi   = rm.rangeHi
-              val txt0 = if (hi == lo) lo.toString else s"$lo to $hi"
-              val txt  = s"$txt0 by ${math.max(1, rm.value)}"
-              viewSlice.component.tooltip = txt
+              // XXX TODO - DRY
+              val lo      = rm.rangeLo
+              val loUnit  = mkUnit(lo)
+              val hi      = rm.rangeHi
+              val hiUnit  = mkUnit(hi)
+              val up0     = if (hi == lo) lo.toString else s"$lo to $hi"
+              val up      = s"$up0 by ${math.max(1, rm.value)}"
+              val tt = loUnit.fold(up) { lu =>
+                hiUnit.fold(up) { hu =>
+                  val down = if (hi == lo) lu else s"$lu to $hu"
+                  mkHTML(up, down)
+                }
+              }
+              viewSlice.component.tooltip = tt
             }
           }
           rm.addChangeListener(cl)

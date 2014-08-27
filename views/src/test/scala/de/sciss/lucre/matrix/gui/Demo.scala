@@ -86,7 +86,10 @@ object Demo extends SimpleSwingApplication {
   lazy val view = system.step { implicit tx =>
     import ExecutionContext.Implicits.global
     val m         = MatrixView[S]
-    val m0        = Matrix.Var[S](Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
+    val c         = Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6)))
+    // println(s"C: SHAPE = ${c.shape}, RANGES = ${c.ranges}")
+    val m0        = Matrix.Var[S](c)
+    // println(s"V: SHAPE = ${m0.shape}, RANGES = ${m0.ranges}")
     m.matrix      = Some(m0)
     m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
     m

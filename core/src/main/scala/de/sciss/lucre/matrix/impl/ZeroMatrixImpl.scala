@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -77,6 +77,8 @@ object ZeroMatrixImpl {
     //      new ReaderImpl(shapeConst, streamDim)
 
     protected def nameConst = s"zeros${shapeConst.mkString("[","][","]")}"
+
+    protected def unitsConst = ""
 
     protected def opID: Int = ZeroMatrixImpl.opID
 

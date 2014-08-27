@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -22,13 +22,13 @@ object Implicits {
 
     def zeros[S <: Sys[S]](ns: Int*)(implicit tx: S#Tx): Matrix[S] = Impl.zeros(ns: _*)
 
-    def newConst1D[S <: Sys[S]](name: String, v: Vec[        Double  ])(implicit tx: S#Tx): Matrix[S] =
+    def newConst1D[S <: Sys[S]](name: String, v: Vec[        Double  ], units: String)(implicit tx: S#Tx): Matrix[S] =
       Impl.newConst1D(name, v)
 
-    def newConst2D[S <: Sys[S]](name: String, v: Vec[Vec[    Double ]])(implicit tx: S#Tx): Matrix[S] =
+    def newConst2D[S <: Sys[S]](name: String, v: Vec[Vec[    Double ]], units: String)(implicit tx: S#Tx): Matrix[S] =
       Impl.newConst2D(name, v)
 
-    def newConst3D[S <: Sys[S]](name: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] =
+    def newConst3D[S <: Sys[S]](name: String, v: Vec[Vec[Vec[Double]]], units: String)(implicit tx: S#Tx): Matrix[S] =
       Impl.newConst3D(name, v)
   }
 

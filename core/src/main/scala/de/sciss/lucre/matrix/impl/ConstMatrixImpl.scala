@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -23,22 +23,22 @@ import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 object ConstMatrixImpl {
   final val opID = 1
 
-  def apply1D[S <: Sys[S]](name: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
+  def apply1D[S <: Sys[S]](name: String, units: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
-    val data  = new Data(name, shape, v)
+    val data  = new Data(name, units, shape, v)
     new Impl[S](data)
   }
 
-  def apply2D[S <: Sys[S]](name: String, v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
+  def apply2D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
     val sz1   = v.headOption.fold(0)(_.size)
     val shape = Vec(v.size, sz1)
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
-    val data  = new Data(name, shape, flat)
+    val data  = new Data(name, units, shape, flat)
     new Impl[S](data)
   }
 
-  def apply3D[S <: Sys[S]](name: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
+  def apply3D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
     val h1    = v.headOption
     val sz1   = h1.fold(0)(_.size)
     val sz2   = h1.flatMap(_.headOption).fold(0)(_.size)
@@ -47,7 +47,7 @@ object ConstMatrixImpl {
       d1.size == sz1 && d1.forall(_.size == sz2)
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
-    val data  = new Data(name, shape, flat)
+    val data  = new Data(name, units, shape, flat)
     new Impl[S](data)
   }
 
@@ -88,7 +88,7 @@ object ConstMatrixImpl {
 
   private final class ReaderImpl(key: KeyImpl) extends Matrix.Reader {
     import key.streamDim
-    import key.data._
+    import key.data.{shape => shapeConst, _}
 
     private val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
 
@@ -150,16 +150,18 @@ object ConstMatrixImpl {
 
   private def readData(in: DataInput): Data = {
     val name        = in.readUTF()
+    val units       = in.readUTF()
     val shapeConst  = intVecSer   .read(in)
     val flatData    = doubleVecSer.read(in)
-    new Data(name, shapeConst, flatData)
+    new Data(name, units, shapeConst, flatData)
   }
 
-  private final case class Data(name: String, shapeConst: Vec[Int], flatData: Vec[Double]) {
+  private final case class Data(name: String, units: String, shape: Vec[Int], flatData: Vec[Double]) {
     def write(out: DataOutput): Unit = {
       out.writeUTF(name)
-      intVecSer   .write(shapeConst, out)
-      doubleVecSer.write(flatData  , out)
+      out.writeUTF(units)
+      intVecSer   .write(shape   , out)
+      doubleVecSer.write(flatData, out)
     }
   }
 
@@ -168,9 +170,9 @@ object ConstMatrixImpl {
 
     import data.flatData
 
-    protected def shapeConst = data.shapeConst
-
-    protected def nameConst = data.name
+    protected def shapeConst = data.shape
+    protected def nameConst  = data.name
+    protected def unitsConst = data.units
 
     override def toString = s"$nameConst${shapeConst.mkString("[","][","]")}"
 

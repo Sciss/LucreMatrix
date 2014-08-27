@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014 Institute of Electronic Music and Acoustics, Graz.
- *  Written by Hanns Holger Rutz.
+ *  Copyright (c) 2014 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -53,6 +53,10 @@ trait ConstImpl[S <: Sys[S]] extends Matrix[S] {
   protected def nameConst: String
 
   final def name(implicit tx: S#Tx): String = nameConst
+
+  protected def unitsConst: String
+
+  final def units(implicit tx: S#Tx): String = unitsConst
 
   final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 }
