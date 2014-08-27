@@ -24,11 +24,19 @@ import de.sciss.lucre.stm
 import de.sciss.lucre.swing.{IntRangeSliderView, View}
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
 import scala.swing.{Label, Orientation, BoxPanel}
 
 object ReductionView {
   def apply[S <: Sys[S]](dimVal: Dimension.Value, /* editable: Option[Matrix.Var[S]], */ red: Reduce[S])
-                        (implicit tx: S#Tx, cursor: stm.Cursor[S], undo: UndoManager): ReductionView[S] = {
+                        (implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
+                         exec: ExecutionContext,
+                         undo: UndoManager): ReductionView[S] = {
+    val dims        = red.dimensions
+    val dimIdx      = dims.indexWhere(_.name == dimVal.name)
+    val dimIdxView  = DimensionIndex(dims(dimIdx))
+    val dimRange    = red.ranges.apply(dimIdx)    // XXX TODO - should be dynamic
+
     @tailrec def loopOp(op: Reduce.Op[S], vr: Option[Reduce.Op.Var[S]]):
     (ReduceOpEnum, View[S], Reduce.Op[S], Option[Reduce.Op.Var[S]]) = op match {
 
@@ -37,11 +45,20 @@ object ReductionView {
         val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
         val viewIdx   = IntRangeSliderView(rm, s"Index in ${dimVal.name}")
         viewIdx.value = Some(oi.index)
-        // DimensionIndex(red.dimensions)
         val view    = View.wrap[S] {
           val cl = new ChangeListener {
             def stateChanged(e: ChangeEvent): Unit = {
-              viewIdx.component.tooltip = rm.value.toString
+              val valIdx = rm.value
+              val tt = if (valIdx < 0 || valIdx >= dimRange.size) {
+                valIdx.toString
+              } else {
+                val idxInDim = dimRange(valIdx)
+                dimIdxView.value(idxInDim).fold(valIdx.toString) { mag =>
+                  val s = dimIdxView.format(mag)
+                  s"<HTML><BODY>$valIdx<BR><I>$s</I></BODY>"
+                }
+              }
+              viewIdx.component.tooltip = tt
             }
           }
           rm.addChangeListener(cl)

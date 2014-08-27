@@ -118,6 +118,9 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
     */
   def name(implicit tx: S#Tx): String
 
+  //  /** The units of the matrix cells, or an empty string to indicate that no units are specified. */
+  //  def units(implicit tx: S#Tx): String
+
   /** The rank is the number of dimensions. */
   def rank(implicit tx: S#Tx): Int    = shape.size
 

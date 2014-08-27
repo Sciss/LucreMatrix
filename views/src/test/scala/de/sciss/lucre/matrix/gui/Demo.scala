@@ -7,6 +7,7 @@ import java.awt.event.KeyEvent
 import de.sciss.file._
 import ucar.nc2.NetcdfFile
 
+import scala.concurrent.ExecutionContext
 import scala.swing.{Action, CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
 import de.sciss.lucre.event.InMemory
 import Implicits._
@@ -24,6 +25,8 @@ object Demo extends SimpleSwingApplication {
   implicit val undo       = new UndoManagerImpl {
     protected var dirty: Boolean = false
   }
+
+  implicit val resolver = DataSource.Resolver.empty[S]
 
   override def main(args: Array[String]): Unit = {
     //    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
@@ -45,7 +48,7 @@ object Demo extends SimpleSwingApplication {
     if (dlg.getFile != null) {
       val f   = new File(dlg.getDirectory, dlg.getFile)
       val net = NetcdfFile.open(f.path).setImmutable()
-      implicit val resolver = DataSource.Resolver.seq[S](net)
+      resolver += net
       val (dsH, names)  = system.step { implicit tx =>
         val ds  = DataSource(f)
         val vs  = ds.variables
@@ -81,6 +84,7 @@ object Demo extends SimpleSwingApplication {
   }
 
   lazy val view = system.step { implicit tx =>
+    import ExecutionContext.Implicits.global
     val m         = MatrixView[S]
     val m0        = Matrix.Var[S](Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6))))
     m.matrix      = Some(m0)

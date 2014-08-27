@@ -19,7 +19,6 @@ import java.io.File
 import impl.{DataSourceImpl => Impl}
 import de.sciss.serial.{DataInput, Writable, Serializer}
 import de.sciss.lucre.stm.Mutable
-import scala.collection.breakOut
 
 object DataSource {
   /** Creates a new data source from a given path that points to a NetCDF file. This
@@ -62,11 +61,20 @@ object DataSource {
   }
 
   object Resolver {
-    def seq[S <: Sys[S]](files: nc2.NetcdfFile*): Resolver[S] = new Seq(files.map(net => (net.getLocation, net))(breakOut))
+    def seq[S <: Sys[S]](files: nc2.NetcdfFile*): Seq[S] = {
+      val res = empty[S]
+      files.foreach(res += _)
+      res
+    }
 
-    def empty[S <: Sys[S]]: Resolver[S] = new Seq(Map.empty)
+    def empty[S <: Sys[S]]: Seq[S] = new Seq()
 
-    private final class Seq[S <: Sys[S]](map: Map[String, nc2.NetcdfFile]) extends Resolver[S] {
+    final class Seq[S <: Sys[S]] private[Resolver]() extends Resolver[S] {
+      private val sync = new AnyRef
+      private var map  = Map.empty[String, nc2.NetcdfFile]
+
+      def += (file: nc2.NetcdfFile): Unit = sync.synchronized(map += file.getLocation -> file)
+
       def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile = {
         val p = file.getPath
         map.getOrElse(file.getPath, throw new NoSuchElementException(p))

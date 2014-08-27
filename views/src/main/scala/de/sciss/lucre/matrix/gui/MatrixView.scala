@@ -15,6 +15,7 @@
 package de.sciss.lucre.matrix
 package gui
 
+import scala.concurrent.ExecutionContext
 import scala.swing.Component
 import de.sciss.lucre.stm
 import de.sciss.lucre.swing.View
@@ -23,7 +24,8 @@ import de.sciss.desktop.UndoManager
 import de.sciss.model.Model
 
 object MatrixView {
-  def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): MatrixView[S] = Impl[S]
+  def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
+                         exec: ExecutionContext, undoManager: UndoManager): MatrixView[S] = Impl[S]
 
   sealed trait Update
   case object Resized extends Update
