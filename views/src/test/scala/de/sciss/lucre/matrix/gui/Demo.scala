@@ -7,7 +7,7 @@ import java.awt.event.KeyEvent
 import de.sciss.file._
 import ucar.nc2.NetcdfFile
 
-import scala.swing.{Dialog, Action, CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
+import scala.swing.{Action, CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
 import de.sciss.lucre.event.InMemory
 import Implicits._
 import de.sciss.desktop.impl.UndoManagerImpl
@@ -15,6 +15,7 @@ import javax.swing.{KeyStroke, UIManager}
 import de.sciss.lucre.swing.View
 import scala.util.control.NonFatal
 import de.sciss.lucre.swing.deferTx
+import de.sciss.desktop
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
@@ -51,15 +52,29 @@ object Demo extends SimpleSwingApplication {
         (tx.newHandle(ds), vs.map(_.name))
       }
       val nameOpt = if (names.isEmpty) None else if (names.size == 1) names.headOption else {
-        // XXX TODO : the following line is wrong. Better call Desktop
-        val res = Dialog.showOptions(message = "Select Variable", entries = names, initial = 0)
-        if (res.id < 0) None else Some(names(res.id))
+        val opt = desktop.OptionPane.comboInput(message = "Select Variable", options = names, initial = names.head)
+        opt.show()
+        // the following line is wrong. Better call Desktop
+        //        val res = Dialog.showOptions(message = "Select Variable", entries = names, initial = 0)
+        //        if (res.id < 0) None else Some(names(res.id))
       }
       nameOpt.foreach { name =>
         system.step { implicit tx =>
           val ds = dsH()
-          view.matrix = ds.variables.find(_.name == name)
-          deferTx(top.pack())
+          val dimOpt = ds.variables.find(_.name == name)
+          dimOpt.fold {
+            view.matrix = None
+          } { dim =>
+            view.matrix match {
+              case Some(Matrix.Var(vr)) => vr() = dim
+              case _ => view.matrix = Some(dim)
+            }
+          }
+          deferTx {
+            top.pack()
+            // view.component.revalidate()
+            // view.component.repaint()
+          }
         }
       }
     }
