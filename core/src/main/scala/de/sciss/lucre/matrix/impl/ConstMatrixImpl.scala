@@ -17,7 +17,7 @@ package matrix
 package impl
 
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.matrix.Matrix.Reader
+import de.sciss.lucre.matrix.Matrix.{Key, Reader}
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 
 object ConstMatrixImpl {

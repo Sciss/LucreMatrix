@@ -19,7 +19,7 @@ import de.sciss.lucre.{event => evt}
 import evt.EventLike
 import de.sciss.serial.DataOutput
 
-trait ConstImpl[S <: Sys[S]] extends Matrix[S] {
+trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] {
   // ---- abstract ----
 
   protected def opID: Int

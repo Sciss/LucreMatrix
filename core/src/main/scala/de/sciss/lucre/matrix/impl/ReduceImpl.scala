@@ -336,20 +336,18 @@ object ReduceImpl {
     }
   }
 
-  private def mkReduceReaderFactory[S <: Sys[S]](r: Reduce[S], streamDim: Int)
-                                                (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): Matrix.Key = {
-    val idx   = r.indexOfDim
-    val rInF  = r.in.getKey(streamDim) // mkReaderFactory(r.in, streamDim)
-
+  private def mkReduceReaderFactory[S <: Sys[S]](op0: Reduce.Op[S], inKey: Matrix.Key, inShape: Vec[Int],
+                                                 dimIdx: Int, streamDim: Int)
+                                                (implicit tx: S#Tx): Matrix.Key = {
     @tailrec def loop(op: Reduce.Op[S]): Matrix.Key = op match {
       case op: OpNativeImpl[S] =>
-        rInF match {
+        inKey match {
           case t: ReaderFactory.HasSection =>
-            if (idx >= 0) t.section = t.section.updated(idx, op.map(t.section(idx)))
+            if (dimIdx >= 0) t.section = t.section.updated(dimIdx, op.map(t.section(dimIdx)))
             t
           case t /* t: ReaderFactory.Opaque */ =>
-            var section = mkAllRange(r.in.shape)
-            if (idx >= 0) section = section.updated(idx, op.map(section(idx)))
+            var section = mkAllRange(inShape)
+            if (dimIdx >= 0) section = section.updated(dimIdx, op.map(section(dimIdx)))
             new ReaderFactory.Cloudy(t /*.source */, streamDim, section)
         }
 
@@ -361,26 +359,10 @@ object ReduceImpl {
         ??? // later
     }
 
-    loop(r.op)
+    loop(op0)
   }
 
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
-
-  //  @tailrec private def mkReaderFactory[S <: Sys[S]](m: Matrix[S], streamDim: Int)
-  //                                                   (implicit tx: S#Tx /* , resolver: DataSource.Resolver[S] */): Matrix.Key =
-  //    m match {
-  //      case Matrix.Var(in1) =>
-  //        mkReaderFactory(in1, streamDim)
-  //      case dv: DataSource.Variable[S] =>
-  //        val f     = dv.source.file
-  //        val name  = dv.name
-  //        new ReaderFactory.Transparent(file = f, name = name, streamDim = streamDim, section = mkAllRange(dv.shape))
-  //      case r: Reduce[S] => mkReduceReaderFactory(r, streamDim)
-  //      case _ => // "opaque"
-  //        val source = m.getKey(streamDim)
-  //        // new ReaderFactory.Opaque(source) // m.reader(streamDim))
-  //        source
-  //    }
 
   // Note: will throw exception if range is empty or going backwards
   private def toUcarRange(in: Range): ma2.Range = {
@@ -576,17 +558,6 @@ object ReduceImpl {
     protected def writeFactoryData(out: DataOutput): Unit
   }
 
-  //  private final class KeyImpl[S](reduce: Reduce[S], val streamDim: Int) extends impl.KeyImpl[S] {
-  //    protected def opID: Int = Reduce.opID
-  //
-  //    def reader()(implicit resolver: Resolver[S]): Reader = {
-  //      val rf = mkReduceReaderFactory(reduce, streamDim)
-  //      rf.make()
-  //    }
-  //
-  //    protected def writeData(out: DataOutput): Unit = ...
-  //  }
-
   private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S], val in: Matrix[S],
                                         val dim: Selection[S], val op: Op[S])
     extends Reduce[S]
@@ -597,14 +568,26 @@ object ReduceImpl {
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 
-    //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
-    //      val rf = mkReduceReaderFactory(this, streamDim)
-    //      rf.make()
-    //    }
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = {
+      // mkReduceReaderFactory(this, streamDim)
+      mkReduceReaderFactory(op, inKey = in.getKey(streamDim), inShape = in.shape, dimIdx = indexOfDim, streamDim = streamDim)
+    }
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = mkReduceReaderFactory(this, streamDim)
+    def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key = {
+      val redIdx  = indexOfDim
+      val inKey   = in.getDimensionKey(index)
+      if (redIdx != index) {  // if the reference is to a dimension other than the reduced, simply fall back
+        inKey
+      } else {
+        // re-use mkReduceReaderFactory with the 1-dimensional matrix
+        // ; therefore, dimIdx and streamDim become zero,
+        //   and the input shape becomes 1-D
+        val inShape = Vec(in.shape.apply(index))
+        mkReduceReaderFactory(op, inKey = inKey, inShape = inShape, dimIdx = 0, streamDim = 0)
+      }
+    }
 
-    override def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       implicit val resolver = DataSource.Resolver.empty[S]
       val r   = reader(-1)
       val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
@@ -661,7 +644,7 @@ object ReduceImpl {
       b.result()
     }
 
-    override def shape(implicit tx: S#Tx): Vec[Int] = {
+    def shape(implicit tx: S#Tx): Vec[Int] = {
       val sh        = in.shape
       val idx       = indexOfDim
       if (idx == -1) return sh
@@ -672,7 +655,7 @@ object ReduceImpl {
       else sh.updated(idx, sz)
     }
 
-    override def ranges(implicit tx: S#Tx): Vec[Range] = {
+    def ranges(implicit tx: S#Tx): Vec[Range] = {
       val section = in.ranges
       val idx     = indexOfDim
       if (idx < 0) section else {

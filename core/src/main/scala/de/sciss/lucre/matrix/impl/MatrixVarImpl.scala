@@ -59,6 +59,13 @@ object MatrixVarImpl {
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getKey(streamDim)
 
+    def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getDimensionKey(index)
+
+    def debugFlatten(implicit tx: S#Tx): Vec[Double]  = matrixPeer.debugFlatten
+
+    def shape     (implicit tx: S#Tx): Vec[Int]       = matrixPeer.shape
+    def ranges    (implicit tx: S#Tx): Vec[Range]     = matrixPeer.ranges
+
     // ---- event ----
 
     protected def mapUpdate(in: Matrix.Update[S]): Matrix.Var.Update[S] =

@@ -245,7 +245,7 @@ object DataSourceImpl {
   }
 
   private abstract class VariableImplLike[S <: Sys[S]]
-    extends Variable[S] with evt.Node[S] {
+    extends MatrixRoot[S] with Variable[S] with evt.Node[S] {
 
     // ---- abstract ----
 

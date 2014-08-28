@@ -127,15 +127,37 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   /** The size is the number of matrix cells, that is the product of the shape. */
   def size(implicit tx: S#Tx): Long   = (1L /: shape)(_ * _)
 
-  /** The shape is the vector of dimensional sizes. */
+  /** The shape is the vector of dimensional sizes. This is equivalent
+    * to `ranges.map(_.size)`. Note that the `dimensions` themselves
+    * may be larger.
+    */
   def shape(implicit tx: S#Tx): Vec[Int]
 
-  //  /** A collection of dimensional information, reduced to their names and sizes. */
-  //  def dimensions(implicit tx: S#Tx): Vec[Dimension.Value]
-
+  /** The sequence of underlying dimension matrices. The part of each dimension
+    * covered by this matrix is reflected by the corresponding entry in `ranges`!
+    *
+    * In other words, the reductions and transformations associated with the
+    * current (and possibly any number of preceding) matrices are not reflected
+    * in the returned objects! To read the dimensional values with respect to
+    * the actual matrix coordinates, the `getDimensionKey` method can be used.
+    */
   def dimensions(implicit tx: S#Tx): Vec[Matrix[S]]
 
-  def ranges(implicit tx: S#Tx): Vec[Range] // -- this might get problematic with averaging reductions
+  /** Produces a matrix key for the dimension of a given index. Since a
+    * dimension is 1-dimensional, the key will have a streaming-index of
+    * zero, therefore resulting in a 1-channel reader with `shape(index)` frames.
+    *
+    * @param index  the index of the dimension, from zero until `rank`
+    */
+  def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key
+
+  /** The ranges specify the regions inside the underlying dimension matrices
+    * covered by this matrix. For example if a 4 x 5 matrix is reduced in its
+    * first dimension using a slice 1 to 2 operator, then the _dimension_
+    * will have a size of four, but the first range will be 1 to 2 (and thus
+    * size 2).
+    */
+  def ranges(implicit tx: S#Tx): Vec[Range]
 
   def reducedRank      (implicit tx: S#Tx): Int                   = shape.count (_ > 1)
   def reducedShape     (implicit tx: S#Tx): Vec[Int]              = shape.filter(_ > 1)

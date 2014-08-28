@@ -22,12 +22,13 @@ trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
 
   import m.{matrixPeer => peer}
 
-  def debugFlatten(implicit tx: S#Tx): Vec[Double]  = peer.debugFlatten
+  //  def debugFlatten(implicit tx: S#Tx): Vec[Double]  = peer.debugFlatten
+  //
+  //  def shape     (implicit tx: S#Tx): Vec[Int]       = peer.shape
+  //  def ranges    (implicit tx: S#Tx): Vec[Range]     = peer.ranges
 
-  def shape     (implicit tx: S#Tx): Vec[Int]       = peer.shape
-  def ranges    (implicit tx: S#Tx): Vec[Range]     = peer.ranges
-  def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = peer.dimensions
+  final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = peer.dimensions
 
-  def name (implicit tx: S#Tx): String = peer.name
-  def units(implicit tx: S#Tx): String = peer.units
+  final def name (implicit tx: S#Tx): String = peer.name
+  final def units(implicit tx: S#Tx): String = peer.units
 }
