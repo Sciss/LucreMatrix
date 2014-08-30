@@ -573,17 +573,18 @@ object ReduceImpl {
       mkReduceReaderFactory(op, inKey = in.getKey(streamDim), inShape = in.shape, dimIdx = indexOfDim, streamDim = streamDim)
     }
 
-    def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key = {
+    def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key = {
       val redIdx  = indexOfDim
-      val inKey   = in.getDimensionKey(index)
+      val inKey   = in.getDimensionKey(index = index, useChannels = useChannels)
       if (redIdx != index) {  // if the reference is to a dimension other than the reduced, simply fall back
         inKey
       } else {
         // re-use mkReduceReaderFactory with the 1-dimensional matrix
         // ; therefore, dimIdx and streamDim become zero,
         //   and the input shape becomes 1-D
-        val inShape = Vec(in.shape.apply(index))
-        mkReduceReaderFactory(op, inKey = inKey, inShape = inShape, dimIdx = 0, streamDim = 0)
+        val inShape   = Vec(in.shape.apply(index))
+        val streamDim = if (useChannels) -1 else 0
+        mkReduceReaderFactory(op, inKey = inKey, inShape = inShape, dimIdx = 0, streamDim = streamDim)
       }
     }
 

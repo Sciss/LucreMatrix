@@ -59,7 +59,8 @@ object MatrixVarImpl {
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getKey(streamDim)
 
-    def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getDimensionKey(index)
+    def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key =
+      matrixPeer.getDimensionKey(index = index, useChannels = useChannels)
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double]  = matrixPeer.debugFlatten
 

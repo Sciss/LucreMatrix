@@ -148,12 +148,17 @@ trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[
   def dimensions(implicit tx: S#Tx): Vec[Matrix[S]]
 
   /** Produces a matrix key for the dimension of a given index. Since a
-    * dimension is 1-dimensional, the key will have a streaming-index of
-    * zero, therefore resulting in a 1-channel reader with `shape(index)` frames.
+    * dimension is 1-dimensional, the key will either have a streaming-index of
+    * zero (when `useChannels` is `false`), resulting in a 1-channel reader
+    * with `shape(index)` frames; or it will have a streaming-index of `-1`
+    * (when `useChannels` is `true`), resulting in an n-channel reader with
+    * one frame, where `n == shape(index)`.
     *
-    * @param index  the index of the dimension, from zero until `rank`
+    * @param index        the index of the dimension, from zero until `rank`
+    * @param useChannels  if `true` produces multi-channel file of one frame,
+    *                     if `false` produces monophonic file of several frames.
     */
-  def getDimensionKey(index: Int)(implicit tx: S#Tx): Matrix.Key
+  def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key
 
   /** The ranges specify the regions inside the underlying dimension matrices
     * covered by this matrix. For example if a 4 x 5 matrix is reduced in its
