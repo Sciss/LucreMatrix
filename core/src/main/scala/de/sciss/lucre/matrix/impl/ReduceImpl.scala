@@ -498,7 +498,7 @@ object ReduceImpl {
       var section: Vec[Range]
     }
 
-    final class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
+    final class Transparent(file: File, name: String, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
       protected def tpeID: Int = TransparentType

@@ -58,7 +58,7 @@ object ZeroMatrixImpl {
     new KeyImpl(shapeConst, streamDim)
   }
 
-  private final class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
+  private final class KeyImpl(shapeConst: Vec[Int], val streamDim: Int) extends impl.KeyImpl {
     protected def opID: Int = ZeroMatrixImpl.opID
 
     protected def writeData(out: DataOutput): Unit = {

@@ -98,6 +98,10 @@ object Matrix {
     implicit def serializer: ImmutableSerializer[Key] = impl.KeyImpl.serializer
   }
   trait Key extends Writable {
+    def streamDim: Int
+
+    def isStreaming: Boolean = streamDim >= 0
+
     /** Creates a reader instance that can the be used to retrieve the actual matrix data.
       *
       * @param resolver   the resolver is used for matrices backed up by NetCDF files.
