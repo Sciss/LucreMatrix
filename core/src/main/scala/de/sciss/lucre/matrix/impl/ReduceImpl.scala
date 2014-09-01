@@ -501,6 +501,9 @@ object ReduceImpl {
     final class Transparent(file: File, name: String, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
+      override def toString =
+        s"Reduce.Key.Transparent(${file.base}, $name, streamDim = $streamDim, section = ${section.mkString("[","][","]")})"
+
       protected def tpeID: Int = TransparentType
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {

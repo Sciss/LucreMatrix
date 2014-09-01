@@ -36,7 +36,7 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   // retrieveManaged    := true,
-  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture"),
+  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
   // ---- publishing ----
   publishMavenStyle := true,
   // maven repository for NetCDF library

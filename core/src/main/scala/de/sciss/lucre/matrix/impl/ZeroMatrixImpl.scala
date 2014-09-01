@@ -61,6 +61,8 @@ object ZeroMatrixImpl {
   private final class KeyImpl(shapeConst: Vec[Int], val streamDim: Int) extends impl.KeyImpl {
     protected def opID: Int = ZeroMatrixImpl.opID
 
+    override def toString = s"ZeroMatrix.Key(shape = ${shapeConst.mkString("[","][","]")}, streamDim = $streamDim)"
+
     protected def writeData(out: DataOutput): Unit = {
       out.writeShort(streamDim)
       intVecSer.write(shapeConst, out)

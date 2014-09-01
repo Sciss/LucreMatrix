@@ -138,6 +138,10 @@ object ConstMatrixImpl {
   private final case class KeyImpl(data: Data, streamDim: Int)
     extends impl.KeyImpl {
 
+    override def productPrefix = "ConstMatrix.Key"
+
+    override def toString = s"$productPrefix($data, streamDim = $streamDim)"
+
     def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = new ReaderImpl(this)
 
     protected def opID: Int = ConstMatrixImpl.opID
@@ -163,6 +167,9 @@ object ConstMatrixImpl {
       intVecSer   .write(shape   , out)
       doubleVecSer.write(flatData, out)
     }
+
+    override def toString =
+      s"$productPrefix@${hashCode().toHexString}($name, $units, shape = ${shape.mkString("[","][","]")})"
   }
 
   private final class Impl[S <: Sys[S]](data: Data)
