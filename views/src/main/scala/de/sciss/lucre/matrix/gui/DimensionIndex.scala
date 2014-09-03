@@ -20,6 +20,7 @@ import de.sciss.model.Model
 import impl.{DimensionIndexImpl => Impl}
 
 import scala.concurrent.ExecutionContext
+import scala.util.Try
 
 object DimensionIndex {
   sealed trait Update
@@ -35,4 +36,11 @@ trait DimensionIndex[S <: Sys[S]] extends Disposable[S#Tx] with Model[DimensionI
   def size: Int
   def value(index: Int): Option[Double]
   def format(value: Double): String
+
+  /** Tries to format the value at the given `index`. If the value is available,
+    * returns the unit-formatted representation. If the value is pending, returns
+    * `None`. If the values cannot be read due to an IO error, returns
+    * the exception message.
+    */
+  def tryFormat(index: Int): Option[Try[String]]
 }

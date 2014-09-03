@@ -16,6 +16,7 @@ package de.sciss.lucre.matrix
 package gui
 package impl
 
+import java.io.FileNotFoundException
 import javax.swing.event.{ChangeEvent, ChangeListener}
 
 import de.sciss.audiowidgets.DualRangeModel
@@ -26,6 +27,7 @@ import de.sciss.lucre.swing.{IntRangeSliderView, View}
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 import scala.swing.{Label, Orientation, BoxPanel}
+import scala.util.{Failure, Success, Try}
 
 object ReductionView {
   def apply[S <: Sys[S]](dimVal: Dimension.Value, /* editable: Option[Matrix.Var[S]], */ red: Reduce[S])
@@ -40,11 +42,32 @@ object ReductionView {
 
     // println(s"DIM NAME = ${dimVal.name}; SIZE = ${dimVal.size}; IDX = $dimIdx, RANGE = $dimRange")
 
-    def mkUnit(valIdx: Int): Option[String] =
+    def mkUnit(valIdx: Int): Option[Try[String]] =
       if (valIdx < 0 || valIdx >= dimRange.size) None else {
         val idxInDim = dimRange(valIdx)
-        dimIdxView.value(idxInDim).map { mag =>
-          dimIdxView.format(mag)
+        dimIdxView.tryFormat(idxInDim)
+        //        dimIdxView.value(idxInDim).map { mag =>
+        //          dimIdxView.format(mag)
+        //        }
+      }
+
+    def mkUnit1(t: Try[String]): String = t match {
+      case Success(x) => x
+      case Failure(_: FileNotFoundException) => "&lt;offline&gt;" // HTML entities!
+      case Failure(e) => e.getClass.getSimpleName
+    }
+
+    def mkTT(up: String, loUnit: Option[Try[String]], hiUnit: Option[Try[String]], lo: Int, hi: Int): String =
+      loUnit.fold(up) { lu =>
+        hiUnit.fold(up) { hu =>
+          val down = if (hi == lo || lu.isFailure)
+            mkUnit1(lu)
+          else if (hu.isFailure)
+            mkUnit1(hu)
+          else
+            s"${mkUnit1(lu)} to ${mkUnit1(hu)}"
+
+          mkHTML(up, down)
         }
       }
 
@@ -63,7 +86,7 @@ object ReductionView {
             def stateChanged(e: ChangeEvent): Unit = {
               val valIdx  = rm.value
               val unitOpt = mkUnit(valIdx)
-              val tt = unitOpt.fold(valIdx.toString)(u => mkHTML(valIdx.toString, u))
+              val tt = unitOpt.fold(valIdx.toString)(u => mkHTML(valIdx.toString, mkUnit1(u)))
               viewIdx.component.tooltip = tt
             }
           }
@@ -93,12 +116,7 @@ object ReductionView {
               val hi      = rm.rangeHi
               val hiUnit  = mkUnit(hi)
               val up      = if (hi == lo) lo.toString else s"$lo to $hi"
-              val tt = loUnit.fold(up) { lu =>
-                hiUnit.fold(up) { hu =>
-                  val down = if (hi == lo) lu else s"$lu to $hu"
-                  mkHTML(up, down)
-                }
-              }
+              val tt      = mkTT(up, loUnit, hiUnit, lo, hi)
               viewSlice.component.tooltip = tt
             }
           }
@@ -128,12 +146,7 @@ object ReductionView {
               val hiUnit  = mkUnit(hi)
               val up0     = if (hi == lo) lo.toString else s"$lo to $hi"
               val up      = s"$up0 by ${math.max(1, rm.value)}"
-              val tt = loUnit.fold(up) { lu =>
-                hiUnit.fold(up) { hu =>
-                  val down = if (hi == lo) lu else s"$lu to $hu"
-                  mkHTML(up, down)
-                }
-              }
+              val tt      = mkTT(up, loUnit, hiUnit, lo, hi)
               viewSlice.component.tooltip = tt
             }
           }

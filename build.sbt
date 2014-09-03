@@ -2,7 +2,7 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.3.0-SNAPSHOT"
+lazy val projectVersion     = "0.3.0"
 
 lazy val eventVersion       = "2.6.1"
 
@@ -16,7 +16,7 @@ lazy val fileCacheVersion   = "0.3.2"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion   = "2.2.0"
+lazy val scalaTestVersion   = "2.2.2"
 
 lazy val lucreSTMVersion    = "2.0.4"
 
@@ -42,7 +42,7 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   // maven repository for NetCDF library
   resolvers       += "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases",
   publishTo       := {
-    Some(if (version.value endsWith "-SNAPSHOT")
+    Some(if (isSnapshot.value)
       "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
     else
       "Sonatype Releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2"

@@ -501,8 +501,14 @@ object ReduceImpl {
     final class Transparent(file: File, name: String, val streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
+      private def rangeString(r: Range): String = {
+        val con = if (r.isInclusive) "to" else "until"
+        val suf = if (r.step == 1) "" else s" by ${r.step}"
+        s"${r.start} $con ${r.end}$suf"
+      }
+
       override def toString =
-        s"Reduce.Key.Transparent(${file.base}, $name, streamDim = $streamDim, section = ${section.mkString("[","][","]")})"
+        s"Reduce.Key.Transparent(${file.base}, $name, streamDim = $streamDim, section = ${section.map(rangeString).mkString("[","][","]")})"
 
       protected def tpeID: Int = TransparentType
 

@@ -16,6 +16,8 @@ package de.sciss.lucre.matrix
 package gui
 package impl
 
+import java.io.{FileNotFoundException, IOException}
+
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.model.impl.ModelImpl
 import de.sciss.lucre.swing.defer
@@ -23,6 +25,7 @@ import ucar.nc2.time.{CalendarPeriod, CalendarDateFormatter}
 
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.swing.Component
+import scala.util.{Try, Failure, Success}
 
 object DimensionIndexImpl {
   def apply[S <: Sys[S]](dim: Matrix[S])(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
@@ -30,21 +33,30 @@ object DimensionIndexImpl {
     if (dim.rank != 1) throw new IllegalArgumentException(s"Matrix must be 1-dimensional")
     val sz  = dim.size.toInt
     val key = dim.getKey(0)
-    val r   = key.reader()
-    assert(r.numChannels == 1 && r.numFrames == sz)
     val p   = Promise[Unit]()
     val arr = new Array[Float](sz)
     val fut = p.future
-    tx.afterCommit {
-      val fut1 = Future {
-        blocking {
-          val buf = Array(arr)
-          r.read(buf, 0, sz)
-          // XXX TODO - we should have something like r.close()
+
+    try {
+      val r = key.reader()
+      assert(r.numChannels == 1 && r.numFrames == sz)
+      tx.afterCommit {
+        val fut1 = Future {
+          blocking {
+            val buf = Array(arr)
+            r.read(buf, 0, sz)
+            // XXX TODO - we should have something like r.close()
+          }
         }
+        // println(s"completeWith($fut1")
+        p.completeWith(fut1)
       }
-      p.completeWith(fut1)
+    } catch {
+      case e: IOException =>
+        /* val res = */ p.tryFailure(e)
+        // println(s"tryFailure($e) = $res")
     }
+
     val unitsFun = mkUnitsString(dim.units)
     val res = new Impl[S](arr, fut, unitsFun)
     fut.foreach(_ => defer(res.fireReady()))
@@ -90,6 +102,20 @@ object DimensionIndexImpl {
     def value(index: Int): Option[Double] = if (fut.isCompleted) Some(arr(index)) else None
 
     def format(value: Double): String = unitsFun(value)
+
+    def tryFormat(index: Int): Option[Try[String]] = {
+      val x = fut.value
+      // println(s"fut.value = $x")
+      /* val res = */ x.map(_.map(_ => format(arr(index))))
+      // println(s"res = $res")
+      // res
+    }
+
+    //    fut.value.map {
+    //      case Success(_) => format(arr(index))
+    //      case Failure(fnf: FileNotFoundException) => "<offline>"
+    //      case Failure(e) => s"error: ${e.getMessage}"
+    //    }
 
     def dispose()(implicit tx: S#Tx) = ()
   }
