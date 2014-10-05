@@ -5,6 +5,7 @@ import java.awt.{FileDialog, Toolkit}
 import java.awt.event.KeyEvent
 
 import de.sciss.file._
+import de.sciss.lucre.artifact.ArtifactLocation
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
@@ -22,9 +23,7 @@ object Demo extends SimpleSwingApplication {
   type S                  = InMemory
   implicit val system: S  = InMemory()
 
-  implicit val undo       = new UndoManagerImpl {
-    protected var dirty: Boolean = false
-  }
+  implicit val undo       = new UndoManagerImpl
 
   implicit val resolver = DataSource.Resolver.empty[S]
 
@@ -50,7 +49,9 @@ object Demo extends SimpleSwingApplication {
       val net = NetcdfFile.open(f.path).setImmutable()
       resolver += net
       val (dsH, names)  = system.step { implicit tx =>
-        val ds  = DataSource(f)
+        val loc = ArtifactLocation(f.parent)
+        val art = loc.add(f)
+        val ds  = DataSource(art)
         val vs  = ds.variables
         (tx.newHandle(ds), vs.map(_.name))
       }

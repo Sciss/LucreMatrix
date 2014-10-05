@@ -1,6 +1,7 @@
 package de.sciss.lucre.matrix
 
 import de.sciss.file._
+import de.sciss.lucre.artifact.ArtifactLocation
 import de.sciss.lucre.event.InMemory
 import ucar.nc2
 import de.sciss.lucre.expr
@@ -16,7 +17,9 @@ object NewReadTest extends App {
   import system.step
 
   val (dimTemp, redLatH, redLatVarH, redLatStH, redLatFromH, redLatToH, redLatStepH) = step { implicit tx =>
-    val ds      = DataSource[S](p)
+    val loc     = ArtifactLocation(p.parent)
+    val art     = loc.add(p)
+    val ds      = DataSource[S](art)
     val full    = ds.variables.find(_.name == "temp").get
     val dim     = full.dimensions.indexWhere(_.name == "time")
     assert(dim >= 0)

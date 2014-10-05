@@ -1,5 +1,6 @@
 package de.sciss.lucre.matrix
 
+import de.sciss.lucre.artifact.ArtifactLocation
 import de.sciss.lucre.event.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
 import de.sciss.file._
@@ -18,7 +19,9 @@ object NetCDFSerialTest extends App {
       implicit val resolver = DataSource.Resolver.seq[S](net)
 
       val dsv = system.step { implicit tx =>
-        val ds  = DataSource(f)
+        val loc = ArtifactLocation(f.parent)
+        val art = loc.add(f)
+        val ds  = DataSource(art)
         val id  = tx.newID()
         tx.newVar[DataSource[S]](id, ds)
       }

@@ -14,6 +14,7 @@
 
 package de.sciss.lucre.matrix
 
+import de.sciss.lucre.artifact.Artifact
 import ucar.nc2
 import java.io.File
 import impl.{DataSourceImpl => Impl}
@@ -24,10 +25,11 @@ object DataSource {
   /** Creates a new data source from a given path that points to a NetCDF file. This
     * will open the file and build a model of its variables.
     *
-    * @param file       file reference pointing to a NetCDF file
+    * @param artifact   file reference pointing to a NetCDF file
     * @param resolver   the resolver is used to actually open (a possibly cached) NetCDF file
     */
-  def apply[S <: Sys[S]](file: File)(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = Impl(file)
+  def apply[S <: Sys[S]](artifact: Artifact[S])(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] =
+    Impl(artifact)
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     Impl.serializer[S]
@@ -87,10 +89,12 @@ object DataSource {
 }
 /** A document represents one open data file. */
 trait DataSource[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {
-  /** Path to the document's underlying file (NetCDF). */
-  def path: String
+  //  /** Path to the document's underlying file (NetCDF). */
+  //  def path: String
+  //
+  //  def file: File
 
-  def file: File
+  def artifact: Artifact[S]
 
   def data()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): nc2.NetcdfFile
 

@@ -15,6 +15,7 @@
 package de.sciss.lucre.matrix
 package impl
 
+import de.sciss.lucre.artifact.Artifact
 import ucar.nc2
 import de.sciss.serial.{ImmutableSerializer, Serializer, DataInput, DataOutput}
 import de.sciss.lucre.{event => evt}
@@ -39,15 +40,16 @@ object DataSourceImpl {
 
   // ---- create a new data source (list of variables) ----
 
-  def apply[S <: Sys[S]](file: File)(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = {
+  def apply[S <: Sys[S]](artifact: Artifact[S])(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = {
+    val file    = artifact.value
     val netFile = resolver.resolve(file)
-    val f0      = file
+    val f0      = artifact
 
     new Impl[S] {
       ds =>
 
       val id                = tx.newID()
-      val file              = f0
+      val artifact          = f0
       protected val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
       import JavaConversions._
       val numericVars = netFile.getVariables.filter(_.getDataType.isNumeric)
@@ -168,8 +170,9 @@ object DataSourceImpl {
     val cookie  = in.readLong()
     require(cookie == SOURCE_COOKIE,
       s"Unexpected cookie (found ${cookie.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
-    val file    = new File(in.readUTF())
-    val varRef  = tx.readVar[List[Variable[S]]](id, in)
+    // val file    = new File(in.readUTF())
+    val artifact  = Artifact.read(in, access)
+    val varRef    = tx.readVar[List[Variable[S]]](id, in)
   }
 
   private val anySer    = new Ser   [evt.InMemory]
@@ -273,7 +276,7 @@ object DataSourceImpl {
     }
 
     final def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
-      new ReduceImpl.ReaderFactory.Transparent(file = source.file, name = name, streamDim = streamDim,
+      new ReduceImpl.ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
         section = ReduceImpl.mkAllRange(shape))
 
     final protected def writeData(out: DataOutput): Unit = {
@@ -292,7 +295,7 @@ object DataSourceImpl {
       val net = source.data()
       import JavaConversions._
       net.getVariables.find(_.getShortName == nameConst).getOrElse(
-        sys.error(s"Variable '$nameConst' does not exist in data source ${source.file.base}")
+        sys.error(s"Variable '$nameConst' does not exist in data source ${source.artifact.value.base}")
       )
     }
   }
@@ -302,15 +305,15 @@ object DataSourceImpl {
 
     protected def varRef: S#Var[List[Variable[S]]]
 
-    override def toString() = s"DataSource($path)"
+    override def toString() = s"DataSource$id"
 
     // def file = new File(path)
 
-    def path: String = file.path
+    // def path: String = file.path
 
     protected def writeData(out: DataOutput): Unit = {
       out.writeLong(SOURCE_COOKIE)
-      out.writeUTF(path)
+      artifact.write(out)
       varRef.write(out)
     }
 
@@ -318,6 +321,6 @@ object DataSourceImpl {
 
     def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
 
-    def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(file)
+    def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(artifact.value)
   }
 }

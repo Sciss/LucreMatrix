@@ -1,6 +1,7 @@
 package de.sciss.lucre.matrix
 
 import de.sciss.file._
+import de.sciss.lucre.artifact.ArtifactLocation
 import de.sciss.synth.io.AudioFile
 import org.scalatest.{fixture, Outcome, Matchers}
 import de.sciss.lucre.event.Durable
@@ -131,7 +132,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val ds  = DataSource(f)
+      val loc = ArtifactLocation(f.parent)
+      val art = loc.add(f)
+      val ds  = DataSource(art)
       val _z  = ds.variables.find(_.name == "temperature").get
       (-1 to 1).map(_z.getKey)
     }
@@ -173,7 +176,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val ds  = DataSource(f)
+      val loc = ArtifactLocation(f.parent)
+      val art = loc.add(f)
+      val ds  = DataSource(art)
       val v   = ds.variables.find(_.name == "temperature").get
       val v1  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Stride[S](2, 16, 3))
       val _z  = Reduce(v1, Dimension.Selection.Name("lat"), Reduce.Op.Slice [S](3, 8))
