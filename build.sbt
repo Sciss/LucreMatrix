@@ -2,7 +2,7 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.4.0"
+lazy val projectVersion     = "0.5.0"
 
 lazy val eventVersion       = "2.7.1"
 
@@ -18,11 +18,11 @@ lazy val fileCacheVersion   = "0.3.2"
 
 lazy val scalaTestVersion   = "2.2.2"
 
-lazy val lucreSTMVersion    = "2.1.0"
+lazy val lucreSTMVersion    = "2.1.1"
 
 // ---- views ----
 
-lazy val lucreSwingVersion  = "0.5.0"
+lazy val lucreSwingVersion  = "0.6.1"
 
 // ---- views/test ----
 
