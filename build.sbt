@@ -2,27 +2,25 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.5.0"
+lazy val projectVersion     = "0.6.0"
 
-lazy val eventVersion       = "2.7.1"
+lazy val eventVersion       = "2.7.2"
 
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
 
-// lazy val fileUtilVersion    = "1.1.1"
-
-lazy val audioFileVersion   = "1.4.3"
+lazy val audioFileVersion   = "1.4.4"
 
 lazy val fileCacheVersion   = "0.3.2"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion   = "2.2.2"
+lazy val scalaTestVersion   = "2.2.3"
 
 lazy val lucreSTMVersion    = "2.1.1"
 
 // ---- views ----
 
-lazy val lucreSwingVersion  = "0.6.1"
+lazy val lucreSwingVersion  = "0.7.0"
 
 // ---- views/test ----
 
@@ -31,11 +29,10 @@ lazy val webLaFVersion      = "1.28"
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version            := projectVersion,
   organization       := "de.sciss",
-  scalaVersion       := "2.11.2",
-  crossScalaVersions := Seq("2.11.2", "2.10.4"),
+  scalaVersion       := "2.11.5",
+  crossScalaVersions := Seq("2.11.5", "2.10.4"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
-  // retrieveManaged    := true,
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
   // ---- publishing ----
   publishMavenStyle := true,
