@@ -53,6 +53,12 @@ object MatrixVarImpl {
     extends Matrix.Var[S]
     with MatrixProxy[S] with VarImpl[S, Matrix.Update[S], Matrix[S], Matrix.Var.Update[S]] {
 
+    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
+      val tgt     = evt.Targets[S]
+      val peerCpy = tx.newVar(tgt.id, ref().mkCopy())
+      new Impl(tgt, peerCpy)
+    }
+
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = ref()
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)

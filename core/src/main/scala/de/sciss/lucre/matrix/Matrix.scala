@@ -117,6 +117,8 @@ object Matrix {
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
 }
 trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
+  def mkCopy()(implicit tx: S#Tx): Matrix[S]
+
   /** A matrix has a name. For example, when coming from a NetCDF data source,
     * the matrix name corresponds to a variable name.
     */

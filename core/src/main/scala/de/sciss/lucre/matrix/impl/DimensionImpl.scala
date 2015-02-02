@@ -16,12 +16,13 @@ package de.sciss.lucre
 package matrix
 package impl
 
-import de.sciss.lucre.{event => evt, expr}
-import Dimension.Selection
+import de.sciss.lucre.event.EventLike
+import de.sciss.lucre.expr.{Expr, Int => IntEx, String => StringEx}
+import de.sciss.lucre.matrix.Dimension.Selection
+import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput}
+
 import scala.annotation.switch
-import expr.Expr
-import evt.EventLike
 
 object DimensionImpl {
   def applySelVar[S <: Sys[S]](init: Selection[S])(implicit tx: S#Tx): Selection.Var[S] = {
@@ -104,6 +105,12 @@ object DimensionImpl {
                                               protected val ref: S#Var[Selection[S]])
     extends Selection.Var[S] with VarImpl[S, Selection.Update[S], Selection[S], Selection.Update[S]] {
 
+    def mkCopy()(implicit tx: S#Tx): Selection[S] = {
+      val tgt = evt.Targets[S]
+      val peerCpy = tx.newVar(tgt.id, ref().mkCopy())
+      new SelVarImpl[S](tgt, peerCpy)
+    }
+
     override def toString() = s"Selection.Var$id"
 
     protected def mapUpdate(in: Selection.Update[S]): Selection.Update[S] = in.copy(selection = this)
@@ -150,6 +157,15 @@ object DimensionImpl {
                                                 val expr: Expr[S, Int])
     extends Selection.Index[S] with SelTuple1Op[S, Int] {
 
+    def mkCopy()(implicit tx: S#Tx): Selection[S] = {
+      val tgt   = evt.Targets[S]
+      val exprCpy = expr match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      new SelIndexImpl[S](tgt, exprCpy)
+    }
+
     override def toString() = s"Index$id($expr)"
 
     protected def _1 = expr
@@ -159,6 +175,15 @@ object DimensionImpl {
   private final class SelNameImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val expr: Expr[S, String])
     extends Selection.Name[S] with SelTuple1Op[S, String] {
+
+    def mkCopy()(implicit tx: S#Tx): Selection[S] = {
+      val tgt = evt.Targets[S]
+      val exprCpy = expr match {
+        case Expr.Var(vr) => StringEx.newVar(vr())
+        case other => other
+      }
+      new SelNameImpl[S](tgt, exprCpy)
+    }
 
     override def toString() = s"Name$id($expr)"
 

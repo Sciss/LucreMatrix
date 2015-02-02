@@ -60,7 +60,10 @@ object Dimension {
     case class Update[S <: Sys[S]](selection: Selection[S])
   }
   sealed trait Selection[S <: Sys[S]]
-    extends Writable with Disposable[S#Tx] with evt.Publisher[S, Selection.Update[S]]
+    extends Writable with Disposable[S#Tx] with evt.Publisher[S, Selection.Update[S]] {
+
+    def mkCopy()(implicit tx: S#Tx): Selection[S]
+  }
 
   case class Value(name: String, size: Int)
 

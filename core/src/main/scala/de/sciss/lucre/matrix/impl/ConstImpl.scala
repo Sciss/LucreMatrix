@@ -30,6 +30,8 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] {
 
   // ---- impl ----
 
+  final def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
+
   final def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
   final def ranges    (implicit tx: S#Tx): Vec[Range]           = shapeConst.map(0 until _)
 

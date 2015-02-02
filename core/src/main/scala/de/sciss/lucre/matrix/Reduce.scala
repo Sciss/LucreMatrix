@@ -100,6 +100,8 @@ object Reduce {
   sealed trait Op[S <: Sys[S]]
     extends Writable with Disposable[S#Tx] with Publisher[S, Op.Update[S]] {
 
+    def mkCopy()(implicit tx: S#Tx): Op[S]
+
     def size(in: Int)(implicit tx: S#Tx): Int
 
     def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ??? // later

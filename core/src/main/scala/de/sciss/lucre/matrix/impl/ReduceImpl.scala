@@ -19,18 +19,19 @@ package impl
 import java.io.EOFException
 import java.{util => ju}
 
-import Reduce.Op
 import de.sciss.file._
+import de.sciss.lucre.event.EventLike
+import de.sciss.lucre.expr.{Expr, Int => IntEx}
 import de.sciss.lucre.matrix.DataSource.Resolver
+import de.sciss.lucre.matrix.Dimension.Selection
 import de.sciss.lucre.matrix.Matrix.Reader
-import de.sciss.lucre.{event => evt}
-import expr.Expr
-import evt.EventLike
-import Dimension.Selection
-import ucar.{ma2, nc2}
-import scala.annotation.{switch, tailrec}
-import de.sciss.serial.{ImmutableSerializer, DataInput, DataOutput}
+import de.sciss.lucre.matrix.Reduce.Op
 import de.sciss.lucre.matrix.Reduce.Op.Update
+import de.sciss.lucre.{event => evt}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import ucar.{ma2, nc2}
+
+import scala.annotation.{switch, tailrec}
 import scala.collection.{JavaConversions, breakOut}
 
 object ReduceImpl {
@@ -158,6 +159,12 @@ object ReduceImpl {
                                              protected val ref: S#Var[Op[S]])
     extends Op.Var[S] with VarImpl[S, Op.Update[S], Op[S], Op.Update[S]] {
 
+    def mkCopy()(implicit tx: S#Tx): Op[S] = {
+      val tgt = evt.Targets[S]
+      val peerCpy = tx.newVar(tgt.id, ref().mkCopy())
+      new OpVarImpl[S](tgt, peerCpy)
+    }
+
     def size(in: Int)(implicit tx: S#Tx): Int = apply().size(in)
 
     protected def mapUpdate(in: Update[S]): Op.Update[S] = in.copy(op = this)
@@ -197,6 +204,15 @@ object ReduceImpl {
                                                val index: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Apply[S] {
 
+    def mkCopy()(implicit tx: S#Tx): Op[S] = {
+      val tgt = evt.Targets[S]
+      val indexCpy = index match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      new OpApplyImpl[S](tgt, indexCpy)
+    }
+
     override def toString() = s"Apply$id($index)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
@@ -230,6 +246,19 @@ object ReduceImpl {
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val from: Expr[S, Int], val to: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Slice[S] {
+
+    def mkCopy()(implicit tx: S#Tx): Op[S] = {
+      val tgt = evt.Targets[S]
+      val fromCpy = from match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      val toCpy = to match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      new OpSliceImpl[S](tgt, fromCpy, toCpy)
+    }
 
     override def toString() = s"Slice$id($from, $to)"
 
@@ -280,6 +309,23 @@ object ReduceImpl {
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                 val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Stride[S] {
+
+    def mkCopy()(implicit tx: S#Tx): Op[S] = {
+      val tgt = evt.Targets[S]
+      val fromCpy = from match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      val toCpy = to match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      val stepCpy = step match {
+        case Expr.Var(vr) => IntEx.newVar(vr())
+        case other => other
+      }
+      new OpStrideImpl[S](tgt, fromCpy, toCpy, stepCpy)
+    }
 
     override def toString() = s"Stride$id($from, $to, $step)"
 
@@ -514,7 +560,7 @@ object ReduceImpl {
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
         val net = resolver.resolve(file)
-        import JavaConversions._
+        import scala.collection.JavaConversions._
         val v = net.getVariables.find(_.getShortName == name).getOrElse(
           sys.error(s"Variable '$name' does not exist in data source ${file.base}")
         )
@@ -572,6 +618,14 @@ object ReduceImpl {
     extends Reduce[S]
     with MatrixProxy[S]
     with evt.impl.StandaloneLike[S, Matrix.Update[S], Matrix[S]] {
+
+    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
+      val tgt     = evt.Targets[S]
+      val inCpy   = in .mkCopy()
+      val dimCpy  = dim.mkCopy()
+      val opCpy   = op .mkCopy()
+      new Impl(tgt, inCpy, dimCpy, opCpy)
+    }
 
     override def toString() = s"Reduce$id($in, $dim, $op)"
 

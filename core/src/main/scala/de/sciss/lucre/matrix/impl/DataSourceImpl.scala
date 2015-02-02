@@ -212,6 +212,14 @@ object DataSourceImpl {
                                                 dimConst: Vec[Matrix[S]])
     extends VariableImplLike[S] {
 
+
+    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
+      val tgt         = evt.Targets[S]
+      val sourceCpy   = source  // XXX TODO - ok?
+      val dimCpy      = dimConst.map(_.mkCopy())
+      new VariableImpl(tgt, sourceCpy, parents, nameConst, unitsConst, dimCpy)
+    }
+
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
 
     def shape (implicit tx: S#Tx): Vec[Int  ] = dimConst.map(        _.size.toInt)  // XXX TODO - check Int overflow
@@ -231,6 +239,8 @@ object DataSourceImpl {
                                                  protected val unitsConst: String,
                                                  sizeConst: Int)
     extends VariableImplLike[S] {
+
+    def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
 
     protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
 
