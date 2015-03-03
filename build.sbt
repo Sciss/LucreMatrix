@@ -2,9 +2,9 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.8.0"
+lazy val projectVersion     = "0.9.0-SNAPSHOT"
 
-lazy val eventVersion       = "2.7.2"
+lazy val eventVersion       = "2.7.3"
 
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
 
@@ -20,7 +20,7 @@ lazy val lucreSTMVersion    = "2.1.1"
 
 // ---- views ----
 
-lazy val lucreSwingVersion  = "0.8.0"
+lazy val lucreSwingVersion  = "0.9.0-SNAPSHOT"
 
 // ---- views/test ----
 
@@ -29,8 +29,8 @@ lazy val webLaFVersion      = "1.28"
 lazy val commonSettings = Project.defaultSettings ++ Seq(
   version            := projectVersion,
   organization       := "de.sciss",
-  scalaVersion       := "2.11.5",
-  crossScalaVersions := Seq("2.11.5", "2.10.4"),
+  scalaVersion       := "2.11.6",
+  crossScalaVersions := Seq("2.11.6", "2.10.4"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),

@@ -88,9 +88,8 @@ object Demo extends SimpleSwingApplication {
     import ExecutionContext.Implicits.global
     val m         = MatrixView[S]
     val c         = Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6)))
-    // println(s"C: SHAPE = ${c.shape}, RANGES = ${c.ranges}")
     val m0        = Matrix.Var[S](c)
-    // println(s"V: SHAPE = ${m0.shape}, RANGES = ${m0.ranges}")
+    // m0.changed.react { implicit tx => u => println(s"Observed: $u") }
     m.matrix      = Some(m0)
     m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
     m
