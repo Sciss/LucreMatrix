@@ -34,6 +34,7 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
+  resolvers          += "Oracle Repository" at "http://download.oracle.com/maven", // required for sleepycat
   // ---- publishing ----
   publishMavenStyle := true,
   // maven repository for NetCDF library
