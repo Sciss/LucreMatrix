@@ -32,16 +32,18 @@ import de.sciss.model.impl.ModelImpl
 object MatrixViewImpl {
   var DEBUG = false
 
-  def apply[S <: Sys[S]](implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
+  def apply[S <: Sys[S]](transferHandler: Option[MatrixView.TransferHandler[S]])
+                        (implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
                          exec: ExecutionContext, undoManager: UndoManager): MatrixView[S] = {
-    val res = new Impl[S]
+    val res = new Impl[S](transferHandler)
     deferTx(res.guiInit())
     res
   }
 
   // ---- impl ----
 
-  private final class Impl[S <: Sys[S]](implicit cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
+  private final class Impl[S <: Sys[S]](transferHandler: Option[MatrixView.TransferHandler[S]])
+                                       (implicit cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
                                         exec: ExecutionContext, undo: UndoManager)
     extends MatrixView[S] with ComponentHolder[Component] with ModelImpl[MatrixView.Update] {
 
@@ -125,7 +127,7 @@ object MatrixViewImpl {
               val dimViews1: Vec[List[ReductionView[S]]] = if (dIdx < 0 || dIdx >= numDims) dimViews0 else {
                 val dim     = dims(dIdx)
                 val dimVal  = Dimension.Value(dim.name, dim.size.toInt)
-                val redView = ReductionView(dimVal /* dims(dIdx) */, red)
+                val redView = ReductionView(dimVal, red, transferHandler = transferHandler)
                 val before  = dimViews0(dIdx)
                 val now     = redView :: before
                 dimViews0.updated(dIdx, now)

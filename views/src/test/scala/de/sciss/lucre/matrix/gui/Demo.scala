@@ -1,11 +1,15 @@
 package de.sciss.lucre.matrix
 package gui
 
+import java.awt.datatransfer.Transferable
 import java.awt.{FileDialog, Toolkit}
 import java.awt.event.KeyEvent
+import javax.swing.TransferHandler.TransferSupport
 
 import de.sciss.file._
 import de.sciss.lucre.artifact.ArtifactLocation
+import de.sciss.lucre.expr.Expr
+import de.sciss.lucre.stm
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
@@ -84,9 +88,23 @@ object Demo extends SimpleSwingApplication {
     }
   }
 
+  private val th = new MatrixView.TransferHandler[S] {
+    def importInt(t: TransferSupport)(implicit tx: S#Tx): Option[Expr[S, Int]] =
+      DragAndDrop.get(t, DragAndDrop.IntExprFlavor).map(_.source.asInstanceOf[stm.Source[S#Tx, Expr[S, Int]]]())
+
+    def canImportInt(t: TransferSupport): Boolean = t.isDataFlavorSupported(DragAndDrop.IntExprFlavor)
+
+    def exportInt(x: Expr[S, Int])(implicit tx: S#Tx): Option[Transferable] = {
+      import de.sciss.lucre.expr.Int.serializer
+      val source = tx.newHandle(x)
+      val t = DragAndDrop.Transferable(DragAndDrop.IntExprFlavor)(DragAndDrop.IntExprDrag(source))
+      Some(t)
+    }
+  }
+
   lazy val view = system.step { implicit tx =>
     import ExecutionContext.Implicits.global
-    val m         = MatrixView[S]
+    val m         = MatrixView[S](Some(th))
     val c         = Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6)))
     val m0        = Matrix.Var[S](c)
     // m0.changed.react { implicit tx => u => println(s"Observed: $u") }
