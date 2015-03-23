@@ -101,11 +101,15 @@ object ReduceImpl {
           val to    = expr.Int.read(in, access)
           new OpSliceImpl[S](targets, from, to)
 
-        case Op.Stride.opID =>
-          val from  = expr.Int.read(in, access)
-          val to    = expr.Int.read(in, access)
+        case 2 => // OLD SERIALIZED FORM
+          /* val from  = */ expr.Int.read(in, access)
+          /* val to    = */ expr.Int.read(in, access)
           val step  = expr.Int.read(in, access)
-          new OpStrideImpl[S](targets, from = from, to = to, step = step)
+          new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
+
+        case Op.Stride.opID =>
+          val step  = expr.Int.read(in, access)
+          new OpStrideImpl[S](targets, step = step)
 
         case _ => sys.error(s"Unsupported operator id $opID")
       }
@@ -147,10 +151,10 @@ object ReduceImpl {
     new OpSliceImpl[S](targets, from = from, to = to)
   }
 
-  def applyOpStride[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int], step: Expr[S, Int])
+  def applyOpStride[S <: Sys[S]](/* from: Expr[S, Int], to: Expr[S, Int], */ step: Expr[S, Int])
                                 (implicit tx: S#Tx): Op.Stride[S] = {
     val targets = evt.Targets[S]
-    new OpStrideImpl[S](targets, from = from, to = to, step = step)
+    new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
   }
 
   // ---- actual implementations ----
@@ -307,44 +311,46 @@ object ReduceImpl {
   }
 
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val from: Expr[S, Int], val to: Expr[S, Int], val step: Expr[S, Int])
+                                                /* val from: Expr[S, Int], val to: Expr[S, Int], */ val step: Expr[S, Int])
     extends OpNativeImpl[S] with Op.Stride[S] {
 
     def mkCopy()(implicit tx: S#Tx): Op[S] = {
       val tgt = evt.Targets[S]
-      val fromCpy = from match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
-        case other => other
-      }
-      val toCpy = to match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
-        case other => other
-      }
+      //      val fromCpy = from match {
+      //        case Expr.Var(vr) => IntEx.newVar(vr())
+      //        case other => other
+      //      }
+      //      val toCpy = to match {
+      //        case Expr.Var(vr) => IntEx.newVar(vr())
+      //        case other => other
+      //      }
       val stepCpy = step match {
         case Expr.Var(vr) => IntEx.newVar(vr())
         case other => other
       }
-      new OpStrideImpl[S](tgt, fromCpy, toCpy, stepCpy)
+      new OpStrideImpl[S](tgt, /* fromCpy, toCpy, */ stepCpy)
     }
 
-    override def toString() = s"Stride$id($from, $to, $step)"
+    // override def toString() = s"Stride$id($from, $to, $step)"
+
+    override def toString() = s"Stride$id($step)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = {
-      val lo  = from .value
-      val hi  = to   .value
+      // val lo  = from .value
+      // val hi  = to   .value
       val s   = step .value
       // note: in NetCDF, ranges must be non-negative, so
       // we don't check invalid cases here, but simply truncate.
-      val lo1 = math.max(0, lo)
-      val hi1 = math.min(in - 1, hi)
+      val lo1 = 0       // math.max(0, lo)
+      val hi1 = in - 1  // math.min(in - 1, hi)
       val szm = hi1 - lo1
       val res = szm / s + 1
       math.max(0, res)
     }
 
     def map(in: Range)(implicit tx: S#Tx): Range = {
-      val lo  = from .value
-      val hi  = to   .value
+      val lo  = 0 // from .value
+      val hi  = in.size - 1 // to   .value
       val s   = step .value
       val by  = lo to hi by s
       sampleRange(in, by)
@@ -354,30 +360,31 @@ object ReduceImpl {
       // out writeByte 1   // cookie
       // out writeInt Op.typeID
       out writeInt Op.Stride.opID
-      from  write out
-      to    write out
+      // from  write out
+      // to    write out
       step  write out
     }
 
     // ---- event ----
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Op.Update[S]] = {
-      val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
-      val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
-      val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
-
-      if (e2) Some(Op.Update(this)) else None
+      //      val e0 =       pull.contains(from .changed) && pull(from .changed).isDefined
+      //      val e1 = e0 || pull.contains(to   .changed) && pull(to   .changed).isDefined
+      //      val e2 = e1 || pull.contains(step .changed) && pull(step .changed).isDefined
+      //
+      //      if (e2) Some(Op.Update(this)) else None
+      Some(Op.Update(this))
     }
 
     def connect()(implicit tx: S#Tx): Unit = {
-      from .changed ---> this
-      to   .changed ---> this
+      // from .changed ---> this
+      // to   .changed ---> this
       step .changed ---> this
     }
 
     def disconnect()(implicit tx: S#Tx): Unit = {
-      from .changed -/-> this
-      to   .changed -/-> this
+      // from .changed -/-> this
+      // to   .changed -/-> this
       step .changed -/-> this
     }
   }

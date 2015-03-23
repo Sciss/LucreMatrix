@@ -118,8 +118,10 @@ object DataSourceImpl {
             Reduce.Op.Apply [S](IntEx.newConst(rStart))
           else if (rStep == 1)
             Reduce.Op.Slice [S](IntEx.newConst(rStart), IntEx.newConst(rEnd))
-          else
-            Reduce.Op.Stride[S](IntEx.newConst(rStart), IntEx.newConst(rEnd), IntEx.newConst(rStep))
+          else {
+            require(rStart == 0 && rEnd == full.size - 1)
+            Reduce.Op.Stride[S](/* IntEx.newConst(rStart), IntEx.newConst(rEnd), */ IntEx.newConst(rStep))
+          }
 
           Reduce(full, dimSel, op)
         }

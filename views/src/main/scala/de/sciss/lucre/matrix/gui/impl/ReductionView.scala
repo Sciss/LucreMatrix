@@ -21,12 +21,16 @@ import javax.swing.event.{ChangeEvent, ChangeListener}
 
 import de.sciss.audiowidgets.DualRangeModel
 import de.sciss.desktop.UndoManager
+import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.stm
-import de.sciss.lucre.swing.{IntRangeSliderView, View}
+import de.sciss.lucre.stm.Disposable
+import de.sciss.lucre.swing.deferTx
+import de.sciss.lucre.swing.impl.ComponentHolder
+import de.sciss.lucre.swing.{IntSpinnerView, IntRangeSliderView, View}
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
-import scala.swing.{Label, Orientation, BoxPanel}
+import scala.swing.{TextField, Swing, Alignment, Component, Label, Orientation, BoxPanel}
 import scala.util.{Failure, Success, Try}
 
 object ReductionView {
@@ -79,23 +83,27 @@ object ReductionView {
       case oi: Reduce.Op.Apply[S] =>
         // val viewIdx = IntSpinnerView(oi.index, s"Index in $dimName")
         val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
-        val viewIdx   = IntRangeSliderView(rm, s"Index in ${dimVal.name}")
-        viewIdx.value = Some(oi.index)
-        val view    = View.wrap[S] {
-          val cl = new ChangeListener {
-            def stateChanged(e: ChangeEvent): Unit = {
-              val valIdx  = rm.value
-              val unitOpt = mkUnit(valIdx)
-              val tt = unitOpt.fold(valIdx.toString)(u => mkHTML(valIdx.toString, mkUnit1(u)))
-              viewIdx.component.tooltip = tt
-            }
+        val exprIdx   = oi.index
+        val nameIdx   = s"Index in ${dimVal.name}"
+        val slidIdx   = IntRangeSliderView(rm, nameIdx)
+        val spinIdx   = IntSpinnerView(exprIdx, nameIdx, 80)
+        val dimIdxView  = DimensionIndex(dims(dimIdx))
+        val unitIdx   = new UnitLabelImpl(dimIdxView, dimRange).init(exprIdx)
+        slidIdx.value = Some(exprIdx)
+        val view: View[S] = new View[S] {
+          lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
+            contents += new Label("Index:")
+            contents += slidIdx.component
+            contents += spinIdx.component
+            contents += unitIdx.component
+            contents += Swing.HStrut(4)
           }
-          rm.addChangeListener(cl)
-          cl.stateChanged(null)
 
-          new BoxPanel(Orientation.Horizontal) {
-            contents += new Label("Index")
-            contents += viewIdx.component
+          def dispose()(implicit tx: S#Tx): Unit = {
+            slidIdx.dispose()
+            spinIdx.dispose()
+            unitIdx.dispose()
+            dimIdxView.dispose()
           }
         }
         (ReduceOpEnum.Apply, view, oi, vr)
@@ -124,38 +132,29 @@ object ReductionView {
           cl.stateChanged(null)
 
           new BoxPanel(Orientation.Horizontal) {
-            contents += new Label("Slice")
+            contents += new Label("Slice:")
             contents += viewSlice.component
           }
         }
         (ReduceOpEnum.Slice, view, os, vr)
 
       case os: Reduce.Op.Stride[S] =>
-        val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
-        val viewSlice = IntRangeSliderView(rm, s"Stride in ${dimVal.name}")
-        viewSlice.rangeLo = Some(os.from)
-        viewSlice.rangeHi = Some(os.to  )
-        viewSlice.value   = Some(os.step)
-        val view      = View.wrap[S] {
-          val cl = new ChangeListener {
-            def stateChanged(e: ChangeEvent): Unit = {
-              // XXX TODO - DRY
-              val lo      = rm.rangeLo
-              val loUnit  = mkUnit(lo)
-              val hi      = rm.rangeHi
-              val hiUnit  = mkUnit(hi)
-              val up0     = if (hi == lo) lo.toString else s"$lo to $hi"
-              val up      = s"$up0 by ${math.max(1, rm.value)}"
-              val tt      = mkTT(up, loUnit, hiUnit, lo, hi)
-              viewSlice.component.tooltip = tt
-            }
+        // val rm          = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
+        val exprStride  = os.step
+        val nameStride  = s"Stride in ${dimVal.name}"
+        // val viewStride  = IntRangeSliderView(rm, nameStride)
+        val spinStride  = IntSpinnerView(exprStride, nameStride, 80)
+        // viewSlice.rangeLo = Some(os.from)
+        // viewSlice.rangeHi = Some(os.to  )
+        // viewStride.value   = Some(os.step)
+        val view: View[S] = new View[S] {
+          lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
+            contents += new Label("Stride:")
+            contents += spinStride.component
           }
-          rm.addChangeListener(cl)
-          cl.stateChanged(null)
 
-          new BoxPanel(Orientation.Horizontal) {
-            contents += new Label("Stride")
-            contents += viewSlice.component
+          def dispose()(implicit tx: S#Tx): Unit = {
+            spinStride.dispose()
           }
         }
         (ReduceOpEnum.Stride, view, os, vr)
@@ -164,12 +163,12 @@ object ReductionView {
         loopOp(dv(), Some(dv))
     }
 
-    val (_, opView, _, _) = loopOp(red.op, None)
-    val res = new Impl(opView, tx.newHandle(red))
+    val (opEnum, opView, _, _) = loopOp(red.op, None)
+    val res = new Impl(opView, tx.newHandle(red), isLeaf = opEnum != ReduceOpEnum.Slice)
     res
   }
 
-  private final class Impl[S <: Sys[S]](peer: View[S], redH: stm.Source[S#Tx, Reduce[S]])
+  private final class Impl[S <: Sys[S]](peer: View[S], redH: stm.Source[S#Tx, Reduce[S]], val isLeaf: Boolean)
     extends ReductionView[S] /* with ComponentHolder[Component] */ {
 
     def component = peer.component
@@ -178,7 +177,56 @@ object ReductionView {
 
     def dispose()(implicit tx: S#Tx) = peer.dispose()
   }
+
+  private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Range)
+    extends View[S] with ComponentHolder[TextField] {
+
+    private var observer: Disposable[S#Tx] = _
+
+    def init(ex: Expr[S, Int])(implicit tx: S#Tx): this.type = {
+      val v0      = ex.value
+      val text0   = mkUnit(v0)
+      // val textMin = if (v0 == 0) text0 else mkUnit(0)
+      // val szm     = dimRange.size - 1
+      // val textMax = if (v0 == szm) text0 else mkUnit(szm)
+      // val width   = math.max(textMin.length, textMax.length)
+      deferTx(guiInit(text0 /*, textMin, textMax */))
+      observer = ex.changed.react { implicit tx => ch =>
+        val text1 = mkUnit(ch.now)
+        deferTx(component.text = text1)
+      }
+      this
+    }
+
+    private def mkUnit(idx: Int)(implicit tx: S#Tx): String = {
+      val opt = if (idx < 0 || idx >= dimRange.size) None else {
+        val idxInDim = dimRange(idx)
+        dimIdxView.tryFormat(idxInDim)
+      }
+
+      val text = opt.fold("") {
+        case Success(x) => x
+        case Failure(_: FileNotFoundException) => "&lt;offline&gt;" // HTML entities!
+        case Failure(e) => e.getClass.getSimpleName
+      }
+
+      text
+    }
+
+    private def guiInit(text0: String): Unit = {
+      val gg = new TextField(13)
+      gg.text = text0
+      gg.editable = false
+      gg.horizontalAlignment = Alignment.Right
+      component = gg
+    }
+
+    def dispose()(implicit tx: S#Tx): Unit = observer.dispose()
+  }
 }
 trait ReductionView[S <: Sys[S]] extends View[S] {
   def reduction(implicit tx: S#Tx): Reduce[S]
+
+  /** Constant, may be called on any thread. */
+  def isLeaf: Boolean
 }

@@ -2,7 +2,7 @@ lazy val baseName           = "LucreMatrix"
 
 def baseNameL               = baseName.toLowerCase
 
-lazy val projectVersion     = "0.9.0"
+lazy val projectVersion     = "0.10.0-SNAPSHOT"
 
 lazy val eventVersion       = "2.7.3"
 

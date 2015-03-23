@@ -32,7 +32,8 @@ object DimensionView {
     val varOptH     = varOpt.map(tx.newHandle(_))
     val res         = new Impl[S](varOptH, name, red)
     val redIsEmpty  = red.isEmpty
-    deferTx(res.guiInit(redIsEmpty = redIsEmpty))
+    val redIsLeaf   = red.isLeaf
+    deferTx(res.guiInit(redIsEmpty0 = redIsEmpty, redIsLeaf0 = redIsLeaf))
     res
   }
 
@@ -56,8 +57,8 @@ object DimensionView {
             )
           case ReduceOpEnum.Stride =>
             Reduce.Op.Stride[S](
-              from = expr.Int.newVar(expr.Int.newConst(0)),
-              to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1)),
+              // from = expr.Int.newVar(expr.Int.newConst(0)),
+              // to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1)),
               step = expr.Int.newVar(expr.Int.newConst(1))
             )
         }
@@ -115,7 +116,7 @@ object DimensionView {
     }
     private lazy val ggAdd = new Button(addAction)
 
-    def guiInit(redIsEmpty: Boolean): Unit = {
+    def guiInit(redIsEmpty0: Boolean, redIsLeaf0: Boolean): Unit = {
       val lb    = new Label(name)
       val lbd   = lb.preferredSize
       lbd.width = 96
@@ -135,12 +136,17 @@ object DimensionView {
         ggAdd.tooltip = "Add New Reduction"
 
         // dynamically hide minus-button
-        ggRemove.visible = !redIsEmpty
+        ggAdd   .visible  = !redIsLeaf0
+        ggRemove.visible  = !redIsEmpty0
         reductions.addListener {
           case u: ReductionsView.Update =>
-            val vis = !u.isEmpty
-            if (vis != ggRemove.visible) {
-              ggRemove.visible = vis
+            val visRemove = !u.isEmpty
+            val visAdd    = !u.isLeaf
+            val remChange = visRemove != ggRemove.visible
+            val addChange = visAdd    != ggAdd   .visible
+            if (remChange) ggRemove.visible = visRemove
+            if (addChange) ggAdd   .visible = visAdd
+            if (remChange || addChange) {
               component.revalidate()
               component.repaint()
             }

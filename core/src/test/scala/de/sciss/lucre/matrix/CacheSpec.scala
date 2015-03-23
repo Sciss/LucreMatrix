@@ -180,7 +180,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       val art = loc.add(f)
       val ds  = DataSource(art)
       val v   = ds.variables.find(_.name == "temperature").get
-      val v1  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Stride[S](2, 16, 3))
+      val v0  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Slice[S](2, 16))
+      val v1  = Reduce(v0, Dimension.Selection.Name("lon"), Reduce.Op.Stride[S](3))
       val _z  = Reduce(v1, Dimension.Selection.Name("lat"), Reduce.Op.Slice [S](3, 8))
       (-1 to 1).map(_z.getKey)
     }

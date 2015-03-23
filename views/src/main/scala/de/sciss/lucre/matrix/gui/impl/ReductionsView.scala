@@ -31,7 +31,7 @@ object ReductionsView {
     res
   }
 
-  case class Update(size: Int) {
+  case class Update(size: Int, isLeaf: Boolean) {
     def isEmpty = size == 0
   }
 
@@ -51,10 +51,11 @@ object ReductionsView {
     }
 
     def insert(idx: Int, view: ReductionView[S])(implicit tx: S#Tx): Unit = {
-      val vec1 = children.transformAndGet(_.patch(idx, view :: Nil, 0))(tx.peer)
+      val vec1    = children.transformAndGet(_.patch(idx, view :: Nil, 0))(tx.peer)
+      val isLeaf  = vec1.nonEmpty && vec1.last.isLeaf
       deferTx {
         component.contents.insert(idx, view.component)
-        dispatch(ReductionsView.Update(size = vec1.size))
+        dispatch(ReductionsView.Update(size = vec1.size, isLeaf = isLeaf))
       }
     }
 
@@ -63,16 +64,22 @@ object ReductionsView {
       val view  = vec0(idx)
       val vec1  = vec0.patch(idx, Nil, 1)
       children.set(vec1)(tx.peer)
+      val isLeaf = vec1.nonEmpty && vec1.last.isLeaf
 
       deferTx {
         component.contents.remove(idx)
-        dispatch(ReductionsView.Update(size = vec1.size))
+        dispatch(ReductionsView.Update(size = vec1.size, isLeaf = isLeaf))
       }
 
       view.dispose()
     }
 
     def apply(idx: Int)(implicit tx: S#Tx): ReductionView[S] = children.get(tx.peer).apply(idx)
+
+    def isLeaf(implicit tx: S#Tx): Boolean = {
+      val vec = children.get(tx.peer)
+      vec.nonEmpty && vec.last.isLeaf
+    }
 
     def size(implicit tx: S#Tx): Int = children.get(tx.peer).size
 
@@ -91,6 +98,8 @@ trait ReductionsView[S <: Sys[S]] extends View[S] with Model[ReductionsView.Upda
   def remove(idx: Int)(implicit tx: S#Tx): Unit
 
   // def clear(): Unit
+
+  def isLeaf(implicit tx: S#Tx): Boolean
 
   def insert(idx: Int, view: ReductionView[S])(implicit tx: S#Tx): Unit
 }
