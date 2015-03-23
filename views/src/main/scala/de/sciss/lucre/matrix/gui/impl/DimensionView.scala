@@ -51,9 +51,10 @@ object DimensionView {
           case ReduceOpEnum.Apply =>
             Reduce.Op.Apply[S](expr.Int.newVar(expr.Int.newConst(0)))
           case ReduceOpEnum.Slice =>
+            val toVal = prev.dimensions.find(_.name == name).map(_.size.toInt - 1).getOrElse(0)
             Reduce.Op.Slice[S](
               from = expr.Int.newVar(expr.Int.newConst(0)),
-              to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1))
+              to   = expr.Int.newVar(expr.Int.newConst(toVal /* Int.MaxValue - 1 */))
             )
           case ReduceOpEnum.Stride =>
             Reduce.Op.Stride[S](

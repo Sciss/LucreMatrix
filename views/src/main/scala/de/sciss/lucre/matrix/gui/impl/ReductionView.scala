@@ -17,21 +17,19 @@ package gui
 package impl
 
 import java.io.FileNotFoundException
-import javax.swing.event.{ChangeEvent, ChangeListener}
 
 import de.sciss.audiowidgets.DualRangeModel
 import de.sciss.desktop.UndoManager
 import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.stm
 import de.sciss.lucre.stm.Disposable
-import de.sciss.lucre.swing.deferTx
 import de.sciss.lucre.swing.impl.ComponentHolder
-import de.sciss.lucre.swing.{IntSpinnerView, IntRangeSliderView, View}
+import de.sciss.lucre.swing.{IntRangeSliderView, IntSpinnerView, View, deferTx}
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
-import scala.swing.{TextField, Swing, Alignment, Component, Label, Orientation, BoxPanel}
-import scala.util.{Failure, Success, Try}
+import scala.swing.{Alignment, BoxPanel, Component, Label, Orientation, Swing, TextField}
+import scala.util.{Failure, Success}
 
 object ReductionView {
   def apply[S <: Sys[S]](dimVal: Dimension.Value, /* editable: Option[Matrix.Var[S]], */ red: Reduce[S])
@@ -40,42 +38,42 @@ object ReductionView {
                          undo: UndoManager): ReductionView[S] = {
     val dims        = red.dimensions
     val dimIdx      = dims.indexWhere(_.name == dimVal.name)
-    val dimIdxView  = DimensionIndex(dims(dimIdx))
+    // val dimIdxView  = DimensionIndex(dims(dimIdx))
     // important: we need the range of the reduction's input!
     val dimRange    = red.in.ranges.apply(dimIdx)    // XXX TODO - should be dynamic
 
     // println(s"DIM NAME = ${dimVal.name}; SIZE = ${dimVal.size}; IDX = $dimIdx, RANGE = $dimRange")
 
-    def mkUnit(valIdx: Int): Option[Try[String]] =
-      if (valIdx < 0 || valIdx >= dimRange.size) None else {
-        val idxInDim = dimRange(valIdx)
-        dimIdxView.tryFormat(idxInDim)
-        //        dimIdxView.value(idxInDim).map { mag =>
-        //          dimIdxView.format(mag)
-        //        }
-      }
+    //    def mkUnit(valIdx: Int): Option[Try[String]] =
+    //      if (valIdx < 0 || valIdx >= dimRange.size) None else {
+    //        val idxInDim = dimRange(valIdx)
+    //        dimIdxView.tryFormat(idxInDim)
+    //        //        dimIdxView.value(idxInDim).map { mag =>
+    //        //          dimIdxView.format(mag)
+    //        //        }
+    //      }
 
-    def mkUnit1(t: Try[String]): String = t match {
-      case Success(x) => x
-      case Failure(_: FileNotFoundException) => "&lt;offline&gt;" // HTML entities!
-      case Failure(e) => e.getClass.getSimpleName
-    }
+    //    def mkUnit1(t: Try[String]): String = t match {
+    //      case Success(x) => x
+    //      case Failure(_: FileNotFoundException) => "&lt;offline&gt;" // HTML entities!
+    //      case Failure(e) => e.getClass.getSimpleName
+    //    }
 
-    def mkTT(up: String, loUnit: Option[Try[String]], hiUnit: Option[Try[String]], lo: Int, hi: Int): String =
-      loUnit.fold(up) { lu =>
-        hiUnit.fold(up) { hu =>
-          val down = if (hi == lo || lu.isFailure)
-            mkUnit1(lu)
-          else if (hu.isFailure)
-            mkUnit1(hu)
-          else
-            s"${mkUnit1(lu)} to ${mkUnit1(hu)}"
+    //    def mkTT(up: String, loUnit: Option[Try[String]], hiUnit: Option[Try[String]], lo: Int, hi: Int): String =
+    //      loUnit.fold(up) { lu =>
+    //        hiUnit.fold(up) { hu =>
+    //          val down = if (hi == lo || lu.isFailure)
+    //            mkUnit1(lu)
+    //          else if (hu.isFailure)
+    //            mkUnit1(hu)
+    //          else
+    //            s"${mkUnit1(lu)} to ${mkUnit1(hu)}"
+    //
+    //          mkHTML(up, down)
+    //        }
+    //      }
 
-          mkHTML(up, down)
-        }
-      }
-
-    def mkHTML(up: String, down: String): String = s"<HTML><BODY>$up<BR><I>$down</I></BODY>"
+    // def mkHTML(up: String, down: String): String = s"<HTML><BODY>$up<BR><I>$down</I></BODY>"
 
     @tailrec def loopOp(op: Reduce.Op[S], vr: Option[Reduce.Op.Var[S]]):
     (ReduceOpEnum, View[S], Reduce.Op[S], Option[Reduce.Op.Var[S]]) = op match {
@@ -96,7 +94,7 @@ object ReductionView {
             contents += slidIdx.component
             contents += spinIdx.component
             contents += unitIdx.component
-            contents += Swing.HStrut(4)
+            // contents += Swing.HStrut(4)
           }
 
           def dispose()(implicit tx: S#Tx): Unit = {
@@ -109,31 +107,53 @@ object ReductionView {
         (ReduceOpEnum.Apply, view, oi, vr)
 
       case os: Reduce.Op.Slice[S] =>
-        // val view = StringFieldView(dn.expr, "Dimension Name", columns = 6)
-        // val viewLo = IntSpinnerView(os.from , s"Slice in ${dimVal.name}")
-        // val viewHi = IntSpinnerView(os.until, s"Slice in ${dimVal.name}")
         val rm        = DualRangeModel(minimum = 0, maximum = dimVal.size - 1)
-        val viewSlice = IntRangeSliderView(rm, s"Slice in ${dimVal.name}")
-        viewSlice.rangeLo = Some(os.from)
-        viewSlice.rangeHi = Some(os.to  )
-        val view      = View.wrap[S] {
-          val cl = new ChangeListener {
-            def stateChanged(e: ChangeEvent): Unit = {
-              val lo      = rm.rangeLo
-              val loUnit  = mkUnit(lo)
-              val hi      = rm.rangeHi
-              val hiUnit  = mkUnit(hi)
-              val up      = if (hi == lo) lo.toString else s"$lo to $hi"
-              val tt      = mkTT(up, loUnit, hiUnit, lo, hi)
-              viewSlice.component.tooltip = tt
-            }
-          }
-          rm.addChangeListener(cl)
-          cl.stateChanged(null)
-
-          new BoxPanel(Orientation.Horizontal) {
+        val nameSlice = s"Slice in ${dimVal.name}"
+        val viewSlice = IntRangeSliderView(rm, nameSlice)
+        val exprLo    = os.from
+        val exprHi    = os.to
+        viewSlice.rangeLo = Some(exprLo)
+        viewSlice.rangeHi = Some(exprHi)
+        val spinLo    = IntSpinnerView(exprLo, nameSlice, 80)
+        val spinHi    = IntSpinnerView(exprHi, nameSlice, 80)
+        val dimIdxView = DimensionIndex(dims(dimIdx))
+        val unitLo    = new UnitLabelImpl(dimIdxView, dimRange).init(exprLo)
+        val unitHi    = new UnitLabelImpl(dimIdxView, dimRange).init(exprHi)
+        val view: View[S] = new View[S] {
+          lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
             contents += new Label("Slice:")
             contents += viewSlice.component
+            contents += new BoxPanel(Orientation.Vertical) {
+              //              override lazy val peer = {
+              //                val p = new javax.swing.JPanel with SuperMixin {
+              //                  override def getBaseline(width: Int, height: Int): Int = {
+              //                    val j = spinLo.component.peer
+              //                    j.getBaseline(width, height) + j.getY
+              //                  }
+              //                }
+              //                val l = new javax.swing.BoxLayout(p, Orientation.Vertical.id)
+              //                p.setLayout(l)
+              //                p
+              //              }
+
+              contents += new BoxPanel(Orientation.Horizontal) {
+                contents += spinLo.component
+                contents += unitLo.component
+              }
+              contents += new BoxPanel(Orientation.Horizontal) {
+                contents += spinHi.component
+                contents += unitHi.component
+              }
+            }
+            contents += Swing.HStrut(4)
+          }
+
+          def dispose()(implicit tx: S#Tx): Unit = {
+            viewSlice.dispose()
+            spinLo.dispose()
+            spinHi.dispose()
+            unitLo.dispose()
+            unitHi.dispose()
           }
         }
         (ReduceOpEnum.Slice, view, os, vr)
@@ -182,23 +202,25 @@ object ReductionView {
     extends View[S] with ComponentHolder[TextField] {
 
     private var observer: Disposable[S#Tx] = _
+    private var value: Int = _
 
     def init(ex: Expr[S, Int])(implicit tx: S#Tx): this.type = {
       val v0      = ex.value
-      val text0   = mkUnit(v0)
       // val textMin = if (v0 == 0) text0 else mkUnit(0)
       // val szm     = dimRange.size - 1
       // val textMax = if (v0 == szm) text0 else mkUnit(szm)
       // val width   = math.max(textMin.length, textMax.length)
-      deferTx(guiInit(text0 /*, textMin, textMax */))
+      deferTx(guiInit(v0))
       observer = ex.changed.react { implicit tx => ch =>
-        val text1 = mkUnit(ch.now)
-        deferTx(component.text = text1)
+        deferTx {
+          value = ch.now
+          component.text = mkUnit(value)
+        }
       }
       this
     }
 
-    private def mkUnit(idx: Int)(implicit tx: S#Tx): String = {
+    private def mkUnit(idx: Int): String = {
       val opt = if (idx < 0 || idx >= dimRange.size) None else {
         val idxInDim = dimRange(idx)
         dimIdxView.tryFormat(idxInDim)
@@ -213,12 +235,16 @@ object ReductionView {
       text
     }
 
-    private def guiInit(text0: String): Unit = {
-      val gg = new TextField(13)
-      gg.text = text0
+    private def guiInit(v0: Int): Unit = {
+      value   = v0
+      val gg  = new TextField(13)
+      gg.text = mkUnit(v0)
       gg.editable = false
       gg.horizontalAlignment = Alignment.Right
       component = gg
+      dimIdxView.addListener {
+        case DimensionIndex.Ready => gg.text = mkUnit(value)
+      }
     }
 
     def dispose()(implicit tx: S#Tx): Unit = observer.dispose()
