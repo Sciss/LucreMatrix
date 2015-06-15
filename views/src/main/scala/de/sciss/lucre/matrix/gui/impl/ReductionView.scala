@@ -18,7 +18,7 @@ package impl
 
 import java.awt
 import java.awt.datatransfer.Transferable
-import java.awt.event.{MouseEvent, MouseAdapter}
+import java.awt.event.{InputEvent, MouseEvent, MouseAdapter}
 import java.awt.{RenderingHints, Graphics}
 import java.awt.geom.{AffineTransform, GeneralPath, Path2D}
 import java.io.FileNotFoundException
@@ -340,14 +340,26 @@ object ReductionView {
     }
 
     private object Transfer extends TransferHandler {
-      override def getSourceActions(c: JComponent): Int = TransferHandler.LINK | TransferHandler.COPY
+      override def exportAsDrag(jComponent: JComponent, inputEvent: InputEvent, i: Int): Unit = {
+        // println(s"exportAsDrag - ${i.toHexString}")
+        super.exportAsDrag(jComponent, inputEvent, i)
+      }
 
-      override def createTransferable(c: JComponent): Transferable =
-        csr.step { implicit tx =>
+      override def getSourceActions(c: JComponent): Int = {
+        // println("getSourceActions")
+        // N.B.: Drag-and-Drop only works on OS X if `MOVE` is included,
+        // even if we don't support that action. Thanks Apple for being special!!
+        TransferHandler.LINK | TransferHandler.COPY | TransferHandler.MOVE
+      }
+
+      override def createTransferable(c: JComponent): Transferable = {
+        val opt = csr.step { implicit tx =>
           val ex = source()
           val vr = ex // Expr.Var.unapply(ex).fold(ex)(_.apply()) // don't move variables!
           th.exportInt(vr)
-        } .orNull
+        }
+        opt.orNull
+      }
 
       // how to enforce a drop action: https://weblogs.java.net/blog/shan_man/archive/2006/02/choosing_the_dr.html
       override def canImport(support: TransferSupport): Boolean = isVar && /* component.enabled && */ {
@@ -415,7 +427,7 @@ object ReductionView {
 
       override def mouseDragged(e: MouseEvent): Unit =
         if (dndPressed && !dndStarted && ((math.abs(e.getX - dndInitX) > 5) || (math.abs(e.getY - dndInitY) > 5))) {
-          Transfer.exportAsDrag(peer, e, TransferHandler.LINK /* sourceAction(e.getModifiers) */)
+          Transfer.exportAsDrag(peer, e, TransferHandler.COPY /* .LINK */ /* sourceAction(e.getModifiers) */)
           dndStarted = true
         }
     }

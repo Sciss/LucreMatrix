@@ -1,21 +1,16 @@
 lazy val baseName           = "LucreMatrix"
+lazy val baseNameL          = baseName.toLowerCase
 
-def baseNameL               = baseName.toLowerCase
-
-lazy val projectVersion     = "0.10.0"
+lazy val projectVersion     = "0.10.1"
 
 lazy val eventVersion       = "2.7.3"
-
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
-
 lazy val audioFileVersion   = "1.4.4"
-
 lazy val fileCacheVersion   = "0.3.2"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion   = "2.2.4"
-
+lazy val scalaTestVersion   = "2.2.5"
 lazy val lucreSTMVersion    = "2.1.1"
 
 // ---- views ----
@@ -24,9 +19,10 @@ lazy val lucreSwingVersion  = "0.9.1"
 
 // ---- views/test ----
 
+lazy val xstreamVersion     = "1.4.8"   // Maven Central sha1 corruption in previous version
 lazy val webLaFVersion      = "1.28"
 
-lazy val commonSettings = Project.defaultSettings ++ Seq(
+lazy val commonSettings = Seq(
   version            := projectVersion,
   organization       := "de.sciss",
   scalaVersion       := "2.11.6",
@@ -63,22 +59,19 @@ lazy val commonSettings = Project.defaultSettings ++ Seq(
   }
 )
 
-lazy val root = Project(
-  id            = baseNameL,
-  base          = file("."),
-  aggregate     = Seq(core, views),
-  dependencies  = Seq(core, views),
-  settings      = commonSettings ++ Seq(
+lazy val root = Project(id = baseNameL, base = file(".")).
+  aggregate(core, views).
+  dependsOn(core, views).
+  settings(commonSettings).
+  settings(
     publishArtifact in (Compile, packageBin) := false, // there are no binaries
     publishArtifact in (Compile, packageDoc) := false, // there are no javadocs
     publishArtifact in (Compile, packageSrc) := false  // there are no sources
   )
-)
 
-lazy val core = Project(
-  id            = s"$baseNameL-core",
-  base          = file("core"),
-  settings      = commonSettings ++ Seq(
+lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
+  settings(commonSettings).
+  settings(
     name        := s"$baseName-core",
     description := "Operationalizing SysSon data matrices as reactive dataflow objects",
     libraryDependencies ++= Seq(
@@ -100,18 +93,16 @@ lazy val core = Project(
         |val z = atomic { implicit tx => Matrix.zeros(13, 21) } // to play around with
         |""".stripMargin
   )
-)
 
-lazy val views = Project(
-  id            = s"$baseNameL-views",
-  base          = file("views"),
-  dependencies  = Seq(core),
-  settings      = commonSettings ++ Seq(
+lazy val views = Project(id = s"$baseNameL-views", base = file("views")).
+  dependsOn(core).
+  settings(commonSettings).
+  settings(
     name        := s"$baseName-views",
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
       "de.sciss" %% "lucreswing" % lucreSwingVersion,
+      "com.thoughtworks.xstream" % "xstream" % xstreamVersion % "test",  // bug in Maven Central
       "de.sciss" %  "weblaf"     % webLaFVersion  % "test"
     )
   )
-)
