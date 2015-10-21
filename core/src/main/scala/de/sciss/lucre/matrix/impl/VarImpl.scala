@@ -35,18 +35,32 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U <: EU]
 
   def apply()(implicit tx: S#Tx): Elem = ref()
 
-  def update(v: Elem)(implicit tx: S#Tx): Unit = {
+  final def update(v: Elem)(implicit tx: S#Tx): Unit = {
     val before = ref()
     if (before != v) {
-      val con = targets.nonEmpty
-      if (con) before.changed -/-> changed
+      before.changed -/-> this.changed
       ref() = v
-      if (con) {
-        v.changed ---> changed
-        changed.fire(mkUpdate(before, v))
-      }
+      v  .changed ---> this.changed
+
+      // val beforeV = before.value
+      // val exprV   = expr  .value
+      // changed.fire(Change(beforeV, exprV))
+      changed.fire(mkUpdate(before, v))
     }
   }
+
+//  def update(v: Elem)(implicit tx: S#Tx): Unit = {
+//    val before = ref()
+//    if (before != v) {
+//      val con = targets.nonEmpty
+//      if (con) before.changed -/-> changed
+//      ref() = v
+//      if (con) {
+//        v.changed ---> changed
+//        changed.fire(mkUpdate(before, v))
+//      }
+//    }
+//  }
 
   protected def disposeData()(implicit tx: S#Tx): Unit = {
     disconnect()

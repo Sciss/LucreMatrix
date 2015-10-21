@@ -84,6 +84,7 @@ object MatrixViewImpl {
         // println("matrixUpdate")
         matrix = matrix // XXX TODO: smart update instead of rebuilding all
       case _ =>
+        if (DEBUG) println(s"other update: $upd")
     }
 
     def matrix_=(value: Option[Matrix[S]])(implicit tx: S#Tx): Unit = {
