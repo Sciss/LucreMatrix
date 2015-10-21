@@ -44,27 +44,25 @@ object DataSourceImpl {
   def apply[S <: Sys[S]](artifact: Artifact[S])(implicit tx: S#Tx, resolver: Resolver[S]): DataSource[S] = {
     val file    = artifact.value
     val netFile = resolver.resolve(file)
-    val f0      = artifact
 
-    new Impl[S] {
-      ds =>
+    val id      = tx.newID()
+    val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
+    val ds      = new Impl[S](id, artifact, varRef)
 
-      val id                = tx.newID()
-      val artifact          = f0
-      protected val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
-      import JavaConversions._
-      val numericVars = netFile.getVariables.filter(_.getDataType.isNumeric)
-      val netMap: mutable.Map[String, nc2.Variable] = numericVars.map { net =>
-        val name = net.getShortName
-        (name, net)
-      } (breakOut)
-      val matMap  = mutable.Map.empty[String, Variable[S]]
-      val list: List[Variable[S]] = numericVars.map { net =>
-        val name = net.getShortName
-        matMap.getOrElse(name, mkVariable(ds, net, netMap, matMap))
-      } (breakOut)
-      varRef() = list   // tricky decoupling of recursive serialization
-    }
+    import JavaConversions._
+    val numericVars = netFile.getVariables.filter(_.getDataType.isNumeric)
+    val netMap: mutable.Map[String, nc2.Variable] = numericVars.map { net =>
+      val name = net.getShortName
+      (name, net)
+    } (breakOut)
+    val matMap  = mutable.Map.empty[String, Variable[S]]
+    val list: List[Variable[S]] = numericVars.map { net =>
+      val name = net.getShortName
+      matMap.getOrElse(name, mkVariable(ds, net, netMap, matMap))
+    } (breakOut)
+
+    varRef() = list   // tricky decoupling of recursive serialization
+    ds
   }
 
   // ---- create a new variable ----
@@ -163,19 +161,18 @@ object DataSourceImpl {
     }
   }
 
-  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] =
-    new Impl[S] {
-      val id      = tx.readID(in, access)
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = {
+    val cookie = in.readByte()
+    if (cookie != 3) sys.error(s"Unexpected cookie, expected 3, found $cookie")
+    val id      = tx.readID(in, access)
+    val magic   = in.readLong()
+    if (magic != SOURCE_COOKIE)
+      sys.error(s"Unexpected cookie (found ${magic.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
+    val artifact  = Artifact.read(in, access)
+    val varRef    = tx.readVar[List[Variable[S]]](id, in)
 
-      {
-        val cookie = in.readLong()
-        require(cookie == SOURCE_COOKIE,
-          s"Unexpected cookie (found ${cookie.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
-      }
-
-      val artifact  = Artifact.read(in, access)
-      val varRef    = tx.readVar[List[Variable[S]]](id, in)
-    }
+    new Impl[S](id, artifact, varRef)
+  }
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     anySer.asInstanceOf[Ser[S]]
@@ -222,15 +219,8 @@ object DataSourceImpl {
                                                 dimConst: Vec[Matrix[S]])
     extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
 
-//    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
-//      val tgt         = evt.Targets[S]
-//      val sourceCpy   = source  // XXX TODO - ok?
-//      val dimCpy      = dimConst.map(_.mkCopy())
-//      new VariableImpl(tgt, sourceCpy, parents, nameConst, unitsConst, dimCpy)
-//    }
-
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      val idOut       = txOut.newID() // Targets[Out]
+      val idOut       = txOut.newID()
       val sourceOut   = context(source)
       val dimOut      = dimConst.map(context(_))
       new VariableImpl(idOut, sourceOut, parents, nameConst, unitsConst, dimOut)
@@ -256,8 +246,6 @@ object DataSourceImpl {
                                                  sizeConst: Int)
     extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
 
-    // def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
-
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val idOut     = txOut.newID()
       val sourceOut = context(source)
@@ -280,7 +268,7 @@ object DataSourceImpl {
   }
 
   private abstract class VariableImplLike[S <: Sys[S]]
-    extends MatrixRoot[S] with Variable[S] /* with evt.Node[S] */ {
+    extends MatrixRoot[S] with Variable[S] {
 
     // ---- abstract ----
 
@@ -290,12 +278,6 @@ object DataSourceImpl {
     protected def isLeaf: Boolean
 
     protected def writeDimensions(out: DataOutput): Unit
-
-    // ---- event dummy ----
-
-//    final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
-//
-//    final def select(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
 
     // ----
 
@@ -332,54 +314,50 @@ object DataSourceImpl {
     }
   }
 
-  private abstract class Impl[S <: Sys[S]]
+  private final class Impl[S <: Sys[S]](val id: S#ID, val artifact: Artifact[S], protected val varRef: S#Var[List[Variable[S]]])
     extends DataSource[S] /* with Mutable.Impl[S] */ { in =>
 
     // ---- abstract ----
 
-    protected def varRef: S#Var[List[Variable[S]]]
+    // protected def varRef: S#Var[List[Variable[S]]]
 
     // ---- impl ----
 
     override def toString() = s"DataSource$id"
 
-    final def event(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
+    def event(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
 
-    final def changed: EventLike[S, Any] = evt.Dummy[S, Any]
+    def changed: EventLike[S, Any] = evt.Dummy[S, Any]
 
-    final def write(out: DataOutput): Unit = {
+    def write(out: DataOutput): Unit = {
       out.writeInt(tpe.typeID)
       out.writeByte(3)
       id.write(out)
       writeData(out)
     }
 
-    final def dispose()(implicit tx: S#Tx): Unit = {
+    def dispose()(implicit tx: S#Tx): Unit = {
       id.dispose()
       disposeData()
     }
 
-    final def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      // DataSourceImpl(context(artifact))
-      new Impl[Out] {
-        val id: Out#ID = txOut.newID()
-
-        val artifact: Artifact[Out] = context(in.artifact)
-
-        protected val varRef: Out#Var[List[Variable[Out]]] = txOut.newVar(id, in.variables.map(context(_)))
-      }
+    def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+      val idOut       = txOut.newID()
+      val artifactOut = context(in.artifact)
+      val varRefOut   = txOut.newVar(idOut, in.variables.map(context(_)))
+      new Impl[Out](idOut, artifactOut, varRefOut)
     }
 
-    final protected def writeData(out: DataOutput): Unit = {
+    protected def writeData(out: DataOutput): Unit = {
       out.writeLong(SOURCE_COOKIE)
       artifact.write(out)
       varRef.write(out)
     }
 
-    final protected def disposeData()(implicit tx: S#Tx): Unit = varRef.dispose()
+    protected def disposeData()(implicit tx: S#Tx): Unit = varRef.dispose()
 
-    final def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
+    def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
 
-    final def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(artifact.value)
+    def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(artifact.value)
   }
 }
