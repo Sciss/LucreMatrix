@@ -133,8 +133,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
-      val art = ??? : Artifact[S] // loc.add(f)
+      val loc = ArtifactLocation.newConst[S](f.parent)
+      val art = Artifact(loc, f)
       val ds  = DataSource(art)
       val _z  = ds.variables.find(_.name == "temperature").get
       (-1 to 1).map(_z.getKey)
@@ -177,8 +177,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
-      val art = ??? : Artifact[S] // loc.add(f)
+      val loc = ArtifactLocation.newConst[S](f.parent)
+      val art = Artifact(loc, f)
       val ds  = DataSource(art)
       val v   = ds.variables.find(_.name == "temperature").get
       val v0  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Slice[S](2, 16))

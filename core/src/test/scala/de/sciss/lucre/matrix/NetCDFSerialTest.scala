@@ -21,8 +21,8 @@ object NetCDFSerialTest extends App {
       implicit val resolver = DataSource.Resolver.seq[S](net)
 
       val dsv = system.step { implicit tx =>
-        val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
-        val art = ??? : Artifact[S] // loc.add(f)
+        val loc = ArtifactLocation.newConst[S](f.parent)
+        val art = Artifact(loc, f)
         val ds  = DataSource(art)
         val id  = tx.newID()
         tx.newVar[DataSource[S]](id, ds)

@@ -19,8 +19,8 @@ object NewReadTest extends App {
   import system.step
 
   val (dimTemp, redLatH, redLatVarH, redLatStH, redLatFromH, redLatToH, redLatStepH) = step { implicit tx =>
-    val loc     = ??? : ArtifactLocation[S] // ArtifactLocation(p.parent)
-    val art     = ??? : Artifact[S] // loc.add(p)
+    val loc     = ArtifactLocation.newConst[S](p.parent)
+    val art     = Artifact(loc, p)
     val ds      = DataSource[S](art)
     val full    = ds.variables.find(_.name == "temp").get
     val dim     = full.dimensions.indexWhere(_.name == "time")

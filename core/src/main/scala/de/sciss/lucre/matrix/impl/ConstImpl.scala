@@ -45,7 +45,6 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S,
 
   final protected def writeData(out: DataOutput): Unit = {
     out.writeInt(opID)  // type
-    writeData(out)
     writeData1(out)
   }
 

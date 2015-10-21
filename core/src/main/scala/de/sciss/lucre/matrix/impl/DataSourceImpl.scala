@@ -22,7 +22,7 @@ import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.{Resolver, Variable}
 import de.sciss.lucre.stm.impl.ObjSerializer
 import de.sciss.lucre.stm.{Copy, Elem, NoSys, Obj}
-import de.sciss.lucre.{event => evt, stm}
+import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 import ucar.nc2
 
@@ -258,7 +258,7 @@ object DataSourceImpl {
 
     // def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
 
-    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+    def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val idOut     = txOut.newID()
       val sourceOut = context(source)
       new DimensionImpl(idOut, sourceOut, parents, nameConst = nameConst, unitsConst = unitsConst, sizeConst = sizeConst)
@@ -312,8 +312,8 @@ object DataSourceImpl {
         section = ReduceImpl.mkAllRange(shape))
 
     final protected def writeData(out: DataOutput): Unit = {
-      out writeByte 1   // cookie
-      out writeInt Matrix.typeID
+//      out writeByte 1   // cookie
+//      out writeInt Matrix.typeID
       out writeInt Variable.opID
       source    .write(out)
       parentsSer.write(parents, out)
@@ -359,7 +359,7 @@ object DataSourceImpl {
       disposeData()
     }
 
-    final def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+    final def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       // DataSourceImpl(context(artifact))
       new Impl[Out] {
         val id: Out#ID = txOut.newID()

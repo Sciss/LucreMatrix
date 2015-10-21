@@ -23,6 +23,15 @@ import de.sciss.serial.{DataInput, Serializer, Writable}
 import ucar.nc2
 
 object DataSource extends Obj.Type {
+  // ---- Obj.Type ----
+
+  final val typeID = 0x30005
+
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] =
+    Impl.readIdentifiedObj(in, access)
+
+  // ----
+
   /** Creates a new data source from a given path that points to a NetCDF file. This
     * will open the file and build a model of its variables.
     *
@@ -77,12 +86,6 @@ object DataSource extends Obj.Type {
   trait Resolver[S <: Sys[S]] {
     def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile
   }
-
-  // ---- Obj.Type ----
-  final val typeID = 0x30005
-
-  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] =
-    Impl.readIdentifiedObj(in, access)
 }
 /** A document represents one open data file. */
 trait DataSource[S <: Sys[S]] extends Obj[S] {
@@ -92,5 +95,5 @@ trait DataSource[S <: Sys[S]] extends Obj[S] {
 
   def variables(implicit tx: S#Tx): List[DataSource.Variable[S]]
 
-  def tpe: Obj.Type = DataSource
+  final def tpe: Obj.Type = DataSource
 }

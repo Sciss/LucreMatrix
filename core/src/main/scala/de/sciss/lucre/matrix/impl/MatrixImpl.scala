@@ -60,7 +60,7 @@ object MatrixImpl {
         (opID: @switch) match {
           case impl.ZeroMatrixImpl .opID => impl.ZeroMatrixImpl .readIdentified(id, in)
           case impl.ConstMatrixImpl.opID => impl.ConstMatrixImpl.readIdentified(id, in)
-          case DataSource.Variable.opID  => impl.DataSourceImpl.readIdentifiedVariable(in, access, id /* targets */)
+          case DataSource.Variable .opID => impl.DataSourceImpl .readIdentifiedVariable(in, access, id /* targets */)
           case _                         => sys.error(s"Unexpected operator $opID")
         }
 
