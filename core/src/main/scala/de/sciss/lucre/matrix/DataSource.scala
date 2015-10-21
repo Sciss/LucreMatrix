@@ -14,14 +14,15 @@
 
 package de.sciss.lucre.matrix
 
-import de.sciss.lucre.artifact.Artifact
-import ucar.nc2
 import java.io.File
-import impl.{DataSourceImpl => Impl}
-import de.sciss.serial.{DataInput, Writable, Serializer}
-import de.sciss.lucre.stm.Mutable
 
-object DataSource {
+import de.sciss.lucre.artifact.Artifact
+import de.sciss.lucre.matrix.impl.{DataSourceImpl => Impl}
+import de.sciss.lucre.stm.Obj
+import de.sciss.serial.{DataInput, Serializer, Writable}
+import ucar.nc2
+
+object DataSource extends Obj.Type {
   /** Creates a new data source from a given path that points to a NetCDF file. This
     * will open the file and build a model of its variables.
     *
@@ -41,23 +42,12 @@ object DataSource {
 
     implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Variable[S]] = Impl.varSerializer
 
-    //    def apply[S <: Sys[S]](source: DataSource[S], parents: List[String], name: String)
-    //                          (implicit tx: S#Tx): Variable[S] =
-    //      Impl.variable(source, parents, name)
-
-    def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = Impl.readVariable(in, access)
+    def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] =
+      serializer[S].read(in, access)
   }
   trait Variable[S <: Sys[S]] extends Matrix[S] with Writable {
     def source /* (implicit tx: S#Tx) */: DataSource[S]
     def parents: List[String]
-
-    //    def name: String
-    //
-    //    def shape: Vec[(String, Range)]
-    //
-    //    def rank: Int
-    //
-    //    def size: Long
 
     def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable
   }
@@ -86,17 +76,20 @@ object DataSource {
   trait Resolver[S <: Sys[S]] {
     def resolve(file: File)(implicit tx: S#Tx): nc2.NetcdfFile
   }
+
+  // ---- Obj.Type ----
+  final val typeID = 0x30005
+
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] =
+    Impl.readIdentifiedObj(in, access)
 }
 /** A document represents one open data file. */
-trait DataSource[S <: Sys[S]] extends Mutable[S#ID, S#Tx] {
-  //  /** Path to the document's underlying file (NetCDF). */
-  //  def path: String
-  //
-  //  def file: File
-
+trait DataSource[S <: Sys[S]] extends Obj[S] {
   def artifact: Artifact[S]
 
   def data()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): nc2.NetcdfFile
 
   def variables(implicit tx: S#Tx): List[DataSource.Variable[S]]
+
+  def tpe: Obj.Type = DataSource
 }

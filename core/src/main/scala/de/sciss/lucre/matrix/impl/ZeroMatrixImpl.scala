@@ -19,17 +19,19 @@ import java.{util => ju}
 
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
+import de.sciss.lucre.stm
+import de.sciss.lucre.stm.{Elem, Copy}
 import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
 
 object ZeroMatrixImpl {
   final val opID = 0
 
   def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] =
-    new Impl[S](shape)
+    new Impl[S](tx.newID(), shape)
 
-  private[matrix] def readIdentified[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
     val shape = intVecSer.read(in)
-    new Impl[S](shape)
+    new Impl[S](id, shape)
   }
 
   private val intVecSer = ImmutableSerializer.indexedSeq[Int]
@@ -72,11 +74,14 @@ object ZeroMatrixImpl {
       new ReaderImpl(shapeConst, streamDim)
   }
 
-  private final class Impl[S <: Sys[S]](protected val shapeConst: Vec[Int])
+  private final class Impl[S <: Sys[S]](val id: S#ID, protected val shapeConst: Vec[Int])
     extends ConstImpl[S] {
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, streamDim)
+
+    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
+      new Impl(txOut.newID(), shapeConst)
 
     protected def nameConst = s"zeros${shapeConst.mkString("[","][","]")}"
 
@@ -93,7 +98,7 @@ object ZeroMatrixImpl {
       Vec.fill(szI)(0.0)
     }
 
-    protected def writeData(out: DataOutput): Unit = {
+    protected def writeData1(out: DataOutput): Unit = {
       // out.writeInt(streamDim)
       intVecSer.write(shapeConst, out)
     }

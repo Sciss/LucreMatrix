@@ -16,21 +16,20 @@ package de.sciss.lucre.matrix
 package impl
 
 import de.sciss.lucre.{event => evt}
-import evt.EventLike
 import de.sciss.serial.DataOutput
 
-trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] {
+trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
   // ---- abstract ----
 
   protected def opID: Int
 
-  protected def writeData(out: DataOutput): Unit
+  protected def writeData1(out: DataOutput): Unit
 
   protected def shapeConst: Vec[Int]
 
   // ---- impl ----
 
-  final def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
+  // final def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
 
   final def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
   final def ranges    (implicit tx: S#Tx): Vec[Range]           = shapeConst.map(0 until _)
@@ -44,13 +43,13 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] {
       MatrixFactoryImpl.newConst1D(name, Range.Double(0.0, sz, 1.0))
     }
 
-  final def write(out: DataOutput): Unit = {
-    out.writeByte(3)    // 'constant'
+  final protected def writeData(out: DataOutput): Unit = {
     out.writeInt(opID)  // type
     writeData(out)
+    writeData1(out)
   }
 
-  final def dispose()(implicit tx: S#Tx) = ()
+  // final def dispose()(implicit tx: S#Tx) = ()
 
   protected def nameConst: String
 
@@ -60,5 +59,5 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] {
 
   final def units(implicit tx: S#Tx): String = unitsConst
 
-  final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
+  // final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 }

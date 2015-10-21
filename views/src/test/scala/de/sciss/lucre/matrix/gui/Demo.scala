@@ -2,26 +2,25 @@ package de.sciss.lucre.matrix
 package gui
 
 import java.awt.datatransfer.Transferable
-import java.awt.{FileDialog, Toolkit}
 import java.awt.event.KeyEvent
+import java.awt.{FileDialog, Toolkit}
 import javax.swing.TransferHandler.TransferSupport
+import javax.swing.{KeyStroke, UIManager}
 
+import de.sciss.desktop
+import de.sciss.desktop.impl.UndoManagerImpl
 import de.sciss.file._
-import de.sciss.lucre.artifact.ArtifactLocation
-import de.sciss.lucre.expr.Expr
+import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
+import de.sciss.lucre.expr.IntObj
+import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm
+import de.sciss.lucre.stm.InMemory
+import de.sciss.lucre.swing.{View, deferTx}
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
-import scala.swing.{Action, CheckBox, MenuBar, Menu, MenuItem, MainFrame, Frame, SimpleSwingApplication}
-import de.sciss.lucre.event.InMemory
-import Implicits._
-import de.sciss.desktop.impl.UndoManagerImpl
-import javax.swing.{KeyStroke, UIManager}
-import de.sciss.lucre.swing.View
+import scala.swing.{Action, CheckBox, Frame, MainFrame, Menu, MenuBar, MenuItem, SimpleSwingApplication}
 import scala.util.control.NonFatal
-import de.sciss.lucre.swing.deferTx
-import de.sciss.desktop
 
 object Demo extends SimpleSwingApplication {
   type S                  = InMemory
@@ -29,7 +28,7 @@ object Demo extends SimpleSwingApplication {
 
   implicit val undo       = new UndoManagerImpl
 
-  implicit val resolver = DataSource.Resolver.empty[S]
+  implicit val resolver   = DataSource.Resolver.empty[S]
 
   override def main(args: Array[String]): Unit = {
     //    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
@@ -53,8 +52,8 @@ object Demo extends SimpleSwingApplication {
       val net = NetcdfFile.open(f.path).setImmutable()
       resolver += net
       val (dsH, names)  = system.step { implicit tx =>
-        val loc = ArtifactLocation(f.parent)
-        val art = loc.add(f)
+        val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
+        val art = ??? : Artifact[S] // loc.add(f)
         val ds  = DataSource(art)
         val vs  = ds.variables
         (tx.newHandle(ds), vs.map(_.name))
@@ -89,15 +88,14 @@ object Demo extends SimpleSwingApplication {
   }
 
   private val th = new MatrixView.TransferHandler[S] {
-    def importInt(t: TransferSupport)(implicit tx: S#Tx): Option[Expr[S, Int]] =
-      DragAndDrop.get(t, DragAndDrop.IntExprFlavor).map(_.source.asInstanceOf[stm.Source[S#Tx, Expr[S, Int]]]())
+    def importInt(t: TransferSupport)(implicit tx: S#Tx): Option[IntObj[S]] =
+      DragAndDrop.get(t, DragAndDrop.IntObjFlavor).map(_.source.asInstanceOf[stm.Source[S#Tx, IntObj[S]]]())
 
-    def canImportInt(t: TransferSupport): Boolean = t.isDataFlavorSupported(DragAndDrop.IntExprFlavor)
+    def canImportInt(t: TransferSupport): Boolean = t.isDataFlavorSupported(DragAndDrop.IntObjFlavor)
 
-    def exportInt(x: Expr[S, Int])(implicit tx: S#Tx): Option[Transferable] = {
-      import de.sciss.lucre.expr.Int.serializer
+    def exportInt(x: IntObj[S])(implicit tx: S#Tx): Option[Transferable] = {
       val source = tx.newHandle(x)
-      val t = DragAndDrop.Transferable(DragAndDrop.IntExprFlavor)(DragAndDrop.IntExprDrag(source))
+      val t = DragAndDrop.Transferable(DragAndDrop.IntObjFlavor)(DragAndDrop.IntExprDrag(source))
       Some(t)
     }
   }

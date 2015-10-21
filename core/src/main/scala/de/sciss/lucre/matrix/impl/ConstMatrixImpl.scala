@@ -17,8 +17,9 @@ package matrix
 package impl
 
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.matrix.Matrix.{Key, Reader}
-import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
+import de.sciss.lucre.matrix.Matrix.Reader
+import de.sciss.lucre.stm.{Copy, Elem}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 
 object ConstMatrixImpl {
   final val opID = 1
@@ -26,7 +27,7 @@ object ConstMatrixImpl {
   def apply1D[S <: Sys[S]](name: String, units: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
     val data  = new Data(name, units, shape, v)
-    new Impl[S](data)
+    new Impl[S](tx.newID(), data)
   }
 
   def apply2D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
@@ -35,7 +36,7 @@ object ConstMatrixImpl {
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
     val data  = new Data(name, units, shape, flat)
-    new Impl[S](data)
+    new Impl[S](tx.newID(), data)
   }
 
   def apply3D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
@@ -48,12 +49,12 @@ object ConstMatrixImpl {
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
     val data  = new Data(name, units, shape, flat)
-    new Impl[S](data)
+    new Impl[S](tx.newID(), data)
   }
 
-  private[matrix] def readIdentified[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
     val data = readData(in)
-    new Impl[S](data)
+    new Impl[S](id, data)
   }
 
   private val intVecSer     = ImmutableSerializer.indexedSeq[Int   ]
@@ -87,8 +88,8 @@ object ConstMatrixImpl {
    */
 
   private final class ReaderImpl(key: KeyImpl) extends Matrix.Reader {
-    import key.streamDim
     import key.data.{shape => shapeConst, _}
+    import key.streamDim
 
     private val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
 
@@ -172,7 +173,7 @@ object ConstMatrixImpl {
       s"$productPrefix@${hashCode().toHexString}($name, $units, shape = ${shape.mkString("[","][","]")})"
   }
 
-  private final class Impl[S <: Sys[S]](data: Data)
+  private final class Impl[S <: Sys[S]](val id: S#ID, data: Data)
     extends ConstImpl[S] {
 
     import data.flatData
@@ -180,6 +181,9 @@ object ConstMatrixImpl {
     protected def shapeConst = data.shape
     protected def nameConst  = data.name
     protected def unitsConst = data.units
+
+    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
+      new Impl(txOut.newID(), data)
 
     override def toString = s"$nameConst${shapeConst.mkString("[","][","]")}"
 
@@ -192,6 +196,6 @@ object ConstMatrixImpl {
 
     protected def opID: Int = ConstMatrixImpl.opID
 
-    protected def writeData(out: DataOutput): Unit = data.write(out)
+    protected def writeData1(out: DataOutput): Unit = data.write(out)
   }
 }

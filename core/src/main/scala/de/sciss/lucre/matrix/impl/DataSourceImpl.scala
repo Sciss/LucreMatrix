@@ -17,11 +17,12 @@ package impl
 
 import de.sciss.file._
 import de.sciss.lucre.artifact.Artifact
-import de.sciss.lucre.event.{Event, EventLike}
+import de.sciss.lucre.event.{Targets, Event, EventLike}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.{Resolver, Variable}
-import de.sciss.lucre.stm.{NoSys, Mutable}
-import de.sciss.lucre.{event => evt}
+import de.sciss.lucre.stm.impl.ObjSerializer
+import de.sciss.lucre.stm.{Copy, Elem, NoSys, Obj}
+import de.sciss.lucre.{event => evt, stm}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 import ucar.nc2
 
@@ -71,7 +72,8 @@ object DataSourceImpl {
   private def mkVariable[S <: Sys[S]](source: DataSource[S], net: nc2.Variable,
                                       netMap: mutable.Map[String, nc2.Variable],
                                       matMap: mutable.Map[String, Variable[S]])(implicit tx: S#Tx): Variable[S] = {
-    val targets   = evt.Targets[S]
+    // val targets   = evt.Targets[S]
+    val id        = tx.newID()
     // val sourceRef = tx.newVar(id, source)
     val parents   = parentsLoop(net.getParentGroup, Nil)
     val name      = net.getShortName
@@ -87,7 +89,7 @@ object DataSourceImpl {
     // a 1D recursive variable indicates a pure dimension
     val res: Variable[S] = if (rank == 1 && dimArr.get(0).getShortName == name) {
       val size = dimArr.get(0).getLength
-      new DimensionImpl(targets, source, parents, name, units, size)
+      new DimensionImpl(id, source, parents, name, units, size)
 
     } else {
       // we assume that there are no recursive variable references... (we don't check for that condition)
@@ -127,26 +129,26 @@ object DataSourceImpl {
         }
       }
 
-      new VariableImpl(targets, source, parents, name, units, dimensions)
+      new VariableImpl(id, source, parents, name, units, dimensions)
     }
 
     matMap.put(name, res)
     res
   }
 
-  def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
-    val targets = evt.Targets.read(in, access)
-    val cookie = in.readByte() // 'node'
-    require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
-    val tpe     = in.readInt()  // 'type'
-    require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
-    val opID  = in.readInt()    // 'op'
-    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")
-    readIdentifiedVariable(in, access, targets)
-  }
+//  def readVariable[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = {
+//    val targets = evt.Targets.read(in, access)
+//    val cookie = in.readByte() // 'node'
+//    require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
+//    val tpe     = in.readInt()  // 'type'
+//    require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
+//    val opID  = in.readInt()    // 'op'
+//    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")
+//    readIdentifiedVariable(in, access, targets)
+//  }
 
-  def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
-                                         (implicit tx: S#Tx): Variable[S] with evt.Node[S] = {
+  def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, id: S#ID)
+                                         (implicit tx: S#Tx): Variable[S] /* with evt.Node[S] */ = {
     val source      = DataSource.read(in, access)
     val parents     = parentsSer.read(in)
     val name        = in.readUTF()
@@ -154,13 +156,15 @@ object DataSourceImpl {
     val isLeaf      = in.readBoolean()
     if (isLeaf) {
       val size      = in.readInt()
-      new DimensionImpl(targets, source, parents, name, units, size)
+      new DimensionImpl(id, source, parents, name, units, size)
     } else {
       val dimensions  = dimsSer[S].read(in, access)
-      new VariableImpl(targets, source, parents, name, units, dimensions)
+      new VariableImpl(id, source, parents, name, units, dimensions)
     }
   }
-  
+
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] = ???
+
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     anySer.asInstanceOf[Ser[S]]
 
@@ -181,14 +185,16 @@ object DataSourceImpl {
 
   private val anyVarSer = new VarSer[NoSys]
 
-  private class Ser[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, DataSource[S]] {
-    def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = DataSourceImpl.read(in, access)
-
-    def write(source: DataSource[S], out: DataOutput): Unit = source.write(out)
+  private class Ser[S <: Sys[S]] extends ObjSerializer[S, DataSource[S]] {
+    protected def tpe: Obj.Type = DataSource
   }
 
   private class VarSer[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, Variable[S]] {
-    def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] = DataSourceImpl.readVariable(in, access)
+    def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] =
+      Matrix.read(in, access) match {
+        case v: Variable[S] => v
+        case other => sys.error(s"Type mismatch, expected Variable, found $other")
+      }
 
     def write(v: Variable[S], out: DataOutput): Unit = v.write(out)
   }
@@ -206,20 +212,26 @@ object DataSourceImpl {
   private def mkDimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     Serializer.indexedSeq[S#Tx, S#Acc, Matrix[S]]
 
-  private final class VariableImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
+  private final class VariableImpl[S <: Sys[S]](val id: S#ID,
                                                 val source: DataSource[S],
                                                 val parents: List[String],
                                                 protected val nameConst: String,
                                                 protected val unitsConst: String,
                                                 dimConst: Vec[Matrix[S]])
-    extends VariableImplLike[S] {
+    extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
 
+//    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
+//      val tgt         = evt.Targets[S]
+//      val sourceCpy   = source  // XXX TODO - ok?
+//      val dimCpy      = dimConst.map(_.mkCopy())
+//      new VariableImpl(tgt, sourceCpy, parents, nameConst, unitsConst, dimCpy)
+//    }
 
-    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
-      val tgt         = evt.Targets[S]
-      val sourceCpy   = source  // XXX TODO - ok?
-      val dimCpy      = dimConst.map(_.mkCopy())
-      new VariableImpl(tgt, sourceCpy, parents, nameConst, unitsConst, dimCpy)
+    def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+      val idOut       = txOut.newID() // Targets[Out]
+      val sourceOut   = context(source)
+      val dimOut      = dimConst.map(context(_))
+      new VariableImpl(idOut, sourceOut, parents, nameConst, unitsConst, dimOut)
     }
 
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
@@ -234,15 +246,21 @@ object DataSourceImpl {
     protected def disposeData()(implicit tx: S#Tx): Unit = dimConst.foreach(_.dispose())
   }
 
-  private final class DimensionImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
+  private final class DimensionImpl[S <: Sys[S]](val id: S#ID,
                                                  val source: DataSource[S],
                                                  val parents: List[String],
                                                  protected val nameConst: String,
                                                  protected val unitsConst: String,
                                                  sizeConst: Int)
-    extends VariableImplLike[S] {
+    extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
 
-    def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
+    // def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
+
+    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+      val idOut     = txOut.newID()
+      val sourceOut = context(source)
+      new DimensionImpl(idOut, sourceOut, parents, nameConst = nameConst, unitsConst = unitsConst, sizeConst = sizeConst)
+    }
 
     protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
 
@@ -260,7 +278,7 @@ object DataSourceImpl {
   }
 
   private abstract class VariableImplLike[S <: Sys[S]]
-    extends MatrixRoot[S] with Variable[S] with evt.Node[S] {
+    extends MatrixRoot[S] with Variable[S] /* with evt.Node[S] */ {
 
     // ---- abstract ----
 
@@ -273,9 +291,9 @@ object DataSourceImpl {
 
     // ---- event dummy ----
 
-    final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
-
-    final def select(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
+//    final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
+//
+//    final def select(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
 
     // ----
 
@@ -313,26 +331,53 @@ object DataSourceImpl {
   }
 
   private abstract class Impl[S <: Sys[S]]
-    extends DataSource[S] with Mutable.Impl[S] {
+    extends DataSource[S] /* with Mutable.Impl[S] */ { in =>
+
+    // ---- abstract ----
 
     protected def varRef: S#Var[List[Variable[S]]]
 
+    // ---- impl ----
+
     override def toString() = s"DataSource$id"
 
-    // def file = new File(path)
+    final def event(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
 
-    // def path: String = file.path
+    final def changed: EventLike[S, Any] = evt.Dummy[S, Any]
 
-    protected def writeData(out: DataOutput): Unit = {
+    final def write(out: DataOutput): Unit = {
+      out.writeInt(tpe.typeID)
+      out.writeByte(3)
+      id.write(out)
+      writeData(out)
+    }
+
+    final def dispose()(implicit tx: S#Tx): Unit = {
+      id.dispose()
+      disposeData()
+    }
+
+    final def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
+      // DataSourceImpl(context(artifact))
+      new Impl[Out] {
+        val id: Out#ID = txOut.newID()
+
+        val artifact: Artifact[Out] = context(in.artifact)
+
+        protected val varRef: Out#Var[List[Variable[Out]]] = txOut.newVar(id, in.variables.map(context(_)))
+      }
+    }
+
+    final protected def writeData(out: DataOutput): Unit = {
       out.writeLong(SOURCE_COOKIE)
       artifact.write(out)
       varRef.write(out)
     }
 
-    protected def disposeData()(implicit tx: S#Tx): Unit = varRef.dispose()
+    final protected def disposeData()(implicit tx: S#Tx): Unit = varRef.dispose()
 
-    def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
+    final def variables(implicit tx: S#Tx): List[Variable[S]] = varRef()
 
-    def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(artifact.value)
+    final def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.NetcdfFile = resolver.resolve(artifact.value)
   }
 }

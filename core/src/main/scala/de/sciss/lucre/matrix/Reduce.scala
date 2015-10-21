@@ -16,10 +16,10 @@ package de.sciss.lucre
 package matrix
 
 import de.sciss.lucre.expr.{IntObj, Expr}
-import de.sciss.lucre.{event => evt}
+import de.sciss.lucre.{event => evt, stm}
 import evt.Publisher
 import de.sciss.serial.{Serializer, DataInput, Writable}
-import de.sciss.lucre.stm.Disposable
+import de.sciss.lucre.stm.{Elem, Disposable}
 import impl.{ReduceImpl => Impl}
 
 object Reduce {
@@ -39,8 +39,14 @@ object Reduce {
                                                  (implicit tx: S#Tx): Reduce[S] =
     Impl.readIdentified(in, access, targets)
 
-  object Op {
+  object Op extends Elem.Type {
+    // ---- Elem.Type ----
+
     final val typeID = 0x30002
+
+    def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] = ???
+
+    // ----
 
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] =
       serializer[S].read(in, access)
@@ -50,7 +56,7 @@ object Reduce {
     object Var {
       def apply[S <: Sys[S]](init: Op[S])(implicit tx: S#Tx): Var[S] = Impl.applyOpVar(init)
 
-      implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Var[S]]= Impl.opVarSerializer[S]
+      implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Op.Var[S]]= Impl.opVarSerializer[S]
     }
     /** A variable operation, that is a mutable cell storing another operation. */
     trait Var[S <: Sys[S]] extends Op[S] with matrix.Var[S, Op[S]]
@@ -98,9 +104,11 @@ object Reduce {
     case class Update[S <: Sys[S]](op: Op[S])
   }
   sealed trait Op[S <: Sys[S]]
-    extends Writable with Disposable[S#Tx] with Publisher[S, Op.Update[S]] {
+    extends Elem[S] with Publisher[S, Op.Update[S]] {
 
-    def mkCopy()(implicit tx: S#Tx): Op[S]
+    final def tpe: Elem.Type = Op
+
+    // def mkCopy()(implicit tx: S#Tx): Op[S]
 
     def size(in: Int)(implicit tx: S#Tx): Int
 

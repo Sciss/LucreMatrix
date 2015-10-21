@@ -17,13 +17,14 @@ package gui
 package impl
 
 import de.sciss.desktop.UndoManager
+import de.sciss.lucre.expr.{IntObj, StringObj}
+import de.sciss.lucre.stm
 import de.sciss.lucre.swing.edit.EditVar
-import de.sciss.lucre.{expr, stm}
-import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.lucre.swing.impl.ComponentHolder
+import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.swingplus.PopupMenu
 
-import scala.swing.{Orientation, BoxPanel, Label, Button, Action, MenuItem, Component}
+import scala.swing.{Action, BoxPanel, Button, Component, Label, MenuItem, Orientation}
 
 object DimensionView {
   def apply[S <: Sys[S]](varOpt: Option[Matrix.Var[S]], name: String)
@@ -46,21 +47,21 @@ object DimensionView {
       val edit = cursor.step { implicit tx =>
         val vr    = varH()
         val prev  = vr()
-        val dim   = Dimension.Selection.Name[S](expr.String.newConst(name))
+        val dim   = Dimension.Selection.Name[S](StringObj.newConst(name))
         val op    = opV match {
           case ReduceOpEnum.Apply =>
-            Reduce.Op.Apply[S](expr.Int.newVar(expr.Int.newConst(0)))
+            Reduce.Op.Apply[S](IntObj.newVar(IntObj.newConst(0)))
           case ReduceOpEnum.Slice =>
             val toVal = prev.dimensions.find(_.name == name).map(_.size.toInt - 1).getOrElse(0)
             Reduce.Op.Slice[S](
-              from = expr.Int.newVar(expr.Int.newConst(0)),
-              to   = expr.Int.newVar(expr.Int.newConst(toVal /* Int.MaxValue - 1 */))
+              from = IntObj.newVar(IntObj.newConst(0)),
+              to   = IntObj.newVar(IntObj.newConst(toVal /* Int.MaxValue - 1 */))
             )
           case ReduceOpEnum.Stride =>
             Reduce.Op.Stride[S](
-              // from = expr.Int.newVar(expr.Int.newConst(0)),
-              // to   = expr.Int.newVar(expr.Int.newConst(Int.MaxValue - 1)),
-              step = expr.Int.newVar(expr.Int.newConst(1))
+              // from = IntObj.newVar(IntObj.newConst(0)),
+              // to   = IntObj.newVar(IntObj.newConst(Int.MaxValue - 1)),
+              step = IntObj.newVar(IntObj.newConst(1))
             )
         }
         val newRed = Reduce(prev, dim, op)

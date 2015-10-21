@@ -1,7 +1,7 @@
 package de.sciss.lucre.matrix
 
-import Implicits._
-import de.sciss.lucre.event.InMemory
+import de.sciss.lucre.matrix.Implicits._
+import de.sciss.lucre.stm.InMemory
 
 object Test extends App {
   val sys = InMemory()

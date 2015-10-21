@@ -22,10 +22,11 @@ import de.sciss.serial.DataOutput
 // XXX TODO: this should go back into LucreEvent
 trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
   extends Var[S, Elem]
-  with evt.impl.StandaloneLike[S, U, Elem]
-  with evt.impl.Generator     [S, U, Elem] {
+  with evt.impl.SingleNode[S, U]
+  // with evt.impl.Generator     [S, U, Elem]
+  {
 
-  _: Elem =>
+  // _: Elem =>
 
   protected def ref: S#Var[Elem]
 
@@ -38,16 +39,19 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
     val before = ref()
     if (before != v) {
       val con = targets.nonEmpty
-      if (con) before.changed -/-> this
+      if (con) before.changed -/-> changed
       ref() = v
       if (con) {
-        v.changed ---> this
-        fire(mkUpdate(before, v))
+        v.changed ---> changed
+        changed.fire(mkUpdate(before, v))
       }
     }
   }
 
-  protected def disposeData()(implicit tx: S#Tx): Unit = ref.dispose()
+  protected def disposeData()(implicit tx: S#Tx): Unit = {
+    disconnect()
+    ref.dispose()
+  }
 
   protected def writeData(out: DataOutput): Unit = {
     out.writeByte(0)    // cookie
@@ -56,16 +60,21 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
 
   // ---- event ----
 
-  def changed: evt.EventLike[S, U] = this
-
-  def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[U] = {
-    if (pull.parents(this /* select() */).isEmpty) {
-      Some(pull.resolve[U])
-    } else {
-      pull(this().changed).map(mapUpdate)
+  // def changed: evt.EventLike[S, U] = this
+  object changed extends Changed with evt.impl.Generator[S, U] {
+    def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[U] = {
+      if (pull.parents(this /* select() */).isEmpty) {
+        Some(pull.resolve[U])
+      } else {
+        ??? // pull(this).map(mapUpdate)
+      }
     }
   }
 
-  def connect   ()(implicit tx: S#Tx): Unit = ref().changed ---> this
-  def disconnect()(implicit tx: S#Tx): Unit = ref().changed -/-> this
+  final def connect()(implicit tx: S#Tx): this.type = {
+    ref().changed ---> changed
+    this
+  }
+
+  private def disconnect()(implicit tx: S#Tx): Unit = ref().changed -/-> changed
 }

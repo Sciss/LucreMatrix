@@ -1,20 +1,19 @@
 package de.sciss.lucre.matrix
 
-import de.sciss.file._
-import de.sciss.lucre.artifact.ArtifactLocation
-import de.sciss.synth.io.AudioFile
-import org.scalatest.{fixture, Outcome, Matchers}
-import de.sciss.lucre.event.Durable
-import de.sciss.lucre.expr
-import expr.Expr
-import de.sciss.lucre.stm.store.BerkeleyDB
-import Implicits._
-import ucar.{ma2, nc2}
-
 import java.{util => ju}
 
-import scala.concurrent.duration.Duration
+import de.sciss.file._
+import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
+import de.sciss.lucre.expr.{IntObj, StringObj}
+import de.sciss.lucre.matrix.Implicits._
+import de.sciss.lucre.stm.Durable
+import de.sciss.lucre.stm.store.BerkeleyDB
+import de.sciss.synth.io.AudioFile
+import org.scalatest.{Matchers, Outcome, fixture}
+import ucar.{ma2, nc2}
+
 import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
 /*
@@ -36,8 +35,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  implicit def mkIntConst   (i: Int   ): Expr.Const[S, Int   ] = expr.Int   .newConst(i)
-  implicit def mkStringConst(s: String): Expr.Const[S, String] = expr.String.newConst(s)
+  implicit def mkIntConst   (i: Int   )(implicit tx: S#Tx): IntObj   .Const[S] = IntObj   .newConst(i)
+  implicit def mkStringConst(s: String)(implicit tx: S#Tx): StringObj.Const[S] = StringObj.newConst(s)
 
   "A Zeros Matrix" should "sing while you sell" in { args =>
     implicit val (cursor, cache) = args
@@ -132,8 +131,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val loc = ArtifactLocation(f.parent)
-      val art = loc.add(f)
+      val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
+      val art = ??? : Artifact[S] // loc.add(f)
       val ds  = DataSource(art)
       val _z  = ds.variables.find(_.name == "temperature").get
       (-1 to 1).map(_z.getKey)
@@ -176,8 +175,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
-      val loc = ArtifactLocation(f.parent)
-      val art = loc.add(f)
+      val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
+      val art = ??? : Artifact[S] // loc.add(f)
       val ds  = DataSource(art)
       val v   = ds.variables.find(_.name == "temperature").get
       val v0  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Slice[S](2, 16))

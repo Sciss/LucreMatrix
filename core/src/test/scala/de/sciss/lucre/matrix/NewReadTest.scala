@@ -1,38 +1,37 @@
 package de.sciss.lucre.matrix
 
 import de.sciss.file._
-import de.sciss.lucre.artifact.ArtifactLocation
-import de.sciss.lucre.event.InMemory
+import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
+import de.sciss.lucre.expr.{StringObj, IntObj}
+import de.sciss.lucre.stm.InMemory
 import ucar.nc2
-import de.sciss.lucre.expr
 
 object NewReadTest extends App {
   val p = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
   type S = InMemory
 
-  val ncf = nc2.NetcdfFile.open(p.getPath /* path */)
+  val ncf = nc2.NetcdfFile.open(p.path)
   implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
   val system = InMemory()
   import system.step
 
   val (dimTemp, redLatH, redLatVarH, redLatStH, redLatFromH, redLatToH, redLatStepH) = step { implicit tx =>
-    val loc     = ArtifactLocation(p.parent)
-    val art     = loc.add(p)
+    val loc     = ??? : ArtifactLocation[S] // ArtifactLocation(p.parent)
+    val art     = ??? : Artifact[S] // loc.add(p)
     val ds      = DataSource[S](art)
     val full    = ds.variables.find(_.name == "temp").get
     val dim     = full.dimensions.indexWhere(_.name == "time")
     assert(dim >= 0)
-    val redAlt  = Reduce(full, Dimension.Selection.Name(expr.String.newConst("plev")),
-      Reduce.Op.Apply(expr.Int.newConst(6)))
-    val redLatFrom = expr.Int.newVar[S](expr.Int.newConst(0))
-    val redLatTo   = expr.Int.newVar[S](expr.Int.newConst(17))
-    val redLatStep = expr.Int.newVar[S](expr.Int.newConst(2))
+    val redAlt  = Reduce(full, Dimension.Selection.Name(StringObj.newConst("plev")),
+      Reduce.Op.Apply(IntObj.newConst(6)))
+    val redLatFrom = IntObj.newVar[S](IntObj.newConst(0))
+    val redLatTo   = IntObj.newVar[S](IntObj.newConst(17))
+    val redLatStep = IntObj.newVar[S](IntObj.newConst(2))
     val redLatSl  = Reduce.Op.Slice (redLatFrom, redLatTo)
     val redLatSt  = Reduce.Op.Stride(/* redLatFrom, redLatTo, */ redLatStep)
     val redLatVar = Reduce.Op.Var(redLatSl)
-    val redLat    = Reduce(redAlt, Dimension.Selection.Name(expr.String.newConst("lat")), redLatVar)
-    import expr.Int.{serializer, varSerializer}
+    val redLat    = Reduce(redAlt, Dimension.Selection.Name(StringObj.newConst("lat")), redLatVar)
 
     (dim, tx.newHandle(redLat), tx.newHandle(redLatVar), tx.newHandle(redLatSt: Reduce.Op[S]),
       tx.newHandle(redLatFrom), tx.newHandle(redLatTo), tx.newHandle(redLatStep))
@@ -71,8 +70,8 @@ object NewReadTest extends App {
 
   locally {
     val r = step { implicit tx =>
-      redLatFromH().update(expr.Int.newConst(1))
-      redLatToH  ().update(expr.Int.newConst(4))
+      redLatFromH().update(IntObj.newConst(1))
+      redLatToH  ().update(IntObj.newConst(4))
       redLatH().reader(streamDim = dimTemp)
     }
     println("\n:::: latitude indices 1 to 4 ::::")

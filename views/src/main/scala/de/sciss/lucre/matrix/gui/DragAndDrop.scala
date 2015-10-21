@@ -15,13 +15,13 @@
 package de.sciss.lucre.matrix
 package gui
 
-import java.awt.datatransfer.{UnsupportedFlavorException, Transferable, DataFlavor}
+import java.awt.datatransfer.{DataFlavor, Transferable, UnsupportedFlavorException}
 import javax.swing.TransferHandler.TransferSupport
-import de.sciss.lucre.event.Sys
+
 import de.sciss.lucre.expr.Expr
 import de.sciss.lucre.stm
 
-import collection.breakOut
+import scala.collection.breakOut
 
 object DragAndDrop {
   trait Flavor[+A] extends DataFlavor
@@ -31,7 +31,7 @@ object DragAndDrop {
 
   final case class IntExprDrag[S <: Sys[S]](source: stm.Source[S#Tx, Expr[S, Int]])
 
-  val IntExprFlavor = DragAndDrop.internalFlavor[IntExprDrag[_]]
+  val IntObjFlavor = DragAndDrop.internalFlavor[IntExprDrag[_]]
 
   def get[A](t: TransferSupport, flavor: Flavor[A]): Option[A] =
     if (!t.isDataFlavorSupported(flavor)) None

@@ -15,15 +15,19 @@
 package de.sciss.lucre
 package matrix
 
-import de.sciss.lucre.{event => evt}
-import evt.Publisher
-import de.sciss.serial.{ImmutableSerializer, DataInput, Writable, Serializer}
-import stm.Disposable
+import de.sciss.lucre.event.Publisher
+import de.sciss.lucre.matrix.impl.{MatrixImpl => Impl}
+import de.sciss.lucre.stm.Obj
 import de.sciss.model.Change
-import impl.{MatrixImpl => Impl}
+import de.sciss.serial.{DataInput, ImmutableSerializer, Serializer, Writable}
 
-object Matrix {
+object Matrix extends Obj.Type {
+  // ---- Elem.Type ----
+
   final val typeID = 0x30001
+
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] =
+    Impl.readIdentifiedObj(in, access)
 
   // ---- variables ----
 
@@ -116,8 +120,10 @@ object Matrix {
 
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)
 }
-trait Matrix[S <: Sys[S]] extends Writable with Disposable[S#Tx] with Publisher[S, Matrix.Update[S]] {
-  def mkCopy()(implicit tx: S#Tx): Matrix[S]
+trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
+  final def tpe: Obj.Type = Matrix
+
+  // def mkCopy()(implicit tx: S#Tx): Matrix[S]
 
   /** A matrix has a name. For example, when coming from a NetCDF data source,
     * the matrix name corresponds to a variable name.

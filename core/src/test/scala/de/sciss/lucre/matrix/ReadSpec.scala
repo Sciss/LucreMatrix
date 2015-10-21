@@ -2,12 +2,13 @@ package de.sciss.lucre.matrix
 
 import java.{util => ju}
 
-import de.sciss.lucre.event.InMemory
 import de.sciss.lucre.expr
-import de.sciss.lucre.expr.Expr
-import org.scalatest.{Outcome, Matchers, fixture}
-import Implicits._
-import language.implicitConversions
+import de.sciss.lucre.expr.{IntObj, Expr}
+import de.sciss.lucre.matrix.Implicits._
+import de.sciss.lucre.stm.InMemory
+import org.scalatest.{Matchers, Outcome, fixture}
+
+import scala.language.implicitConversions
 
 /*
   to run only this test:
@@ -27,7 +28,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  implicit def mkConst(i: Int): Expr.Const[S, Int] = expr.Int.newConst(i)
+  implicit def mkConst(i: Int)(implicit tx: S#Tx): IntObj.Const[S] = IntObj.newConst(i)
 
   private def fillBuf(numFrames: Int, numChannels: Int, value: Float = 0f) = {
     val arr = Array.ofDim[Float](numChannels, numFrames)

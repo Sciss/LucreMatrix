@@ -1,12 +1,12 @@
 package de.sciss.lucre.matrix
 
-import org.scalatest.{fixture, Outcome, Matchers}
-import de.sciss.lucre.event.Durable
-import de.sciss.lucre.expr
-import expr.Expr
+import de.sciss.lucre.expr.IntObj
+import de.sciss.lucre.matrix.Implicits._
+import de.sciss.lucre.stm.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
-import Implicits._
-import language.implicitConversions
+import org.scalatest.{Matchers, Outcome, fixture}
+
+import scala.language.implicitConversions
 
 /*
   to run only this test:
@@ -26,7 +26,7 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  implicit def mkConst(i: Int): Expr.Const[S, Int] = expr.Int.newConst(i)
+  implicit def mkConst(i: Int)(implicit tx: S#Tx): IntObj.Const[S] = IntObj.newConst[S](i)
 
   "A Zeros Matrix" should "sing while you sell" in { cursor =>
     val z = cursor.step { implicit tx =>
@@ -57,11 +57,10 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     val (mv, si, sv, oi, ov) = cursor.step { implicit tx =>
       val _z  = Matrix.zeros(13, 21)
       val _mv = Matrix.Var(_z)
-      val _si = expr.Int.newVar[S](0)
+      val _si = IntObj.newVar[S](0)
       val _sv = Dimension.Selection.Var(Dimension.Selection.Index(_si))
-      val _oi = expr.Int.newVar[S](0)
+      val _oi = IntObj.newVar[S](0)
       val _ov = Reduce.Op.Var(Reduce.Op.Apply(_oi))
-      import expr.Int.varSerializer
       (tx.newHandle(_mv), tx.newHandle(_si), tx.newHandle(_sv), tx.newHandle(_oi), tx.newHandle(_ov))
     }
 
@@ -95,9 +94,9 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       //      assert (b0.flatten.toVector === (1 to 24))
       assert (m0.debugFlatten === (1 to 24))
 
-      val si  = expr.Int.newVar[S](0)
+      val si  = IntObj.newVar[S](0)
       val sv  = Dimension.Selection.Var(Dimension.Selection.Index(si))
-      val oi  = expr.Int.newVar[S](0)
+      val oi  = IntObj.newVar[S](0)
       val ov  = Reduce.Op.Var(Reduce.Op.Apply(oi))
       val m1  = Reduce(m0, sv, ov)
 

@@ -18,15 +18,15 @@ package gui
 import java.awt.datatransfer.Transferable
 import javax.swing.TransferHandler.TransferSupport
 
-import de.sciss.lucre.expr.Expr
+import de.sciss.desktop.UndoManager
+import de.sciss.lucre.expr.IntObj
+import de.sciss.lucre.matrix.gui.impl.{MatrixViewImpl => Impl}
+import de.sciss.lucre.stm
+import de.sciss.lucre.swing.View
+import de.sciss.model.Model
 
 import scala.concurrent.ExecutionContext
 import scala.swing.Component
-import de.sciss.lucre.stm
-import de.sciss.lucre.swing.View
-import impl.{MatrixViewImpl => Impl}
-import de.sciss.desktop.UndoManager
-import de.sciss.model.Model
 
 object MatrixView {
   def apply[S <: Sys[S]](transferHandler: Option[TransferHandler[S]] = None)
@@ -39,8 +39,8 @@ object MatrixView {
   trait TransferHandler[S <: Sys[S]] {
     def canImportInt(t: TransferSupport): Boolean
 
-    def importInt(t: TransferSupport)(implicit tx: S#Tx): Option[Expr[S, Int]]
-    def exportInt(x: Expr[S, Int])(implicit tx: S#Tx): Option[Transferable]
+    def importInt(t: TransferSupport)(implicit tx: S#Tx): Option[IntObj[S]]
+    def exportInt(x: IntObj[S])(implicit tx: S#Tx): Option[Transferable]
   }
 }
 trait MatrixView[S <: Sys[S]] extends View[S] with Model[MatrixView.Update] {

@@ -27,7 +27,7 @@ import javax.swing.{TransferHandler, JComponent, Icon}
 
 import de.sciss.audiowidgets.DualRangeModel
 import de.sciss.desktop.UndoManager
-import de.sciss.lucre.expr.{Expr, Int => IntEx}
+import de.sciss.lucre.expr.{IntObj, Expr}
 import de.sciss.lucre.stm
 import de.sciss.lucre.stm.Disposable
 import de.sciss.lucre.swing.edit.EditVar
@@ -221,7 +221,7 @@ object ReductionView {
     private var observer: Disposable[S#Tx] = _
     private var value: Int = _
 
-    def init(ex: Expr[S, Int])(implicit tx: S#Tx): this.type = {
+    def init(ex: IntObj[S])(implicit tx: S#Tx): this.type = {
       val v0      = ex.value
       // val textMin = if (v0 == 0) text0 else mkUnit(0)
       // val szm     = dimRange.size - 1
@@ -301,15 +301,15 @@ object ReductionView {
     p.lineTo(23.898000717163086, 6.135000228881836)
   }
 
-  private def DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], expr: Expr[S, Int])
+  private def DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], expr: IntObj[S])
                                     (implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): View[S] = {
     val isVar   = Expr.Var.unapply(expr).isDefined
-    import IntEx.serializer
+    import IntObj.serializer
     val source  = tx.newHandle(expr)
     View.wrap[S](new DnDButton(th, source = source, isVar = isVar))
   }
 
-  private final class DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], source: stm.Source[S#Tx, Expr[S, Int]],
+  private final class DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], source: stm.Source[S#Tx, IntObj[S]],
                                              isVar: Boolean)
                                             (implicit csr: stm.Cursor[S], undoManager: UndoManager)
     extends Label(null, null, Alignment.Center) {
@@ -380,13 +380,12 @@ object ReductionView {
       override def importData(support: TransferSupport): Boolean = {
         val isCopy  = support.getDropAction == TransferHandler.COPY
         val editOpt = csr.step { implicit tx =>
-          Expr.Var.unapply(source()).flatMap { vr =>
+          IntObj.Var.unapply(source()).flatMap { vr =>
             th.importInt(support).flatMap { value0 =>
-              import IntEx.{serializer, varSerializer}
-              val valueOpt = if (isCopy) Some(IntEx.newConst[S](value0.value)) else {
-                @tailrec def isRecursive(x: Expr[S, Int]): Boolean =
+              val valueOpt = if (isCopy) Some(IntObj.newConst[S](value0.value)) else {
+                @tailrec def isRecursive(x: IntObj[S]): Boolean =
                   x match {
-                    case Expr.Var(vr1) => if (vr1 == vr) true else isRecursive(vr1())
+                    case IntObj.Var(vr1) => if (vr1 == vr) true else isRecursive(vr1())
                     case _ => false
                   }
 
@@ -395,8 +394,8 @@ object ReductionView {
 
               valueOpt.map { value =>
                 // println(s"COPY? $isCopy | DROP $value0 | ONTO $vr | YIELDS $value")
-
-                EditVar.Expr[S, Int](name = "Drop Number", expr = vr, value = value)
+                implicit val intTpe = IntObj
+                EditVar.Expr[S, Int, IntObj](name = "Drop Number", expr = vr, value = value)
               }
             }
           }

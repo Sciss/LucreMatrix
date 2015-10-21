@@ -15,17 +15,23 @@
 package de.sciss.lucre
 package matrix
 
+import de.sciss.lucre.expr.{IntObj, StringObj}
+import de.sciss.lucre.matrix.impl.{DimensionImpl => Impl}
+import de.sciss.lucre.stm.Elem
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.expr.{StringObj, IntObj, Expr}
-import de.sciss.serial.{Serializer, DataInput, Writable}
-import de.sciss.lucre.stm.Disposable
-import impl.{DimensionImpl => Impl}
+import de.sciss.serial.{DataInput, Serializer}
 
 object Dimension {
   // trait Var[S <: Sys[S]] extends Dimension[S] with matrix.Var[S, Dimension[S]]
 
-  object Selection {
+  object Selection extends Elem.Type {
+    // ---- Elem.Type ----
+
     final val typeID = 0x30003
+
+    def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] = ???
+
+    // ----
 
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection[S] =
       serializer[S].read(in, access)
@@ -60,21 +66,12 @@ object Dimension {
     case class Update[S <: Sys[S]](selection: Selection[S])
   }
   sealed trait Selection[S <: Sys[S]]
-    extends Writable with Disposable[S#Tx] with evt.Publisher[S, Selection.Update[S]] {
+    extends Elem[S] with evt.Publisher[S, Selection.Update[S]] {
 
-    def mkCopy()(implicit tx: S#Tx): Selection[S]
+    final def tpe: Elem.Type = Selection
+
+    // def mkCopy()(implicit tx: S#Tx): Selection[S]
   }
 
   case class Value(name: String, size: Int)
-
-  //  trait Value {
-  //    def name: String
-  //    def size: Int
-  //  }
 }
-//trait Dimension[S <: Sys[S]] extends Expr[S, Dimension.Value] {
-//  def name: StringObj[S]
-//  def size: Expr[S, Int   ]
-//
-//  // def flatten(implicit tx: S#Tx): Vec[Double]
-//}
