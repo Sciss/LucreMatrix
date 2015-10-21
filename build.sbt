@@ -14,7 +14,7 @@ lazy val lucreVersion       = "3.2.1"
 
 // ---- views ----
 
-lazy val lucreSwingVersion  = "1.2.0"
+lazy val lucreSwingVersion  = "1.2.1"
 
 // ---- views/test ----
 
