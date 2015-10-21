@@ -44,7 +44,8 @@ object Reduce {
 
     final val typeID = 0x30002
 
-    def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] = ???
+    def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] =
+      Impl.readIdentifiedOp(in, access)
 
     // ----
 
@@ -112,10 +113,10 @@ object Reduce {
 
     def size(in: Int)(implicit tx: S#Tx): Int
 
-    def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ??? // later
+    // def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ...
   }
 }
-trait Reduce[S <: Sys[S]] extends Matrix[S] with evt.Node[S] {
+trait Reduce[S <: Sys[S]] extends Matrix[S] {
   def in : Matrix[S]
   def dim: Dimension.Selection[S]
   def op : Reduce.Op[S]

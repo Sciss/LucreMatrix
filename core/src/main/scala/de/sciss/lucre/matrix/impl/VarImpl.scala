@@ -20,7 +20,7 @@ import de.sciss.lucre.{event => evt}
 import de.sciss.serial.DataOutput
 
 // XXX TODO: this should go back into LucreEvent
-trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
+trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U <: EU]
   extends Var[S, Elem]
   with evt.impl.SingleNode[S, U]
   // with evt.impl.Generator     [S, U, Elem]
@@ -66,7 +66,7 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U]
       if (pull.parents(this /* select() */).isEmpty) {
         Some(pull.resolve[U])
       } else {
-        ??? // pull(this).map(mapUpdate)
+        pull(this).map(mapUpdate)
       }
     }
   }

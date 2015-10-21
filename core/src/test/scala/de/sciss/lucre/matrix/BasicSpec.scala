@@ -16,6 +16,8 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
   type S            = Durable
   type FixtureParam = Durable
 
+  initTypes()
+
   def withFixture(test: OneArgTest): Outcome = {
     val system = Durable(BerkeleyDB.tmp())
     try {

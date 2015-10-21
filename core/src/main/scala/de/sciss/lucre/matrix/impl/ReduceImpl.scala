@@ -20,17 +20,16 @@ import java.io.EOFException
 import java.{util => ju}
 
 import de.sciss.file._
-import de.sciss.lucre.event.{Event, Targets, EventLike}
+import de.sciss.lucre.event.Targets
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Dimension.Selection
-import de.sciss.lucre.matrix.Matrix
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.Reduce.Op
 import de.sciss.lucre.matrix.Reduce.Op.Update
 import de.sciss.lucre.stm.impl.ElemSerializer
-import de.sciss.lucre.stm.{Elem, Copy, NoSys}
-import de.sciss.lucre.{event => evt, stm}
+import de.sciss.lucre.stm.{Copy, Elem, NoSys}
+import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 import ucar.{ma2, nc2}
 
@@ -47,6 +46,49 @@ object ReduceImpl {
 
   private val anySer = new Ser[NoSys]
 
+  def readIdentifiedOp[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] = {
+    val targets = Targets.read(in, access)
+
+    def readNode()(implicit tx: S#Tx): Op[S] = {
+      val tpe   = in.readInt()
+      require(tpe == Op.typeID, s"Unexpected type id (found $tpe, expected ${Op.typeID})")
+      val opID  = in.readInt()
+      (opID: @switch) match {
+        case Op.Apply.opID =>
+          val index = IntObj.read(in, access)
+          new OpApplyImpl[S](targets, index)
+
+        case Op.Slice.opID =>
+          val from  = IntObj.read(in, access)
+          val to    = IntObj.read(in, access)
+          new OpSliceImpl[S](targets, from, to)
+
+        case 2 => // OLD SERIALIZED FORM
+          /* val from  = */ IntObj.read(in, access)
+          /* val to    = */ IntObj.read(in, access)
+          val step  = IntObj.read(in, access)
+          new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
+
+        case Op.Stride.opID =>
+          val step  = IntObj.read(in, access)
+          new OpStrideImpl[S](targets, step = step)
+
+        case _ => sys.error(s"Unsupported operator id $opID")
+      }
+    }
+
+    def readIdentifiedOpVar()(implicit tx: S#Tx): Op.Var[S] = {
+      val ref = tx.readVar[Op[S]](targets.id, in)
+      new OpVarImpl[S](targets, ref)
+    }
+
+    (in.readByte(): @switch) match {
+      case 0      => readIdentifiedOpVar()
+      case 1      => readNode()
+      case other  => sys.error(s"Unsupported cookie $other")
+    }
+  }
+
   private final class Ser[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, Reduce[S]] {
 
 //    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -61,6 +103,7 @@ object ReduceImpl {
 //
 //    def readConstant(in: DataInput)(implicit tx: S#Tx): Reduce[S] =
 //      sys.error("Unsupported constant reduce matrix")
+
     def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): Reduce[S] =
       Matrix.read(in, access) match {
         case r: Reduce[S] => r
@@ -73,7 +116,7 @@ object ReduceImpl {
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Reduce[S] = serializer[S].read(in, access)
   
   private[matrix] def readIdentified[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
-                                         (implicit tx: S#Tx): Reduce[S] = {
+                                                 (implicit tx: S#Tx): Reduce[S] = {
     val matrix  = Matrix    .read(in, access)
     val dim     = Selection .read(in, access)
     val op      = Op        .read(in, access)
@@ -90,42 +133,6 @@ object ReduceImpl {
 
   private final class OpSer[S <: Sys[S]] extends ElemSerializer[S, Op[S]] {
     def tpe: Elem.Type = Op
-//    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Op[S] with evt.Node[S] = {
-//      (in.readByte(): @switch) match {
-//        case 0      => readIdentifiedOpVar(in, access, targets)
-//        case 1      => readNode(in, access, targets)
-//        case other  => sys.error(s"Unsupported cookie $other")
-//      }
-//    }
-//
-//    private def readNode(in: DataInput, access: S#Acc, targets: evt.Targets[S])
-//                        (implicit tx: S#Tx): Op[S] with evt.Node[S] = {
-//      val tpe   = in.readInt()
-//      require(tpe == Op.typeID, s"Unexpected type id (found $tpe, expected ${Op.typeID})")
-//      val opID  = in.readInt()
-//      (opID: @switch) match {
-//        case Op.Apply.opID =>
-//          val index = IntObj.read(in, access)
-//          new OpApplyImpl[S](targets, index)
-//
-//        case Op.Slice.opID =>
-//          val from  = IntObj.read(in, access)
-//          val to    = IntObj.read(in, access)
-//          new OpSliceImpl[S](targets, from, to)
-//
-//        case 2 => // OLD SERIALIZED FORM
-//          /* val from  = */ IntObj.read(in, access)
-//          /* val to    = */ IntObj.read(in, access)
-//          val step  = IntObj.read(in, access)
-//          new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
-//
-//        case Op.Stride.opID =>
-//          val step  = IntObj.read(in, access)
-//          new OpStrideImpl[S](targets, step = step)
-//
-//        case _ => sys.error(s"Unsupported operator id $opID")
-//      }
-//    }
   }
 
   private final class OpVarSer[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, Op.Var[S]] {
@@ -138,32 +145,26 @@ object ReduceImpl {
     def write(v: Op.Var[S], out: DataOutput): Unit = v.write(out)
   }
 
-  private def readIdentifiedOpVar[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
-                                              (implicit tx: S#Tx): Op.Var[S] = {
-    val ref = tx.readVar[Op[S]](targets.id, in)
-    new OpVarImpl[S](targets, ref)
-  }
-
   def applyOpVar[S <: Sys[S]](init: Op[S])(implicit tx: S#Tx): Reduce.Op.Var[S] = {
     val targets = evt.Targets[S]
     val ref     = tx.newVar(targets.id, init)
-    new OpVarImpl[S](targets, ref)
+    new OpVarImpl[S](targets, ref).connect()
   }
 
   def applyOpApply[S <: Sys[S]](index: IntObj[S])(implicit tx: S#Tx): Op.Apply[S] = {
     val targets = evt.Targets[S]
-    new OpApplyImpl[S](targets, index)
+    new OpApplyImpl[S](targets, index).connect()
   }
 
   def applyOpSlice[S <: Sys[S]](from: IntObj[S], to: IntObj[S])(implicit tx: S#Tx): Op.Slice[S] = {
     val targets = evt.Targets[S]
-    new OpSliceImpl[S](targets, from = from, to = to)
+    new OpSliceImpl[S](targets, from = from, to = to).connect()
   }
 
   def applyOpStride[S <: Sys[S]](/* from: IntObj[S], to: IntObj[S], */ step: IntObj[S])
                                 (implicit tx: S#Tx): Op.Stride[S] = {
     val targets = evt.Targets[S]
-    new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
+    new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step).connect()
   }
 
   // ---- actual implementations ----
@@ -179,8 +180,9 @@ object ReduceImpl {
 //    }
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      val targetsOut = Targets[Out]
-      new OpVarImpl[Out](targetsOut, txOut.newVar(targetsOut.id, context(ref())))
+      val targetsOut  = Targets[Out]
+      val refOut      = txOut.newVar(targetsOut.id, context(ref()))
+      new OpVarImpl[Out](targetsOut, refOut).connect()
     }
 
     def size(in: Int)(implicit tx: S#Tx): Int = apply().size(in)
@@ -238,7 +240,7 @@ object ReduceImpl {
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val indexOut    = context(index)
-      new OpApplyImpl(targetsOut, indexOut)
+      new OpApplyImpl(targetsOut, indexOut).connect()
     }
 
     override def toString() = s"Apply$id($index)"
@@ -298,7 +300,7 @@ object ReduceImpl {
       val targetsOut  = Targets[Out]
       val fromOut     = context(from)
       val toOut       = context(to)
-      new OpSliceImpl(targetsOut, fromOut, toOut)
+      new OpSliceImpl(targetsOut, fromOut, toOut).connect()
     }
 
     override def toString() = s"Slice$id($from, $to)"
@@ -366,7 +368,7 @@ object ReduceImpl {
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val stepOut     = context(step)
-      new OpStrideImpl(targetsOut, stepOut)
+      new OpStrideImpl(targetsOut, stepOut).connect()
     }
 
     override def toString() = s"Stride$id($step)"

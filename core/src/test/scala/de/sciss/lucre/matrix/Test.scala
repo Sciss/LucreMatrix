@@ -4,6 +4,7 @@ import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.InMemory
 
 object Test extends App {
+  initTypes()
   val sys = InMemory()
   sys.step { implicit tx => run[InMemory]() }
 

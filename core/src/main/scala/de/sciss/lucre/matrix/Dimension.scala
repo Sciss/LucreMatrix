@@ -22,14 +22,13 @@ import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, Serializer}
 
 object Dimension {
-  // trait Var[S <: Sys[S]] extends Dimension[S] with matrix.Var[S, Dimension[S]]
-
   object Selection extends Elem.Type {
     // ---- Elem.Type ----
 
     final val typeID = 0x30003
 
-    def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] = ???
+    def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] =
+      Impl.readIdentifiedSelection(in, access)
 
     // ----
 
@@ -69,8 +68,6 @@ object Dimension {
     extends Elem[S] with evt.Publisher[S, Selection.Update[S]] {
 
     final def tpe: Elem.Type = Selection
-
-    // def mkCopy()(implicit tx: S#Tx): Selection[S]
   }
 
   case class Value(name: String, size: Int)

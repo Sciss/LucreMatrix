@@ -50,4 +50,11 @@ package object matrix {
       new Range(start = in1.start, end = in1.end, step = in1.step * stepM)
     in2.take(by.size)
   }
+
+  def initTypes(): Unit = {
+    DataSource.init()
+    Matrix    .init()
+    Reduce.Op .init()
+    Dimension.Selection.init()
+  }
 }

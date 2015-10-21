@@ -18,6 +18,8 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
   type S            = InMemory
   type FixtureParam = InMemory
 
+  initTypes()
+
   def withFixture(test: OneArgTest): Outcome = {
     val system = InMemory()
     try {

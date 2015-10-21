@@ -23,21 +23,23 @@ import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
 
+import scala.annotation.switch
+
 object DimensionImpl {
   def applySelVar[S <: Sys[S]](init: Selection[S])(implicit tx: S#Tx): Selection.Var[S] = {
     val targets = evt.Targets[S]
     val ref     = tx.newVar(targets.id, init)
-    new SelVarImpl[S](targets, ref)
+    new SelVarImpl[S](targets, ref).connect()
   }
 
   def applySelIndex[S <: Sys[S]](expr: IntObj[S])(implicit tx: S#Tx): Selection.Index[S] = {
     val targets = evt.Targets[S]
-    new SelIndexImpl[S](targets, expr)
+    new SelIndexImpl[S](targets, expr).connect()
   }
 
   def applySelName[S <: Sys[S]](expr: StringObj[S])(implicit tx: S#Tx): Selection.Name[S] = {
     val targets = evt.Targets[S]
-    new SelNameImpl[S](targets, expr)
+    new SelNameImpl[S](targets, expr).connect()
   }
 
   def selSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection[S]] = anySelSer.asInstanceOf[SelSer[S]]
@@ -48,50 +50,43 @@ object DimensionImpl {
 
   private val anySelVarSer = new SelVarSer[NoSys]
 
-  private final class SelSer[S <: Sys[S]] extends stm.impl.ElemSerializer[S, Selection[S]] {
+  def readIdentifiedSelection[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection[S] = {
+    val targets = Targets.read(in, access)
 
-//    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])
-//            (implicit tx: S#Tx): Selection[S] with evt.Node[S] = {
-//      (in.readByte(): @switch) match {
-//        case 0      => readIdentifiedSelVar(in, access, targets)
-//        case 1      => readNode(in, access, targets)
-//        case other  => sys.error(s"Unexpected cookie $other")
-//      }
-//    }
-//
-//    private def readNode(in: DataInput, access: S#Acc, targets: evt.Targets[S])
-//                        (implicit tx: S#Tx): Selection[S] with evt.Node[S] = {
-//      val tpe = in.readInt()
-//      require(tpe == Selection.typeID, s"Unexpected type (found $tpe, expected ${Selection.typeID}")
-//      val opID = in.readInt()
-//      (opID: @switch) match {
-//        case Selection.Index.opID =>
-//          val ex = IntObj.read(in, access)
-//          new SelIndexImpl[S](targets, ex)
-//
-//        case Selection.Name .opID =>
-//          val ex = StringObj.read(in, access)
-//          new SelNameImpl[S](targets, ex)
-//
-//        case _ => sys.error(s"Unknown operation id $opID")
-//      }
-//    }
-//
-//    def readConstant(in: DataInput)(implicit tx: S#Tx): Selection[S] = sys.error("Unknown constant selection")
+    def readNode()(implicit tx: S#Tx): Selection[S] = {
+      val tpe = in.readInt()
+      require(tpe == Selection.typeID, s"Unexpected type (found $tpe, expected ${Selection.typeID}")
+      val opID = in.readInt()
+      (opID: @switch) match {
+        case Selection.Index.opID =>
+          val ex = IntObj.read(in, access)
+          new SelIndexImpl[S](targets, ex)
+
+        case Selection.Name .opID =>
+          val ex = StringObj.read(in, access)
+          new SelNameImpl[S](targets, ex)
+
+        case _ => sys.error(s"Unknown operation id $opID")
+      }
+    }
+
+    def readIdentifiedSelVar()(implicit tx: S#Tx): Selection.Var[S] = {
+      val ref = tx.readVar[Selection[S]](targets.id, in)
+      new SelVarImpl[S](targets, ref)
+    }
+
+    (in.readByte(): @switch) match {
+      case 0      => readIdentifiedSelVar()
+      case 1      => readNode()
+      case other  => sys.error(s"Unexpected cookie $other")
+    }
+  }
+
+  private final class SelSer[S <: Sys[S]] extends stm.impl.ElemSerializer[S, Selection[S]] {
     protected def tpe: Elem.Type = Selection
   }
 
   private final class SelVarSer[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, Selection.Var[S]] {
-
-//    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])
-//            (implicit tx: S#Tx): Selection.Var[S] = {
-//      val cookie = in.readByte()
-//      require(cookie == 0, s"Unexpected cookie (found $cookie, expected 0)")
-//      readIdentifiedSelVar(in, access, targets)
-//    }
-//
-//    def readConstant(in: DataInput)(implicit tx: S#Tx): Selection.Var[S] =
-//      sys.error("Unsupported constant selection variable")
     def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection.Var[S] =
       Selection.read(in, access) match {
         case sv: Selection.Var[S] => sv
@@ -100,12 +95,6 @@ object DimensionImpl {
 
     def write(v: Selection.Var[S], out: DataOutput): Unit = v.write(out)
   }
-
-//  private def readIdentifiedSelVar[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
-//                                               (implicit tx: S#Tx): Selection.Var[S] = {
-//    val ref = tx.readVar[Selection[S]](targets.id, in)
-//    new SelVarImpl[S](targets, ref)
-//  }
 
   // ---- actual implementations ----
 
@@ -122,7 +111,7 @@ object DimensionImpl {
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val refOut      = txOut.newVar(targetsOut.id, context(ref()))
-      new SelVarImpl[Out](targetsOut, refOut)
+      new SelVarImpl[Out](targetsOut, refOut).connect()
     }
 
     override def toString() = s"Selection.Var$id"
@@ -186,7 +175,7 @@ object DimensionImpl {
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val exprOut     = context(expr)
-      new SelIndexImpl(targetsOut, exprOut)
+      new SelIndexImpl(targetsOut, exprOut).connect()
     }
 
     override def toString() = s"Index$id($expr)"
@@ -211,7 +200,7 @@ object DimensionImpl {
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val exprOut     = context(expr)
-      new SelNameImpl(targetsOut, exprOut)
+      new SelNameImpl(targetsOut, exprOut).connect()
     }
 
     override def toString() = s"Name$id($expr)"

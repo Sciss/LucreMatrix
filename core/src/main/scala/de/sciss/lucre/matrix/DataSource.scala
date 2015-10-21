@@ -35,7 +35,8 @@ object DataSource extends Obj.Type {
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     Impl.serializer[S]
 
-  def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = Impl.read(in, access)
+  def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] =
+    serializer[S].read(in, access)
 
   object Variable {
     final val opID = 3

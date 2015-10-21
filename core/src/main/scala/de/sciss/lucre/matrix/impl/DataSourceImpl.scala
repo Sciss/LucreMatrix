@@ -17,7 +17,7 @@ package impl
 
 import de.sciss.file._
 import de.sciss.lucre.artifact.Artifact
-import de.sciss.lucre.event.{Targets, Event, EventLike}
+import de.sciss.lucre.event.{Event, EventLike}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.{Resolver, Variable}
 import de.sciss.lucre.stm.impl.ObjSerializer
@@ -163,23 +163,25 @@ object DataSourceImpl {
     }
   }
 
-  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] = ???
+  def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] =
+    new Impl[S] {
+      val id      = tx.readID(in, access)
+
+      {
+        val cookie = in.readLong()
+        require(cookie == SOURCE_COOKIE,
+          s"Unexpected cookie (found ${cookie.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
+      }
+
+      val artifact  = Artifact.read(in, access)
+      val varRef    = tx.readVar[List[Variable[S]]](id, in)
+    }
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, DataSource[S]] =
     anySer.asInstanceOf[Ser[S]]
 
   implicit def varSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Variable[S]] =
     anyVarSer.asInstanceOf[VarSer[S]]
-
-  def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = new Impl[S] {
-    val id      = tx.readID(in, access)
-    val cookie  = in.readLong()
-    require(cookie == SOURCE_COOKIE,
-      s"Unexpected cookie (found ${cookie.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
-    // val file    = new File(in.readUTF())
-    val artifact  = Artifact.read(in, access)
-    val varRef    = tx.readVar[List[Variable[S]]](id, in)
-  }
 
   private val anySer    = new Ser   [NoSys]
 

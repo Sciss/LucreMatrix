@@ -10,6 +10,8 @@ object NewReadTest extends App {
   val p = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
   type S = InMemory
 
+  initTypes()
+
   val ncf = nc2.NetcdfFile.open(p.path)
   implicit val resolver = DataSource.Resolver.seq[S](ncf)
 

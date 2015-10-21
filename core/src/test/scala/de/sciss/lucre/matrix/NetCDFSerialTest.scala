@@ -10,6 +10,8 @@ object NetCDFSerialTest extends App {
   type S = Durable
   implicit val system = Durable(BerkeleyDB.tmp())
 
+  initTypes()
+
   val f = userHome / "IEM" / "SysSon" / "Data" / "201211" / "gcm" / "New_Deutschlandradio_MPI_M" / "pr" /
     "25_pr_Amon_MPI-ESM-LR_rcp45_r1i1p1_200601-230012.nc"
 
