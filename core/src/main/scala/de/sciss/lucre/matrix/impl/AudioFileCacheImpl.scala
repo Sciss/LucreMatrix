@@ -15,18 +15,17 @@
 package de.sciss.lucre.matrix
 package impl
 
+import de.sciss.file._
 import de.sciss.filecache
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.file._
+import de.sciss.lucre.stm
 import de.sciss.lucre.stm.TxnLike
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
-import de.sciss.synth.io.{AudioFileSpec, AudioFile}
-import de.sciss.lucre.event.Sys
-import scala.concurrent.stm.TMap
-import scala.util.control.NonFatal
-import scala.concurrent.stm.atomic
+import de.sciss.synth.io.{AudioFile, AudioFileSpec}
+
+import scala.concurrent.stm.{TMap, atomic}
 import scala.concurrent.{Future, blocking}
-import de.sciss.lucre.stm
+import scala.util.control.NonFatal
 
 object AudioFileCacheImpl {
   //  private val KEY_COOKIE  = 0x6166636B  // "afck"
@@ -164,7 +163,7 @@ object AudioFileCacheImpl {
       // val spec          = sectionToSpec(vs, streamDim)
       val spec          = AudioFileSpec(numFrames = reader.numFrames, numChannels = reader.numChannels,
         sampleRate = 44100 /* rate */)
-      import spec.{numFrames, numChannels}
+      import spec.{numChannels, numFrames}
       // val afF           = File.createTemp("sysson", ".aif")
       val afF           = java.io.File.createTempFile("sysson", ".aif", config.folder)
       val af            = AudioFile.openWrite(afF, spec)

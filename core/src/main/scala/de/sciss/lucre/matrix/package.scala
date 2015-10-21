@@ -21,7 +21,7 @@ import scala.annotation.elidable
 import scala.annotation.elidable._
 
 package object matrix {
-  type Sys[S <: Sys[S]] = de.sciss.lucre.event.Sys[S]
+  type Sys[S <: Sys[S]] = de.sciss.lucre.stm.Sys[S]
 
   //  val Longs     = de.sciss.lucre.synth.expr.Longs
   //  val Strings   = de.sciss.lucre.synth.expr.Strings

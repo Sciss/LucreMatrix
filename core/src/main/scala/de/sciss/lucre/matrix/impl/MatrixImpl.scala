@@ -15,19 +15,19 @@
 package de.sciss.lucre.matrix
 package impl
 
+import de.sciss.lucre.stm.NoSys
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.event.InMemory
-import de.sciss.serial.{Serializer, DataInput}
+import de.sciss.serial.{DataInput, Serializer}
 
 import scala.annotation.switch
 
 object MatrixImpl {
-  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] /* with evt.Reader[S, Matrix[S]] */ =
     anySer.asInstanceOf[Ser[S]]
 
   // ---- impl ----
 
-  private val anySer = new Ser[InMemory]
+  private val anySer = new Ser[NoSys]
 
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Matrix[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Matrix[S] with evt.Node[S] = {

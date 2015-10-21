@@ -15,18 +15,18 @@
 package de.sciss.lucre.matrix
 package impl
 
-import de.sciss.lucre.artifact.Artifact
-import ucar.nc2
-import de.sciss.serial.{ImmutableSerializer, Serializer, DataInput, DataOutput}
-import de.sciss.lucre.{event => evt}
 import de.sciss.file._
-import de.sciss.lucre.matrix.DataSource.{Variable, Resolver}
-import de.sciss.lucre.stm.Mutable
-import scala.collection.mutable
-import scala.collection.{JavaConversions, breakOut}
+import de.sciss.lucre.artifact.Artifact
+import de.sciss.lucre.event.{Event, EventLike}
+import de.sciss.lucre.expr.IntObj
+import de.sciss.lucre.matrix.DataSource.{Resolver, Variable}
+import de.sciss.lucre.stm.{NoSys, Mutable}
+import de.sciss.lucre.{event => evt}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
+import ucar.nc2
+
 import scala.annotation.tailrec
-import de.sciss.lucre.event.{InMemory, Event, EventLike}
-import de.sciss.lucre.expr.{Int => IntEx}
+import scala.collection.{JavaConversions, breakOut, mutable}
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
@@ -113,14 +113,14 @@ object DataSourceImpl {
         // use the matrix wrapper for the dimensional variable. otherwise, we must
         // reduce it.
         if (rStart == 0 && rStep == 1 && rEnd == full.size - 1) full else {
-          val dimSel = Dimension.Selection.Index[S](IntEx.newConst(0))
+          val dimSel = Dimension.Selection.Index[S](IntObj.newConst(0))
           val op = if (rStart == rEnd)
-            Reduce.Op.Apply [S](IntEx.newConst(rStart))
+            Reduce.Op.Apply [S](IntObj.newConst(rStart))
           else if (rStep == 1)
-            Reduce.Op.Slice [S](IntEx.newConst(rStart), IntEx.newConst(rEnd))
+            Reduce.Op.Slice [S](IntObj.newConst(rStart), IntObj.newConst(rEnd))
           else {
             require(rStart == 0 && rEnd == full.size - 1)
-            Reduce.Op.Stride[S](/* IntEx.newConst(rStart), IntEx.newConst(rEnd), */ IntEx.newConst(rStep))
+            Reduce.Op.Stride[S](/* IntObj.newConst(rStart), IntObj.newConst(rEnd), */ IntObj.newConst(rStep))
           }
 
           Reduce(full, dimSel, op)
@@ -177,9 +177,9 @@ object DataSourceImpl {
     val varRef    = tx.readVar[List[Variable[S]]](id, in)
   }
 
-  private val anySer    = new Ser   [evt.InMemory]
+  private val anySer    = new Ser   [NoSys]
 
-  private val anyVarSer = new VarSer[evt.InMemory]
+  private val anyVarSer = new VarSer[NoSys]
 
   private class Ser[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, DataSource[S]] {
     def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = DataSourceImpl.read(in, access)
@@ -201,7 +201,7 @@ object DataSourceImpl {
   private def dimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     anyDimsSer.asInstanceOf[Serializer[S#Tx, S#Acc, Vec[Matrix[S]]]]
 
-  private val anyDimsSer = mkDimsSer[InMemory]
+  private val anyDimsSer = mkDimsSer[NoSys]
 
   private def mkDimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     Serializer.indexedSeq[S#Tx, S#Acc, Matrix[S]]
@@ -275,7 +275,7 @@ object DataSourceImpl {
 
     final def changed: EventLike[S, Matrix.Update[S]] = evt.Dummy.apply
 
-    final def select(slot: Int): Event[S, Any, Any] = throw new UnsupportedOperationException
+    final def select(slot: Int): Event[S, Any] = throw new UnsupportedOperationException
 
     // ----
 

@@ -15,6 +15,7 @@
 package de.sciss.lucre.matrix
 
 import de.sciss.lucre.expr
+import de.sciss.lucre.expr.IntObj
 
 object Implicits {
   implicit class MatrixFactoryOps(val `this`: Matrix.type) extends AnyVal with MatrixFactory {
@@ -34,6 +35,6 @@ object Implicits {
 
   implicit class MatrixOps[S <: Sys[S]](val `this`: Matrix[S]) extends AnyVal {
     def slice(dim: Int, index: Int)(implicit tx: S#Tx): Matrix[S] =
-      Reduce(`this`, Dimension.Selection.Index(expr.Int.newConst(dim)), Reduce.Op.Apply(expr.Int.newConst(index)))
+      Reduce(`this`, Dimension.Selection.Index(IntObj.newConst(dim)), Reduce.Op.Apply(IntObj.newConst(index)))
   }
 }

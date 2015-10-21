@@ -16,8 +16,8 @@ package de.sciss.lucre
 package matrix
 
 import de.sciss.lucre.{event => evt}
-import de.sciss.lucre.expr.Expr
-import de.sciss.serial.{DataInput, Writable}
+import de.sciss.lucre.expr.{StringObj, IntObj, Expr}
+import de.sciss.serial.{Serializer, DataInput, Writable}
 import de.sciss.lucre.stm.Disposable
 import impl.{DimensionImpl => Impl}
 
@@ -30,30 +30,30 @@ object Dimension {
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Selection[S] =
       serializer[S].read(in, access)
 
-    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Selection[S]] = Impl.selSerializer[S]
+    implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection[S]] = Impl.selSerializer[S]
 
     object Index {
       final val opID  = 0
 
-      def apply[S <: Sys[S]](expr: Expr[S, Int])(implicit tx: S#Tx): Index[S] = Impl.applySelIndex(expr)
+      def apply[S <: Sys[S]](expr: IntObj[S])(implicit tx: S#Tx): Index[S] = Impl.applySelIndex(expr)
     }
     trait Index[S <: Sys[S]] extends Selection[S] with evt.Node[S] {
-      def expr: Expr[S, Int]
+      def expr: IntObj[S]
     }
 
     object Name {
       final val opID  = 1
 
-      def apply[S <: Sys[S]](expr: Expr[S, String])(implicit tx: S#Tx): Name[S] = Impl.applySelName(expr)
+      def apply[S <: Sys[S]](expr: StringObj[S])(implicit tx: S#Tx): Name[S] = Impl.applySelName(expr)
     }
     trait Name[S <: Sys[S]] extends Selection[S] with evt.Node[S] {
-      def expr: Expr[S, String]
+      def expr: StringObj[S]
     }
 
     object Var {
       def apply[S <: Sys[S]](init: Selection[S])(implicit tx: S#Tx): Var[S] = Impl.applySelVar(init)
 
-      implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Selection.Var[S]] = Impl.selVarSerializer[S]
+      implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection.Var[S]] = Impl.selVarSerializer[S]
     }
     trait Var[S <: Sys[S]] extends Selection[S] with matrix.Var[S, Selection[S]]
 
@@ -73,7 +73,7 @@ object Dimension {
   //  }
 }
 //trait Dimension[S <: Sys[S]] extends Expr[S, Dimension.Value] {
-//  def name: Expr[S, String]
+//  def name: StringObj[S]
 //  def size: Expr[S, Int   ]
 //
 //  // def flatten(implicit tx: S#Tx): Vec[Double]

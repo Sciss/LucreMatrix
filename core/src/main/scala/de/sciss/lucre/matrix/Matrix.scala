@@ -33,7 +33,7 @@ object Matrix {
     def unapply[S <: Sys[S], A](matrix: Matrix[S]): Option[Var[S]] =
       if (matrix.isInstanceOf[Var[_]]) Some(matrix.asInstanceOf[Var[S]]) else None
 
-    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]] = impl.MatrixVarImpl.serializer[S]
+    implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Var[S]] = impl.MatrixVarImpl.serializer[S]
 
     object Update {
       case class Changed[S <: Sys[S]](matrix: Var[S], change: Change[Matrix[S]]) extends Var.Update[S]
@@ -111,7 +111,7 @@ object Matrix {
 
   // ---- serialization ----
 
-  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] with evt.Reader[S, Matrix[S]] =
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix[S]] /* with evt.Reader[S, Matrix[S]] */ =
     Impl.serializer[S]
 
   def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Matrix[S] = serializer[S].read(in, access)

@@ -21,18 +21,19 @@ import java.{util => ju}
 
 import de.sciss.file._
 import de.sciss.lucre.event.EventLike
-import de.sciss.lucre.expr.{Expr, Int => IntEx}
+import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Dimension.Selection
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.Reduce.Op
 import de.sciss.lucre.matrix.Reduce.Op.Update
+import de.sciss.lucre.stm.NoSys
 import de.sciss.lucre.{event => evt}
-import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 import ucar.{ma2, nc2}
 
 import scala.annotation.{switch, tailrec}
-import scala.collection.{JavaConversions, breakOut}
+import scala.collection.breakOut
 
 object ReduceImpl {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -40,9 +41,9 @@ object ReduceImpl {
     new Impl[S](targets, in, dim, op)
   }
 
-  implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Reduce[S]] = anySer.asInstanceOf[Ser[S]]
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Reduce[S]] = anySer.asInstanceOf[Ser[S]]
 
-  private val anySer = new Ser[evt.InMemory]
+  private val anySer = new Ser[NoSys]
 
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Reduce[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -69,13 +70,13 @@ object ReduceImpl {
     new Impl(targets, matrix, dim, op)
   }
 
-  implicit def opSerializer[S <: Sys[S]]: evt.Serializer[S, Op[S]] = anyOpSer.asInstanceOf[OpSer[S]]
+  implicit def opSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Op[S]] = anyOpSer.asInstanceOf[OpSer[S]]
 
-  private val anyOpSer = new OpSer[evt.InMemory]
+  private val anyOpSer = new OpSer[NoSys]
 
-  implicit def opVarSerializer[S <: Sys[S]]: evt.Serializer[S, Op.Var[S]] = anyOpVarSer.asInstanceOf[OpVarSer[S]]
+  implicit def opVarSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Op.Var[S]] = anyOpVarSer.asInstanceOf[OpVarSer[S]]
 
-  private val anyOpVarSer = new OpVarSer[evt.InMemory]
+  private val anyOpVarSer = new OpVarSer[NoSys]
 
   private final class OpSer[S <: Sys[S]] extends evt.EventLikeSerializer[S, Op[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Op[S] with evt.Node[S] = {
@@ -93,22 +94,22 @@ object ReduceImpl {
       val opID  = in.readInt()
       (opID: @switch) match {
         case Op.Apply.opID =>
-          val index = expr.Int.read(in, access)
+          val index = IntObj.read(in, access)
           new OpApplyImpl[S](targets, index)
 
         case Op.Slice.opID =>
-          val from  = expr.Int.read(in, access)
-          val to    = expr.Int.read(in, access)
+          val from  = IntObj.read(in, access)
+          val to    = IntObj.read(in, access)
           new OpSliceImpl[S](targets, from, to)
 
         case 2 => // OLD SERIALIZED FORM
-          /* val from  = */ expr.Int.read(in, access)
-          /* val to    = */ expr.Int.read(in, access)
-          val step  = expr.Int.read(in, access)
+          /* val from  = */ IntObj.read(in, access)
+          /* val to    = */ IntObj.read(in, access)
+          val step  = IntObj.read(in, access)
           new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
 
         case Op.Stride.opID =>
-          val step  = expr.Int.read(in, access)
+          val step  = IntObj.read(in, access)
           new OpStrideImpl[S](targets, step = step)
 
         case _ => sys.error(s"Unsupported operator id $opID")
@@ -141,17 +142,17 @@ object ReduceImpl {
     new OpVarImpl[S](targets, ref)
   }
 
-  def applyOpApply[S <: Sys[S]](index: Expr[S, Int])(implicit tx: S#Tx): Op.Apply[S] = {
+  def applyOpApply[S <: Sys[S]](index: IntObj[S])(implicit tx: S#Tx): Op.Apply[S] = {
     val targets = evt.Targets[S]
     new OpApplyImpl[S](targets, index)
   }
 
-  def applyOpSlice[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Op.Slice[S] = {
+  def applyOpSlice[S <: Sys[S]](from: IntObj[S], to: IntObj[S])(implicit tx: S#Tx): Op.Slice[S] = {
     val targets = evt.Targets[S]
     new OpSliceImpl[S](targets, from = from, to = to)
   }
 
-  def applyOpStride[S <: Sys[S]](/* from: Expr[S, Int], to: Expr[S, Int], */ step: Expr[S, Int])
+  def applyOpStride[S <: Sys[S]](/* from: IntObj[S], to: IntObj[S], */ step: IntObj[S])
                                 (implicit tx: S#Tx): Op.Stride[S] = {
     val targets = evt.Targets[S]
     new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
@@ -175,7 +176,7 @@ object ReduceImpl {
 
     protected def mkUpdate(before: Op[S], now: Op[S]): Op.Update[S] = Op.Update(this)
 
-    protected def reader: evt.Reader[S, Op[S]] = Op.serializer
+    // protected def reader: evt.Reader[S, Op[S]] = Op.serializer
   }
 
   private sealed trait OpNativeImpl[S <: Sys[S]] extends evt.impl.StandaloneLike[S, Op.Update[S], Op[S]] {
@@ -201,17 +202,17 @@ object ReduceImpl {
 
     final def changed: EventLike[S, Op.Update[S]] = this
 
-    final protected def reader: evt.Reader[S, Op[S]] = Op.serializer
+    // final protected def reader: evt.Reader[S, Op[S]] = Op.serializer
   }
 
   private final class OpApplyImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                               val index: Expr[S, Int])
+                                               val index: IntObj[S])
     extends OpNativeImpl[S] with Op.Apply[S] {
 
     def mkCopy()(implicit tx: S#Tx): Op[S] = {
       val tgt = evt.Targets[S]
       val indexCpy = index match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
+        case IntObj.Var(vr) => IntObj.newVar(vr())
         case other => other
       }
       new OpApplyImpl[S](tgt, indexCpy)
@@ -248,17 +249,17 @@ object ReduceImpl {
   }
 
   private final class OpSliceImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                               val from: Expr[S, Int], val to: Expr[S, Int])
+                                               val from: IntObj[S], val to: IntObj[S])
     extends OpNativeImpl[S] with Op.Slice[S] {
 
     def mkCopy()(implicit tx: S#Tx): Op[S] = {
       val tgt = evt.Targets[S]
       val fromCpy = from match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
+        case IntObj.Var(vr) => IntObj.newVar(vr())
         case other => other
       }
       val toCpy = to match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
+        case IntObj.Var(vr) => IntObj.newVar(vr())
         case other => other
       }
       new OpSliceImpl[S](tgt, fromCpy, toCpy)
@@ -311,21 +312,21 @@ object ReduceImpl {
   }
 
   private final class OpStrideImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                /* val from: Expr[S, Int], val to: Expr[S, Int], */ val step: Expr[S, Int])
+                                                /* val from: IntObj[S], val to: IntObj[S], */ val step: IntObj[S])
     extends OpNativeImpl[S] with Op.Stride[S] {
 
     def mkCopy()(implicit tx: S#Tx): Op[S] = {
       val tgt = evt.Targets[S]
       //      val fromCpy = from match {
-      //        case Expr.Var(vr) => IntEx.newVar(vr())
+      //        case IntObj.Var(vr) => IntObj.newVar(vr())
       //        case other => other
       //      }
       //      val toCpy = to match {
-      //        case Expr.Var(vr) => IntEx.newVar(vr())
+      //        case IntObj.Var(vr) => IntObj.newVar(vr())
       //        case other => other
       //      }
       val stepCpy = step match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
+        case IntObj.Var(vr) => IntObj.newVar(vr())
         case other => other
       }
       new OpStrideImpl[S](tgt, /* fromCpy, toCpy, */ stepCpy)
@@ -799,7 +800,7 @@ object ReduceImpl {
 
     def changed: EventLike[S, Matrix.Update[S]] = this
 
-    protected def reader: evt.Reader[S, Matrix[S]] = Matrix.serializer
+    // protected def reader: evt.Reader[S, Matrix[S]] = Matrix.serializer
 
     def connect()(implicit tx: S#Tx): Unit = {
       in .changed ---> this

@@ -15,10 +15,10 @@
 package de.sciss.lucre
 package matrix
 
-import de.sciss.lucre.expr.Expr
+import de.sciss.lucre.expr.{IntObj, Expr}
 import de.sciss.lucre.{event => evt}
 import evt.Publisher
-import de.sciss.serial.{DataInput, Writable}
+import de.sciss.serial.{Serializer, DataInput, Writable}
 import de.sciss.lucre.stm.Disposable
 import impl.{ReduceImpl => Impl}
 
@@ -33,7 +33,7 @@ object Reduce {
     case _ => None
   }
 
-  implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Reduce[S]] = Impl.serializer[S]
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Reduce[S]] = Impl.serializer[S]
 
   private[matrix] def readIdentified[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
                                                  (implicit tx: S#Tx): Reduce[S] =
@@ -45,12 +45,12 @@ object Reduce {
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] =
       serializer[S].read(in, access)
 
-    implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Op[S]] = Impl.opSerializer[S]
+    implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Op[S]] = Impl.opSerializer[S]
 
     object Var {
       def apply[S <: Sys[S]](init: Op[S])(implicit tx: S#Tx): Var[S] = Impl.applyOpVar(init)
 
-      implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Var[S]]= Impl.opVarSerializer[S]
+      implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Var[S]]= Impl.opVarSerializer[S]
     }
     /** A variable operation, that is a mutable cell storing another operation. */
     trait Var[S <: Sys[S]] extends Op[S] with matrix.Var[S, Op[S]]
@@ -58,11 +58,11 @@ object Reduce {
     object Apply {
       final val opID = 0
 
-      def apply[S <: Sys[S]](index: Expr[S, Int])(implicit tx: S#Tx): Apply[S] = Impl.applyOpApply(index)
+      def apply[S <: Sys[S]](index: IntObj[S])(implicit tx: S#Tx): Apply[S] = Impl.applyOpApply(index)
     }
     /** A single point selection or 'index'. */
     trait Apply[S <: Sys[S]] extends Op[S] with evt.Node[S] {
-      def index: Expr[S, Int]
+      def index: IntObj[S]
     }
 
     object Slice {
@@ -73,26 +73,26 @@ object Reduce {
         * @param from the start index
         * @param to   the end index (inclusive!)
         */
-      def apply[S <: Sys[S]](from: Expr[S, Int], to: Expr[S, Int])(implicit tx: S#Tx): Slice[S] =
+      def apply[S <: Sys[S]](from: IntObj[S], to: IntObj[S])(implicit tx: S#Tx): Slice[S] =
         Impl.applyOpSlice(from, to)
     }
     /** A contiguous range selection.. */
     trait Slice[S <: Sys[S]] extends Op[S] with evt.Node[S] {
-      def from : Expr[S, Int]
-      def to   : Expr[S, Int]
+      def from : IntObj[S]
+      def to   : IntObj[S]
     }
 
     object Stride {
       final val opID = 3
 
-      def apply[S <: Sys[S]](/* from: Expr[S, Int], to: Expr[S, Int], */ step: Expr[S, Int])(implicit tx: S#Tx): Stride[S] =
+      def apply[S <: Sys[S]](/* from: IntObj[S], to: IntObj[S], */ step: IntObj[S])(implicit tx: S#Tx): Stride[S] =
         Impl.applyOpStride(/* from = from, to = to, */ step = step)
     }
     /** A range selection with gaps or strides. */
     trait Stride[S <: Sys[S]] extends Op[S] with evt.Node[S] {
-      // def from : Expr[S, Int]
-      // def to   : Expr[S, Int]
-      def step : Expr[S, Int]
+      // def from : IntObj[S]
+      // def to   : IntObj[S]
+      def step : IntObj[S]
     }
 
     case class Update[S <: Sys[S]](op: Op[S])

@@ -17,10 +17,11 @@ package matrix
 package impl
 
 import de.sciss.lucre.event.EventLike
-import de.sciss.lucre.expr.{Expr, Int => IntEx, String => StringEx}
+import de.sciss.lucre.expr.{Expr, IntObj, StringObj}
 import de.sciss.lucre.matrix.Dimension.Selection
+import de.sciss.lucre.stm.NoSys
 import de.sciss.lucre.{event => evt}
-import de.sciss.serial.{DataInput, DataOutput}
+import de.sciss.serial.{DataInput, DataOutput, Serializer}
 
 import scala.annotation.switch
 
@@ -31,23 +32,23 @@ object DimensionImpl {
     new SelVarImpl[S](targets, ref)
   }
 
-  def applySelIndex[S <: Sys[S]](expr: Expr[S, Int])(implicit tx: S#Tx): Selection.Index[S] = {
+  def applySelIndex[S <: Sys[S]](expr: IntObj[S])(implicit tx: S#Tx): Selection.Index[S] = {
     val targets = evt.Targets[S]
     new SelIndexImpl[S](targets, expr)
   }
 
-  def applySelName[S <: Sys[S]](expr: Expr[S, String])(implicit tx: S#Tx): Selection.Name[S] = {
+  def applySelName[S <: Sys[S]](expr: StringObj[S])(implicit tx: S#Tx): Selection.Name[S] = {
     val targets = evt.Targets[S]
     new SelNameImpl[S](targets, expr)
   }
 
-  def selSerializer[S <: Sys[S]]: evt.Serializer[S, Selection[S]] = anySelSer.asInstanceOf[SelSer[S]]
+  def selSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection[S]] = anySelSer.asInstanceOf[SelSer[S]]
   
-  private val anySelSer = new SelSer[evt.InMemory]
+  private val anySelSer = new SelSer[NoSys]
 
-  def selVarSerializer[S <: Sys[S]]: evt.Serializer[S, Selection.Var[S]] = anySelVarSer.asInstanceOf[SelVarSer[S]]
+  def selVarSerializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection.Var[S]] = anySelVarSer.asInstanceOf[SelVarSer[S]]
 
-  private val anySelVarSer = new SelVarSer[evt.InMemory]
+  private val anySelVarSer = new SelVarSer[NoSys]
 
   private final class SelSer[S <: Sys[S]] extends evt.EventLikeSerializer[S, Selection[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])
@@ -66,11 +67,11 @@ object DimensionImpl {
       val opID = in.readInt()
       (opID: @switch) match {
         case Selection.Index.opID =>
-          val ex = expr.Int.read(in, access)
+          val ex = IntObj.read(in, access)
           new SelIndexImpl[S](targets, ex)
 
         case Selection.Name .opID =>
-          val ex = expr.String.read(in, access)
+          val ex = StringObj.read(in, access)
           new SelNameImpl[S](targets, ex)
 
         case _ => sys.error(s"Unknown operation id $opID")
@@ -118,7 +119,7 @@ object DimensionImpl {
     protected def mkUpdate(before: Selection[S], now: Selection[S]): Selection.Update[S] =
       Selection.Update(this)
 
-    protected def reader: evt.Reader[S, Selection[S]] = Selection.serializer
+    // protected def reader: evt.Reader[S, Selection[S]] = Selection.serializer
   }
 
   private trait SelTuple1Op[S <: Sys[S], T1]
@@ -142,7 +143,7 @@ object DimensionImpl {
 
     def changed: EventLike[S, Selection.Update[S]] = this
 
-    protected def reader: evt.Reader[S, Selection[S]] = Selection.serializer
+    // protected def reader: evt.Reader[S, Selection[S]] = Selection.serializer
 
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[Selection.Update[S]] = {
       val e0 = pull.contains(_1.changed) && pull(_1.changed).isDefined
@@ -154,13 +155,13 @@ object DimensionImpl {
   }
 
   private final class SelIndexImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val expr: Expr[S, Int])
+                                                val expr: IntObj[S])
     extends Selection.Index[S] with SelTuple1Op[S, Int] {
 
     def mkCopy()(implicit tx: S#Tx): Selection[S] = {
       val tgt   = evt.Targets[S]
       val exprCpy = expr match {
-        case Expr.Var(vr) => IntEx.newVar(vr())
+        case IntObj.Var(vr) => IntObj.newVar(vr())
         case other => other
       }
       new SelIndexImpl[S](tgt, exprCpy)
@@ -173,13 +174,13 @@ object DimensionImpl {
   }
 
   private final class SelNameImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
-                                                val expr: Expr[S, String])
+                                                val expr: StringObj[S])
     extends Selection.Name[S] with SelTuple1Op[S, String] {
 
     def mkCopy()(implicit tx: S#Tx): Selection[S] = {
       val tgt = evt.Targets[S]
       val exprCpy = expr match {
-        case Expr.Var(vr) => StringEx.newVar(vr())
+        case StringObj.Var(vr) => StringObj.newVar(vr())
         case other => other
       }
       new SelNameImpl[S](tgt, exprCpy)

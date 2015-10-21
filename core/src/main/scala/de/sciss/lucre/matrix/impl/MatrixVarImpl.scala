@@ -16,7 +16,8 @@ package de.sciss.lucre
 package matrix
 package impl
 
-import de.sciss.serial.DataInput
+import de.sciss.lucre.stm.NoSys
+import de.sciss.serial.{Serializer, DataInput}
 import de.sciss.lucre.{event => evt}
 import de.sciss.model.Change
 
@@ -27,9 +28,9 @@ object MatrixVarImpl {
     new Impl[S](targets, ref)
   }
 
-  implicit def serializer[S <: Sys[S]]: evt.Serializer[S, Matrix.Var[S]] = anySer.asInstanceOf[Ser[S]]
+  implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Matrix.Var[S]] = anySer.asInstanceOf[Ser[S]]
 
-  private val anySer = new Ser[evt.InMemory]
+  private val anySer = new Ser[NoSys]
 
   private final class Ser[S <: Sys[S]] extends evt.EventLikeSerializer[S, Matrix.Var[S]] {
     def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Matrix.Var[S] = {
@@ -81,6 +82,6 @@ object MatrixVarImpl {
     protected def mkUpdate(before: Matrix[S], now: Matrix[S]): Matrix.Var.Update[S] =
       Matrix.Var.Update.Changed(this, Change(before, now))
 
-    protected def reader: evt.Reader[S, Matrix[S]] = Matrix.serializer
+    // protected def reader: evt.Reader[S, Matrix[S]] = Matrix.serializer
   }
 }
