@@ -52,8 +52,8 @@ object Demo extends SimpleSwingApplication {
       val net = NetcdfFile.open(f.path).setImmutable()
       resolver += net
       val (dsH, names)  = system.step { implicit tx =>
-        val loc = ??? : ArtifactLocation[S] // ArtifactLocation(f.parent)
-        val art = ??? : Artifact[S] // loc.add(f)
+        val loc = ArtifactLocation.newConst[S](f.parent)
+        val art = Artifact(loc, f)
         val ds  = DataSource(art)
         val vs  = ds.variables
         (tx.newHandle(ds), vs.map(_.name))
@@ -105,7 +105,7 @@ object Demo extends SimpleSwingApplication {
     val m         = MatrixView[S](Some(th))
     val c         = Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6)))
     val m0        = Matrix.Var[S](c)
-    // m0.changed.react { implicit tx => u => println(s"Observed: $u") }
+    m0.changed.react { implicit tx => u => println(s"Observed: $u") }
     m.matrix      = Some(m0)
     m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
     m

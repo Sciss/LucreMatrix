@@ -24,7 +24,7 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U <: EU]
   extends Var[S, Elem]
   with evt.impl.SingleNode[S, U]
   // with evt.impl.Generator     [S, U, Elem]
-  {
+  { self =>
 
   // _: Elem =>
 
@@ -77,10 +77,10 @@ trait VarImpl[S <: Sys[S], EU, Elem <: evt.Publisher[S, EU], U <: EU]
   // def changed: evt.EventLike[S, U] = this
   object changed extends Changed with evt.impl.Generator[S, U] {
     def pullUpdate(pull: evt.Pull[S])(implicit tx: S#Tx): Option[U] = {
-      if (pull.parents(this /* select() */).isEmpty) {
+      if (pull.parents(this).isEmpty) {
         Some(pull.resolve[U])
       } else {
-        pull(this).map(mapUpdate)
+        pull(self().changed).map(mapUpdate)
       }
     }
   }

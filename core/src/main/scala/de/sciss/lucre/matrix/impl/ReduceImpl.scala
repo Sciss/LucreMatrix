@@ -39,7 +39,7 @@ import scala.collection.breakOut
 object ReduceImpl {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
     val targets = evt.Targets[S]
-    new Impl[S](targets, in, dim, op)
+    new Impl[S](targets, in, dim, op).connect()
   }
 
   implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Reduce[S]] = anySer.asInstanceOf[Ser[S]]
@@ -680,7 +680,7 @@ object ReduceImpl {
       val inOut       = context(in)
       val dimOut      = context(dim)
       val opOut       = context(op)
-      new Impl(targetsOut, inOut, dimOut, opOut)
+      new Impl(targetsOut, inOut, dimOut, opOut).connect()
     }
 
     override def toString() = s"Reduce$id($in, $dim, $op)"
