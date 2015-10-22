@@ -16,6 +16,7 @@ package de.sciss.lucre
 package matrix
 package impl
 
+import de.sciss.lucre.event.Targets
 import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.lucre.{event => evt}
 import de.sciss.model.Change
@@ -23,7 +24,7 @@ import de.sciss.serial.{DataInput, DataOutput, Serializer}
 
 object MatrixVarImpl {
   def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix.Var[S] = {
-    val targets = evt.Targets[S]
+    val targets = Targets[S]
     val ref     = tx.newVar(targets.id, init)
     new Impl[S](targets, ref).connect()
   }
@@ -42,25 +43,30 @@ object MatrixVarImpl {
     def write(v: Matrix.Var[S], out: DataOutput): Unit = v.write(out)
   }
 
-  private[matrix] def readIdentified[S <: Sys[S]](in: DataInput, access: S#Acc, targets: evt.Targets[S])
+  private[matrix] def readIdentified[S <: Sys[S]](in: DataInput, access: S#Acc, targets: Targets[S])
                                                  (implicit tx: S#Tx): Matrix.Var[S] = {
     val ref = tx.readVar[Matrix[S]](targets.id, in)
     new Impl[S](targets, ref)
   }
 
-  private final class Impl[S <: Sys[S]](protected val targets: evt.Targets[S],
+  private final class Impl[S <: Sys[S]](protected val targets: Targets[S],
                                         protected val ref: S#Var[Matrix[S]])
     extends Matrix.Var[S]
     with MatrixProxy[S] with VarImpl[S, Matrix.Update[S], Matrix[S], Matrix.Var.Update[S]] {
 
 //    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
-//      val tgt     = evt.Targets[S]
+//      val tgt     = Targets[S]
 //      val peerCpy = tx.newVar(tgt.id, ref().mkCopy())
 //      new Impl(tgt, peerCpy)
 //    }
 
-    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
+    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       MatrixVarImpl(context(ref()))
+//      val targetsOut  = Targets[Out]
+//      val refOut      = tx.newVar
+//      val ref     = tx.newVar(targets.id, init)
+//      new Impl[S](targets, ref).connect()
+    }
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = ref()
 

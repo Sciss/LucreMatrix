@@ -303,7 +303,7 @@ object ReductionView {
 
   private def DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], expr: IntObj[S])
                                     (implicit tx: S#Tx, cursor: stm.Cursor[S], undoManager: UndoManager): View[S] = {
-    val isVar   = Expr.Var.unapply(expr).isDefined
+    val isVar   = IntObj.Var.unapply(expr).isDefined
     import IntObj.serializer
     val source  = tx.newHandle(expr)
     View.wrap[S](new DnDButton(th, source = source, isVar = isVar))

@@ -10,7 +10,7 @@ lazy val fileCacheVersion   = "0.3.3"
 // ---- core/test ----
 
 lazy val scalaTestVersion   = "2.2.5"
-lazy val lucreVersion       = "3.2.1"
+lazy val lucreVersion       = "3.2.2-SNAPSHOT"
 
 // ---- views ----
 

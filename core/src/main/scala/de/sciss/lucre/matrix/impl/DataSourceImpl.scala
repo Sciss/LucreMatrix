@@ -216,14 +216,21 @@ object DataSourceImpl {
                                                 val parents: List[String],
                                                 protected val nameConst: String,
                                                 protected val unitsConst: String,
-                                                dimConst: Vec[Matrix[S]])
-    extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
+                                               // we have to detach this to avoid cyclic graph problems in `copy`
+                                                val dimConst /* private var _dimConst */: Vec[Matrix[S]])
+    extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] { self =>
+
+//    def dimConst: Vec[Matrix[S]] = _dimConst
 
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val idOut       = txOut.newID()
       val sourceOut   = context(source)
       val dimOut      = dimConst.map(context(_))
-      new VariableImpl(idOut, sourceOut, parents, nameConst, unitsConst, dimOut)
+      val res         = new VariableImpl(idOut, sourceOut, parents, nameConst, unitsConst, /* Vector.empty */ dimOut)
+//      context.defer(self, res) {
+//        res._dimConst = dimConst.map(context(_))
+//      }
+      res
     }
 
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
@@ -315,7 +322,7 @@ object DataSourceImpl {
   }
 
   private final class Impl[S <: Sys[S]](val id: S#ID, val artifact: Artifact[S], protected val varRef: S#Var[List[Variable[S]]])
-    extends DataSource[S] /* with Mutable.Impl[S] */ { in =>
+    extends DataSource[S] /* with Mutable.Impl[S] */ { self =>
 
     // ---- abstract ----
 
@@ -343,9 +350,13 @@ object DataSourceImpl {
 
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val idOut       = txOut.newID()
-      val artifactOut = context(in.artifact)
-      val varRefOut   = txOut.newVar(idOut, in.variables.map(context(_)))
-      new Impl[Out](idOut, artifactOut, varRefOut)
+      val artifactOut = context(self.artifact)
+      val varRefOut   = txOut.newVar(idOut, List.empty[Variable[Out]])
+      val res         = new Impl[Out](idOut, artifactOut, varRefOut)
+      context.defer(self, res) {
+        varRefOut() = self.variables.map(context(_))
+      }
+      res
     }
 
     protected def writeData(out: DataOutput): Unit = {
