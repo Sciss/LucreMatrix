@@ -18,16 +18,16 @@ package impl
 
 import java.awt
 import java.awt.datatransfer.Transferable
-import java.awt.event.{InputEvent, MouseEvent, MouseAdapter}
-import java.awt.{RenderingHints, Graphics}
+import java.awt.event.{InputEvent, MouseAdapter, MouseEvent}
 import java.awt.geom.{AffineTransform, GeneralPath, Path2D}
+import java.awt.{Graphics, RenderingHints}
 import java.io.FileNotFoundException
 import javax.swing.TransferHandler.TransferSupport
-import javax.swing.{TransferHandler, JComponent, Icon}
+import javax.swing.{Icon, JComponent, TransferHandler}
 
 import de.sciss.audiowidgets.DualRangeModel
 import de.sciss.desktop.UndoManager
-import de.sciss.lucre.expr.{IntObj, Expr}
+import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.stm
 import de.sciss.lucre.stm.Disposable
 import de.sciss.lucre.swing.edit.EditVar
@@ -36,7 +36,7 @@ import de.sciss.lucre.swing.{IntRangeSliderView, IntSpinnerView, View, deferTx}
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
-import scala.swing.{Graphics2D, Alignment, BoxPanel, Component, Label, Orientation, Swing, TextField}
+import scala.swing.{Alignment, BoxPanel, Component, Graphics2D, Label, Orientation, Swing, TextField}
 import scala.util.{Failure, Success}
 
 object ReductionView {
@@ -245,7 +245,7 @@ object ReductionView {
 
       val text = opt.fold("") {
         case Success(x) => x
-        case Failure(_: FileNotFoundException) => "&lt;offline&gt;" // HTML entities!
+        case Failure(_: FileNotFoundException) => "<offline>" // HTML entities! NOT
         case Failure(e) => e.getClass.getSimpleName
       }
 
