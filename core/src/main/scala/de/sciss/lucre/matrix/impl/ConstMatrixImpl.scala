@@ -20,6 +20,7 @@ import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.stm.{Copy, Elem}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import ucar.ma2
 
 object ConstMatrixImpl {
   final val opID = 1
@@ -136,7 +137,7 @@ object ConstMatrixImpl {
     new KeyImpl(data, streamDim)
   }
 
-  private final case class KeyImpl(data: Data, streamDim: Int)
+  final case class KeyImpl(data: Data, streamDim: Int)
     extends impl.KeyImpl {
 
     override def productPrefix = "ConstMatrix.Key"
@@ -161,7 +162,7 @@ object ConstMatrixImpl {
     new Data(name, units, shapeConst, flatData)
   }
 
-  private final case class Data(name: String, units: String, shape: Vec[Int], flatData: Vec[Double]) {
+  final case class Data(name: String, units: String, shape: Vec[Int], flatData: Vec[Double]) {
     def write(out: DataOutput): Unit = {
       out.writeUTF(name)
       out.writeUTF(units)
@@ -197,5 +198,19 @@ object ConstMatrixImpl {
     protected def opID: Int = ConstMatrixImpl.opID
 
     protected def writeData1(out: DataOutput): Unit = data.write(out)
+  }
+
+  final class ReducedReaderImpl(d: Data, protected val streamDim: Int, protected val section: Vec[Range])
+    extends impl.ReaderImpl {
+
+    protected def indexMap: IndexMap = IndexMap.Double
+
+    protected def mkArray(sect: ma2.Section): ma2.Array = {
+      val arr = ma2.Array.factory(ma2.DataType.DOUBLE, d.shape.toArray)
+      d.flatData.iterator.zipWithIndex.foreach { case (value, idx) =>
+        arr.setDouble(idx, value)
+      }
+      arr.section(sect.getOrigin, sect.getShape, sect.getStride)
+    }
   }
 }

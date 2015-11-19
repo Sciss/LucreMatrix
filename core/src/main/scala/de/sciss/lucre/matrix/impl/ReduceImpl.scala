@@ -16,9 +16,6 @@ package de.sciss.lucre
 package matrix
 package impl
 
-import java.io.EOFException
-import java.{util => ju}
-
 import de.sciss.file._
 import de.sciss.lucre.event.Targets
 import de.sciss.lucre.expr.IntObj
@@ -458,108 +455,25 @@ object ReduceImpl {
 
   def mkAllRange(shape: Seq[Int]): Vec[Range] = shape.map(0 until _)(breakOut)
 
-  // Note: will throw exception if range is empty or going backwards
-  private def toUcarRange(in: Range): ma2.Range = {
-    // val inc = if (in.isInclusive) in else new Range.Inclusive(in.start, in.last, in.step)
-    new ma2.Range(in.start, in.last, in.step)
-  }
-
-  private def toUcarSection(in: Vec[Range]): ma2.Section = {
-    val sz      = in.size
-    val list    = new ju.ArrayList[ma2.Range](sz)
-    var i = 0; while (i < sz) {
-      list.add(toUcarRange(in(i)))
-      i += 1
-    }
-    new ma2.Section(list)
-  }
-
-  private sealed trait IndexMap {
-    def next(ma: ma2.IndexIterator): Float
-  }
-
-  private object ByteIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getByteNext().toFloat
-  }
-
-  private object ShortIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getShortNext().toFloat
-  }
-
-  private object IntIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getIntNext().toFloat
-  }
-
-  private object LongIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getLongNext().toFloat
-  }
-
-  private object FloatIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getFloatNext()
-  }
-
-  private object DoubleIndexMap extends IndexMap {
-    def next(ma: ma2.IndexIterator): Float = ma.getDoubleNext().toFloat
-  }
-
-  final class TransparentReader(v: nc2.Variable, streamDim: Int, section: Vec[Range])
-    extends Reader {
-
-    private val numFramesI = if (streamDim < 0) 1 else section(streamDim).size
-
-    val numChannels: Int  = {
-      val size          = (1L /: section)((prod, r) => prod * r.size)
-      val numChannelsL  = size / numFramesI
-      if (numChannelsL > 0xFFFF)
-        throw new UnsupportedOperationException(s"The number of channels ($numChannelsL) is larger than supported")
-      numChannelsL.toInt
-    }
-
-    private var pos = 0
+  final class TransparentReader(v: nc2.Variable, protected val streamDim: Int, protected val section: Vec[Range])
+    extends ReaderImpl {
 
     // NetcdfFile is not thread-safe
     private val sync = v.getParentGroup.getNetcdfFile
 
     // `isNumeric` is guaranteed. The types are: BYTE, FLOAT, DOUBLE, INT, SHORT, LONG
 
-    private val indexMap = v.getDataType match {
-      case ma2.DataType.FLOAT   => FloatIndexMap
-      case ma2.DataType.DOUBLE  => DoubleIndexMap
-      case ma2.DataType.INT     => IntIndexMap
-      case ma2.DataType.LONG    => LongIndexMap
-      case ma2.DataType.BYTE    => ByteIndexMap
-      case ma2.DataType.SHORT   => ShortIndexMap
+    protected val indexMap: IndexMap = v.getDataType match {
+      case ma2.DataType.FLOAT   => IndexMap.Float
+      case ma2.DataType.DOUBLE  => IndexMap.Double
+      case ma2.DataType.INT     => IndexMap.Int
+      case ma2.DataType.LONG    => IndexMap.Long
+      case ma2.DataType.BYTE    => IndexMap.Byte
+      case ma2.DataType.SHORT   => IndexMap.Short
       case other                => throw new UnsupportedOperationException(s"Unsupported variable data type $other")
     }
 
-    def numFrames = numFramesI.toLong
-
-    def read(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
-      if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
-      val stop = pos + len
-      if (stop > numFramesI) throw new EOFException(s"Reading past the end ($stop > $numFramesI)")
-      val sect1 = if (pos == 0 && stop == numFramesI) section else {
-        val newRange = sampleRange(section(streamDim), pos until stop)
-        section.updated(streamDim, newRange)
-      }
-      val arr = sync.synchronized(v.read(toUcarSection(sect1)))
-      // cf. Arrays.txt for (de-)interleaving scheme
-      val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
-      val it  = t.getIndexIterator
-
-      var i = off
-      val j = off + len
-      while (i < j) {
-        var ch = 0
-        while (ch < numChannels) {
-          fBuf(ch)(i) = indexMap.next(it)
-          ch += 1
-        }
-        i += 1
-      }
-
-      pos = stop
-    }
+    protected def mkArray(sect: ma2.Section): ma2.Array = sync.synchronized(v.read(sect))
   }
 
   private val rangeVecSer = ImmutableSerializer.indexedSeq[Range](Serializers.RangeSerializer)
@@ -629,7 +543,14 @@ object ReduceImpl {
 
       protected def tpeID: Int = CloudyType
 
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = ??? // later
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+        source match {
+          case const: ConstMatrixImpl.KeyImpl =>
+            new ConstMatrixImpl.ReducedReaderImpl(const.data, streamDim, section)
+
+          case _ => ??? // later
+        }
+      }
 
       protected def writeFactoryData(out: DataOutput): Unit = {
         source.write(out)

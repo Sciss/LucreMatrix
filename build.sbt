@@ -1,7 +1,7 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "0.11.1"
+lazy val projectVersion     = "0.11.2"
 
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
 lazy val audioFileVersion   = "1.4.5"
