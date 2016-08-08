@@ -1,7 +1,7 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "0.11.2"
+lazy val projectVersion     = "0.12.0"
 
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
 lazy val audioFileVersion   = "1.4.5"
@@ -9,23 +9,24 @@ lazy val fileCacheVersion   = "0.3.3"
 
 // ---- core/test ----
 
-lazy val scalaTestVersion   = "2.2.5"
-lazy val lucreVersion       = "3.2.2"
+lazy val scalaTestVersion   = "3.0.0"
+lazy val lucreVersion       = "3.3.1"
 
 // ---- views ----
 
-lazy val lucreSwingVersion  = "1.2.2"
+lazy val lucreSwingVersion  = "1.4.0"
 
 // ---- views/test ----
 
-lazy val xstreamVersion     = "1.4.8"   // Maven Central sha1 corruption in previous version
-lazy val webLaFVersion      = "1.28"
+lazy val webLaFVersion      = "2.1.1"
+
+lazy val scalaMainVersion   = "2.11.8"
 
 lazy val commonSettings = Seq(
   version            := projectVersion,
   organization       := "de.sciss",
-  scalaVersion       := "2.11.7",
-  crossScalaVersions := Seq("2.11.7", "2.10.6"),
+  scalaVersion       := scalaMainVersion,
+  crossScalaVersions := Seq(scalaMainVersion, "2.10.6"),
   homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
@@ -100,7 +101,6 @@ lazy val views = Project(id = s"$baseNameL-views", base = file("views")).
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
       "de.sciss" %% "lucreswing" % lucreSwingVersion,
-      "com.thoughtworks.xstream" % "xstream" % xstreamVersion % "test",  // bug in Maven Central
       "de.sciss" %  "weblaf"     % webLaFVersion  % "test"
     )
   )

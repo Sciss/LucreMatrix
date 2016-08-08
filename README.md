@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/iem-projects/LucreMatrix.svg?branch=master)](https://travis-ci.org/iem-projects/LucreMatrix)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrematrix_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/de.sciss/lucrematrix_2.11)
 
-Part of research project [SysSon](http://sysson.kug.ac.at/). (C)opyright 2014&ndash;2015 Institute of Electronic Music and Acoustics. (C)opyright 2014&ndash;2015 by Hanns Holger Rutz. All rights reserved. Published under the GNU Lesser General Public License v2.1+.
+Part of research project [SysSon](http://sysson.kug.ac.at/). (C)opyright 2014&ndash;2016 Institute of Electronic Music and Acoustics. (C)opyright 2014&ndash;2015 by Hanns Holger Rutz. All rights reserved. Published under the GNU Lesser General Public License v2.1+.
 
 ## Building
 
@@ -19,4 +19,4 @@ Add the following dependency:
 
     "de.sciss" %% "lucrematrix" % v
 
-The current stable version `v` is `"0.11.2"`
+The current stable version `v` is `"0.12.0"`
