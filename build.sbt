@@ -1,40 +1,45 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "0.12.1-SNAPSHOT"
-
-lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
-lazy val audioFileVersion   = "1.4.5"
-lazy val fileCacheVersion   = "0.3.3"
-
-// ---- core/test ----
-
-lazy val scalaTestVersion   = "3.0.0"
-lazy val lucreVersion       = "3.3.1"
-
-// ---- views ----
-
-lazy val lucreSwingVersion  = "1.4.0"
-
-// ---- views/test ----
-
-lazy val subminVersion      = "0.2.1"
+lazy val projectVersion     = "1.0.0-SNAPSHOT"
 
 lazy val scalaMainVersion   = "2.11.8"
 
+// ---- core dependencies ----
+
+lazy val netCDFVersion      = "4.6.6"
+lazy val audioFileVersion   = "1.4.5"
+lazy val fileCacheVersion   = "0.3.3"
+lazy val lucreVersion       = "3.3.1"
+
+// ---- core/test dependencies ----
+
+lazy val scalaTestVersion   = "3.0.0"
+
+// ---- views dependencies ----
+
+lazy val lucreSwingVersion  = "1.4.0"
+
+// ---- views/test dependencies ----
+
+lazy val subminVersion      = "0.2.1"
+
+// ----
+
 lazy val commonSettings = Seq(
   version            := projectVersion,
-  organization       := "de.sciss",
+  organization       := "at.iem.sysson",
   scalaVersion       := scalaMainVersion,
   crossScalaVersions := Seq(scalaMainVersion, "2.10.6"),
-  homepage           := Some(url("https://github.com/iem-projects/" + baseName)),
+  homepage           := Some(url(s"https://github.com/iem-projects/${baseName}")),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
-  resolvers          += "Oracle Repository" at "http://download.oracle.com/maven", // required for sleepycat
+  resolvers         ++= Seq(
+    "Oracle Repository" at "http://download.oracle.com/maven",                                          // required for sleepycat
+     "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases"   // required for NetCDF
+  ),
   // ---- publishing ----
   publishMavenStyle := true,
-  // maven repository for NetCDF library
-  resolvers       += "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases",
   publishTo       := {
     Some(if (isSnapshot.value)
       "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -76,7 +81,7 @@ lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
     description := "Operationalizing SysSon data matrices as reactive dataflow objects",
     libraryDependencies ++= Seq(
       "de.sciss"      %% "lucre-expr"      % lucreVersion,
-      "edu.ucar"      %  "netcdf"          % netCDFVersion,
+      "edu.ucar"      %  "netcdf4"         % netCDFVersion,
       "de.sciss"      %% "filecache-txn"   % fileCacheVersion,
       "de.sciss"      %% "scalaaudiofile"  % audioFileVersion,
       "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",

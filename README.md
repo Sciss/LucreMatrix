@@ -7,7 +7,7 @@ Part of research project [SysSon](http://sysson.kug.ac.at/). (C)opyright 2014&nd
 
 ## Building
 
-Builds with sbt 0.13 against Scala 2.11, 2.10.
+Builds with sbt 0.13 against Scala 2.11, 2.10. We now use NetCDF-4 v4.6.6 which requires Java 7 (Java 6 is no longer supported).
 
 You need to add the following resolver for the NetCDF library dependency to be found:
 
@@ -17,6 +17,10 @@ You need to add the following resolver for the NetCDF library dependency to be f
 
 Add the following dependency:
 
-    "de.sciss" %% "lucrematrix" % v
+    "at.iem.sysson" %% "lucrematrix" % v
 
-The current stable version `v` is `"0.12.0"`
+The current stable version `v` is `"1.0.0"`.
+
+The last version based on NetCDF 4.3.22 supporting Java 6 is:
+
+    "de.sciss" %% "lucrematrix" % "0.12.0"
