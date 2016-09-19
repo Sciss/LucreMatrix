@@ -4,8 +4,8 @@ package gui
 import java.awt.datatransfer.Transferable
 import java.awt.event.KeyEvent
 import java.awt.{FileDialog, Toolkit}
+import javax.swing.KeyStroke
 import javax.swing.TransferHandler.TransferSupport
-import javax.swing.{KeyStroke, UIManager}
 
 import de.sciss.desktop
 import de.sciss.desktop.impl.UndoManagerImpl
@@ -16,6 +16,7 @@ import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm
 import de.sciss.lucre.stm.InMemory
 import de.sciss.lucre.swing.{View, deferTx}
+import de.sciss.submin.Submin
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
@@ -31,13 +32,8 @@ object Demo extends SimpleSwingApplication {
   implicit val resolver   = DataSource.Resolver.empty[S]
 
   override def main(args: Array[String]): Unit = {
-    //    if (Desktop.isLinux) UIManager.getInstalledLookAndFeels.find(_.getName contains "GTK+").foreach { info =>
-    //      UIManager.setLookAndFeel(info.getClassName)
-    //    }
     try {
-      val web = "com.alee.laf.WebLookAndFeel"
-      UIManager.installLookAndFeel("Web Look And Feel", web)
-      UIManager.setLookAndFeel(web)
+      Submin.install(true)
     } catch {
       case NonFatal(_) =>
     }

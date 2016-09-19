@@ -1,7 +1,7 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "0.12.0"
+lazy val projectVersion     = "0.12.1-SNAPSHOT"
 
 lazy val netCDFVersion      = "4.3.23"  // be careful: 4.5 will drop Java 6 support
 lazy val audioFileVersion   = "1.4.5"
@@ -18,7 +18,7 @@ lazy val lucreSwingVersion  = "1.4.0"
 
 // ---- views/test ----
 
-lazy val webLaFVersion      = "2.1.1"
+lazy val subminVersion      = "0.2.1"
 
 lazy val scalaMainVersion   = "2.11.8"
 
@@ -101,6 +101,6 @@ lazy val views = Project(id = s"$baseNameL-views", base = file("views")).
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
       "de.sciss" %% "lucreswing" % lucreSwingVersion,
-      "de.sciss" %  "weblaf"     % webLaFVersion  % "test"
+      "de.sciss" %  "submin"     % subminVersion  % "test"
     )
   )
