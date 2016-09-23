@@ -89,6 +89,13 @@ object DimensionIndexImpl {
         CalendarDateFormatter.toDateTimeString(dt)
       }
 
+    case _ if units.startsWith("seconds since") =>
+      val date = CalendarDateFormatter.isoStringToCalendarDate(null, units.substring(14))
+      (d: Double) => {
+        val dt = date.add(d, CalendarPeriod.Field.Second)
+        CalendarDateFormatter.toDateTimeString(dt)
+      }
+
     case _ => (d: Double) => f"$d%1.2f $units"
   }
 
