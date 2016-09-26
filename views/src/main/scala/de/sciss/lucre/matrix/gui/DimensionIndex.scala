@@ -29,8 +29,12 @@ object DimensionIndex {
   def apply[S <: Sys[S]](dim: Matrix[S])(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
                                          exec: ExecutionContext): DimensionIndex[S] = Impl(dim)
 
-  //  def expr[S <: Sys[S]](dim: Matrix[S], index: Expr[S, Int])(fun: Int => Unit): DimensionIndex[S] =
-  //    Impl.expr(dim, index)(fun)
+  /** Queries whether a variable with the given `units` should use `mkUnitsString` in axis labels. */
+  def shouldUseUnitsString(units: String): Boolean = Impl.shouldUseUnitsString(units)
+  /** Produces a function that formats a variable according to its units, for GUI display. */
+  def unitsStringFormatter(units: String): Double => String = Impl.unitsStringFormatter(units)
+  /** Produces a (possibly more pretty) String representation of a units value. */
+  def mkUnitsString(units: String): String = Impl.mkUnitsString(units)
 }
 trait DimensionIndex[S <: Sys[S]] extends Disposable[S#Tx] with Model[DimensionIndex.Update] {
   def size: Int

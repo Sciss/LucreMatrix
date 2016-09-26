@@ -48,25 +48,34 @@ object DimensionIndexImpl {
             // XXX TODO - we should have something like r.close()
           }
         }
-        // println(s"completeWith($fut1")
         p.completeWith(fut1)
       }
     } catch {
-      case e: IOException =>
-        /* val res = */ p.tryFailure(e)
-        // println(s"tryFailure($e) = $res")
+      case e: IOException => p.tryFailure(e)
     }
 
-    val unitsFun = mkUnitsString(dim.units)
+    val unitsFun = unitsStringFormatter(dim.units)
     val res = new Impl[S](arr, fut, unitsFun)
     fut.foreach(_ => defer(res.fireReady()))
     res
   }
 
-  // def expr[S <: Sys[S]](dim: Matrix[S], index: Expr[S, Int])(fun: Int => Unit): DimensionIndex[S] = ...
+  def shouldUseUnitsString(units: String): Boolean =
+    units.startsWith("days since")    ||
+    units.startsWith("hours since")   ||
+    units.startsWith("seconds since")
+
+  def mkUnitsString(units: String): String = units match {
+    case "degrees_north"  => "\u00B0N"
+    case "degrees_east"   => "\u00B0E"
+    case "kg m-2 s-1"     => "kg/(m\u00B2s)"
+    case "W m-2"          => "W/m\u00B2"
+    case "m s-1"          => "m/s"
+    case _ => units
+  }
 
   // XXX TODO - these could be configurable / extensible
-  private def mkUnitsString(units: String): Double => String = units match {
+  def unitsStringFormatter(units: String): Double => String = units match {
     case ""               => (d: Double) => f"$d%1.2f"
     case "degrees_north"  => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0N" else f"${-d}%1.2f \u00B0S"
     case "degrees_east"   => (d: Double) => if (d >= 0) f"$d%1.2f \u00B0E" else f"${-d}%1.2f \u00B0W"
@@ -112,17 +121,8 @@ object DimensionIndexImpl {
 
     def tryFormat(index: Int): Option[Try[String]] = {
       val x = fut.value
-      // println(s"fut.value = $x")
-      /* val res = */ x.map(_.map(_ => format(arr(index))))
-      // println(s"res = $res")
-      // res
+      x.map(_.map(_ => format(arr(index))))
     }
-
-    //    fut.value.map {
-    //      case Success(_) => format(arr(index))
-    //      case Failure(fnf: FileNotFoundException) => "<offline>"
-    //      case Failure(e) => s"error: ${e.getMessage}"
-    //    }
 
     def dispose()(implicit tx: S#Tx) = ()
   }
