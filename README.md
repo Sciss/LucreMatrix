@@ -17,7 +17,7 @@ You need to add the following resolver for the NetCDF library dependency to be f
 
 Add the following dependency:
 
-    "at.iem.sysson" %% "lucrematrix" % v
+    "at.iem" %% "lucrematrix" % v
 
 The current stable version `v` is `"1.0.0"`.
 

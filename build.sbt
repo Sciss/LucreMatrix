@@ -1,7 +1,7 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.0.0-SNAPSHOT"
+lazy val projectVersion     = "1.0.0"
 
 lazy val scalaMainVersion   = "2.11.8"
 
@@ -28,7 +28,7 @@ lazy val subminVersion      = "0.2.1"
 
 lazy val commonSettings = Seq(
   version            := projectVersion,
-  organization       := "at.iem.sysson",
+  organization       := "at.iem",
   scalaVersion       := scalaMainVersion,
   crossScalaVersions := Seq(scalaMainVersion, "2.10.6"),
   homepage           := Some(url(s"https://github.com/iem-projects/$baseName")),
