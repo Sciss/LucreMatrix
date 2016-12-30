@@ -1,24 +1,25 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.0.0"
+lazy val projectVersion     = "1.0.1"
+lazy val mimaVersion        = "1.0.0"
 
 lazy val scalaMainVersion   = "2.11.8"
 
 // ---- core dependencies ----
 
 lazy val netCDFVersion      = "4.6.6"
-lazy val audioFileVersion   = "1.4.5"
-lazy val fileCacheVersion   = "0.3.3"
-lazy val lucreVersion       = "3.3.1"
+lazy val audioFileVersion   = "1.4.6"
+lazy val fileCacheVersion   = "0.3.4"
+lazy val lucreVersion       = "3.3.2"
 
 // ---- core/test dependencies ----
 
-lazy val scalaTestVersion   = "3.0.0"
+lazy val scalaTestVersion   = "3.0.1"
 
 // ---- views dependencies ----
 
-lazy val lucreSwingVersion  = "1.4.0"
+lazy val lucreSwingVersion  = "1.4.3"
 
 // ---- views/test dependencies ----
 
@@ -30,10 +31,10 @@ lazy val commonSettings = Seq(
   version            := projectVersion,
   organization       := "at.iem",
   scalaVersion       := scalaMainVersion,
-  crossScalaVersions := Seq(scalaMainVersion, "2.10.6"),
+  crossScalaVersions := Seq("2.12.1", scalaMainVersion, "2.10.6"),
   homepage           := Some(url(s"https://github.com/iem-projects/$baseName")),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
-  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture"),
+  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture", "-Xlint"),
   resolvers         ++= Seq(
     "Oracle Repository" at "http://download.oracle.com/maven",                                          // required for sleepycat
      "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases"   // required for NetCDF
@@ -87,6 +88,7 @@ lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
       "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",
       "de.sciss"      %% "lucre-bdb"       % lucreVersion     % "test"
     ),
+    mimaPreviousArtifacts := Set("at.iem" %% s"$baseNameL-core" % mimaVersion),
     initialCommands in console :=
       """import de.sciss.lucre.matrix._
         |import Implicits._
@@ -107,5 +109,6 @@ lazy val views = Project(id = s"$baseNameL-views", base = file("views")).
     libraryDependencies ++= Seq(
       "de.sciss" %% "lucreswing" % lucreSwingVersion,
       "de.sciss" %  "submin"     % subminVersion  % "test"
-    )
+    ),
+    mimaPreviousArtifacts := Set("at.iem" %% s"$baseNameL-views" % mimaVersion)
   )
