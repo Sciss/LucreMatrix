@@ -78,6 +78,8 @@ object Matrix extends Obj.Type {
     /** The number of channels is the matrix size divided by the number of frames. */
     def numChannels: Int
 
+    def size: Long
+
     /** Reads a chunk of matrix data into a provided buffer. If the stream-transposed
       * matrix has more than two dimensions, the de-interleaving is regularly from
       * from to back. E.g. in a matrix of shape `[a][b][c]`, if `a` is the streaming
@@ -91,7 +93,9 @@ object Matrix extends Obj.Type {
       * @param off  the offset into each channel of `buf`
       * @param len  the number of frames to read
       */
-    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit
+    def readFloat2D (buf: Array[Array[Float]], off: Int, len: Int): Unit
+
+    def readDouble1D(buf: Array[Double]      , off: Int, len: Int): Unit
   }
 
   // ---- key ----
@@ -176,10 +180,10 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     */
   def ranges(implicit tx: S#Tx): Vec[Range]
 
-  def reducedRank      (implicit tx: S#Tx): Int                   = shape.count (_ > 1)
-  def reducedShape     (implicit tx: S#Tx): Vec[Int]              = shape.filter(_ > 1)
+  def reducedRank       (implicit tx: S#Tx): Int            = shape.count (_ > 1)
+  def reducedShape      (implicit tx: S#Tx): Vec[Int]       = shape.filter(_ > 1)
   // def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
-  def reducedRanges    (implicit tx: S#Tx): Vec[Range]            = reduce(ranges)
+  def reducedRanges     (implicit tx: S#Tx): Vec[Range]     = reduce(ranges)
 
   def reducedDimensions(implicit tx: S#Tx): Vec[Matrix[S]]  = reduce(dimensions)
 

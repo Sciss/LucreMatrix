@@ -29,11 +29,13 @@ trait ReaderImpl extends Matrix.Reader {
 
   protected def indexMap: IndexMap
 
+  protected def mkArray(sect: ma2.Section): ma2.Array
+
   // ---- impl ----
 
   private[this] val numFramesI: Int = if (streamDim < 0) 1 else section(streamDim).size
 
-  val numChannels: Int = {
+  final val numChannels: Int = {
     val size = (1L /: section) ((prod, r) => prod * r.size)
     val numChannelsL = size / numFramesI
     if (numChannelsL > 0xFFFF)
@@ -41,16 +43,18 @@ trait ReaderImpl extends Matrix.Reader {
     numChannelsL.toInt
   }
 
-  private[this] var pos = 0
+  final val size: Long = if (section.isEmpty) 0L else (1L /: section)(_ * _.size)
+
+  private[this] var pos = 0L
 
   def numFrames: Long = numFramesI.toLong
 
-  def read(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
+  final def readFloat2D(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
     if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
     val stop = pos + len
     if (stop > numFramesI) throw new EOFException(s"Reading past the end ($stop > $numFramesI)")
     val sect1 = if (pos == 0 && stop == numFramesI) section else {
-      val newRange = sampleRange(section(streamDim), pos until stop)
+      val newRange = sampleRange(section(streamDim), pos, stop)
       section.updated(streamDim, newRange)
     }
     val arr = mkArray(toUcarSection(sect1))
@@ -63,7 +67,7 @@ trait ReaderImpl extends Matrix.Reader {
     while (i < j) {
       var ch = 0
       while (ch < numChannels) {
-        fBuf(ch)(i) = indexMap.next(it)
+        fBuf(ch)(i) = indexMap.nextFloat(it)
         ch += 1
       }
       i += 1
@@ -72,7 +76,28 @@ trait ReaderImpl extends Matrix.Reader {
     pos = stop
   }
 
-  protected def mkArray(sect: ma2.Section): ma2.Array
+  final def readDouble1D(dBuf: Array[Double], off: Int, len: Int): Unit = {
+    if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
+    val stop = pos + len
+    if (stop > numFramesI) throw new EOFException(s"Reading past the end ($stop > $numFramesI)")
+    val sect1 = if (pos == 0 && stop == numFramesI) section else {
+      val newRange = sampleRange(section(streamDim), pos, stop)
+      section.updated(streamDim, newRange)
+    }
+    val arr = mkArray(toUcarSection(sect1))
+    // cf. Arrays.txt for (de-)interleaving scheme
+    val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
+    val it  = t.getIndexIterator
+
+    var i = off
+    val j = off + len
+    while (i < j) {
+      dBuf(i) = indexMap.nextDouble(it)
+      i += 1
+    }
+
+    pos = stop
+  }
 
   final protected def toUcarSection(in: Vec[Range]): ma2.Section = {
     val sz      = in.size

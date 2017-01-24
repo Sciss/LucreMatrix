@@ -44,7 +44,7 @@ object DimensionIndexImpl {
         val fut1 = Future {
           blocking {
             val buf = Array(arr)
-            r.read(buf, 0, sz)
+            r.readFloat2D(buf, 0, sz)
             // XXX TODO - we should have something like r.close()
           }
         }

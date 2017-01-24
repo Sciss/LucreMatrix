@@ -39,6 +39,8 @@ object ZeroMatrixImpl {
   private final class ReaderImpl(shape: Vec[Int], streamDim: Int) extends Matrix.Reader {
     val numFrames: Long = if (streamDim < 0) 1 else shape(streamDim)
 
+    val size: Long = if (shape.isEmpty) 0L else (1L /: shape)(_ * _)
+
     val numChannels: Int = {
       val sz = (1L /: shape)(_ * _)
       val n  = sz / numFrames
@@ -46,12 +48,15 @@ object ZeroMatrixImpl {
       n.toInt
     }
 
-    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
+    def readFloat2D(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
       var ch = 0; while (ch < numChannels) {
         ju.Arrays.fill(buf(ch), off, off + len, 0f)
         ch += 1
       }
     }
+
+    def readDouble1D(buf: Array[Double], off: Int, len: Int): Unit =
+      ju.Arrays.fill(buf, off, off + len, 0.0)
   }
 
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {

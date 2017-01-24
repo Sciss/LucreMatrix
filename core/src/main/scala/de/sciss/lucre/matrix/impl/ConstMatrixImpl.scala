@@ -92,9 +92,11 @@ object ConstMatrixImpl {
     import key.data.{shape => shapeConst, _}
     import key.streamDim
 
-    private val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
+    private[this] val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
 
     def numFrames: Long = numFramesI.toLong
+
+    val size: Long = if (shapeConst.isEmpty) 0L else (1L /: shapeConst)(_ * _)
 
     //    val numChannels: Int = {
     //      val sz = (1L /: shape)(_ * _)
@@ -103,19 +105,21 @@ object ConstMatrixImpl {
     //      n.toInt
     //    }
 
-    private val scans       = Vec.tabulate(shapeConst.size + 1)(d => shapeConst.drop(d).product)  // numFrames must be 32-bit
-    val numChannels: Int    = scans.head / numFramesI
-    private val streamScan  = scans(streamDim + 1)
-    private val streamSkip  = if (streamDim < 0) 0 else scans(streamDim)
+    private[this] val scans       = Vec.tabulate(shapeConst.size + 1)(d => shapeConst.drop(d).product)  // numFrames must be 32-bit
+    val numChannels: Int          = scans.head / numFramesI
+    private[this] val streamScan  = scans(streamDim + 1)
+    private[this] val streamSkip  = if (streamDim < 0) 0 else scans(streamDim)
 
-    private var pos = 0
+    private[this] var pos = 0L
 
-    def read(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
+    def readFloat2D(buf: Array[Array[Float]], off: Int, len: Int): Unit = {
       val stop = pos + len
       var off1 = off
       while (pos < stop) {
-        var dOff = pos * streamScan
-        var sc   = 0
+        val dOffL = pos * streamScan
+        if (dOffL > 0x7FFFFFFF) throw new IndexOutOfBoundsException(dOffL.toString)
+        var dOff  = dOffL.toInt
+        var sc    = 0
         var ch = 0; while (ch < numChannels) {
           buf(ch)(off1) = flatData(dOff + sc).toFloat
           ch += 1
@@ -124,6 +128,25 @@ object ConstMatrixImpl {
             sc    = 0
             dOff += streamSkip
           }
+        }
+        pos  += 1
+        off1 += 1
+      }
+    }
+
+    def readDouble1D(buf: Array[Double], off: Int, len: Int): Unit = {
+      val stop = pos + len
+      var off1 = off
+      while (pos < stop) {
+        val dOffL = pos * streamScan
+        if (dOffL > 0x7FFFFFFF) throw new IndexOutOfBoundsException(dOffL.toString)
+        var dOff  = dOffL.toInt
+        var sc    = 0
+        buf(off1) = flatData(dOff + sc)
+        sc += 1
+        if (sc == streamScan) {
+          sc    = 0
+          dOff += streamSkip
         }
         pos  += 1
         off1 += 1

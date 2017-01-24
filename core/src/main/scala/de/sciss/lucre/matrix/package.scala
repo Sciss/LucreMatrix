@@ -51,6 +51,21 @@ package object matrix {
     in2.take(by.size)
   }
 
+  def sampleRange(in: Range, byStart: Long, byStop: Long): Range = {
+    val drop  = math.min(in.size, byStart).toInt
+    val stepM = 1
+    require(drop >= 0 && stepM > 0)
+    val in1 = in.drop(drop)
+    val in2 = if (stepM == 1)
+      in1
+    else if (in1.isInclusive)  // copy-method is protected
+      new Range.Inclusive(start = in1.start, end = in1.end, step = in1.step * stepM)
+    else
+      new Range(start = in1.start, end = in1.end, step = in1.step * stepM)
+    val bySize = math.min(in2.size, byStop - byStart).toInt
+    in2.take(bySize)
+  }
+
   def initTypes(): Unit = {
     DataSource.init()
     Matrix    .init()

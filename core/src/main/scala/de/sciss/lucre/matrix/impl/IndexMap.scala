@@ -18,30 +18,37 @@ package impl
 import ucar.ma2
 
 sealed trait IndexMap {
-  def next(ma: ma2.IndexIterator): scala.Float
+  def nextFloat (ma: ma2.IndexIterator): scala.Float
+  def nextDouble(ma: ma2.IndexIterator): scala.Double
 }
 object IndexMap {
   object Byte extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getByteNext().toFloat
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getByteNext().toFloat
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getByteNext().toDouble
   }
 
   object Short extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getShortNext().toFloat
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getShortNext().toFloat
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getShortNext().toDouble
   }
 
   object Int extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getIntNext().toFloat
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getIntNext().toFloat
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getIntNext().toDouble
   }
 
   object Long extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getLongNext().toFloat
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getLongNext().toFloat
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getLongNext().toDouble
   }
 
   object Float extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getFloatNext()
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getFloatNext()
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getFloatNext().toDouble
   }
 
   object Double extends IndexMap {
-    def next(ma: ma2.IndexIterator): scala.Float = ma.getDoubleNext().toFloat
+    def nextFloat (ma: ma2.IndexIterator): scala.Float  = ma.getDoubleNext().toFloat
+    def nextDouble(ma: ma2.IndexIterator): scala.Double = ma.getDoubleNext()
   }
 }

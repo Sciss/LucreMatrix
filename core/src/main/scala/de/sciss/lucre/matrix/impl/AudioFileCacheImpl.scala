@@ -179,7 +179,7 @@ object AudioFileCacheImpl {
       //      val it            = t.float1Diterator
       while (framesWritten < numFrames) {
         val chunk = math.min(fBufSize, numFrames - framesWritten).toInt
-        reader.read(fBuf, 0, chunk)
+        reader.readFloat2D(fBuf, 0, chunk)
         //        var i = 0
         //        while (i < chunk) {
         //          var ch = 0

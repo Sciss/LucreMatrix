@@ -48,7 +48,7 @@ object NewReadTest extends App {
     while (pos < r.numFrames) {
       val len = math.min(r.numFrames - pos, bufSize).toInt
       println("----READ----")
-      r.read(buf, 0, len)
+      r.readFloat2D(buf, 0, len)
       for (i <- 0 until len) {
         val ln = Vector.tabulate(numCh) { ch =>
           val x = buf(ch)(i)

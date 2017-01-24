@@ -632,7 +632,7 @@ object ReduceImpl {
       implicit val resolver = DataSource.Resolver.empty[S]
       val r   = reader(-1)
       val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
-      r.read(buf, 0, 1)
+      r.readFloat2D(buf, 0, 1)
       val res = Vec.tabulate(r.numChannels)(ch => buf(ch)(0).toDouble)
       res
 
