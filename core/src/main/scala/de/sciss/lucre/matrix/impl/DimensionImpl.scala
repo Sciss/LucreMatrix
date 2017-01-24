@@ -2,8 +2,8 @@
  *  DimensionImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -139,7 +139,7 @@ object DimensionImpl {
       _1 write out
     }
 
-    protected def disposeData()(implicit tx: S#Tx) = disconnect()
+    protected def disposeData()(implicit tx: S#Tx): Unit = disconnect()
 
     // ---- event ----
 
@@ -180,8 +180,9 @@ object DimensionImpl {
 
     override def toString() = s"Index$id($expr)"
 
-    protected def _1 = expr
-    protected def opID = Selection.Index.opID
+    protected def _1: IntObj[S] = expr
+
+    protected def opID: Int = Selection.Index.opID
   }
 
   private final class SelNameImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
@@ -205,7 +206,8 @@ object DimensionImpl {
 
     override def toString() = s"Name$id($expr)"
 
-    protected def _1 = expr
-    protected def opID = Selection.Name.opID
+    protected def _1: StringObj[S] = expr
+
+    protected def opID: Int = Selection.Name.opID
   }
 }

@@ -2,8 +2,8 @@
  *  ReaderImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -43,7 +43,7 @@ trait ReaderImpl extends Matrix.Reader {
 
   private[this] var pos = 0
 
-  def numFrames = numFramesI.toLong
+  def numFrames: Long = numFramesI.toLong
 
   def read(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
     if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")

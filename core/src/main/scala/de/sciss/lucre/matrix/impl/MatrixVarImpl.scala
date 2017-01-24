@@ -2,8 +2,8 @@
  *  MatrixVarImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -18,7 +18,6 @@ package impl
 
 import de.sciss.lucre.event.Targets
 import de.sciss.lucre.stm.{Copy, Elem, NoSys}
-import de.sciss.lucre.{event => evt}
 import de.sciss.model.Change
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
 

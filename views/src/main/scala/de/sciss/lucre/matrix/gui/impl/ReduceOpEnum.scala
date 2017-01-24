@@ -2,8 +2,8 @@
  *  ReduceOpEnum.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -21,11 +21,11 @@ object ReduceOpEnum {
   case object Slice  extends ReduceOpEnum { val id = 1; val name = "Slice"  }
   case object Stride extends ReduceOpEnum { val id = 2; val name = "Stride" }
 
-  val seq = Vec[ReduceOpEnum](Apply, Slice, Stride)
+  val seq: Vec[ReduceOpEnum] = Vector(Apply, Slice, Stride)
 }
 sealed trait ReduceOpEnum {
   def id  : Int
   def name: String
 
-  override def toString = name
+  override def toString: String = name
 }

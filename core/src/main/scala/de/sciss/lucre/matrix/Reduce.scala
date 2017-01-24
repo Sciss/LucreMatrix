@@ -2,8 +2,8 @@
  *  Reduce.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -15,12 +15,12 @@
 package de.sciss.lucre
 package matrix
 
-import de.sciss.lucre.expr.{IntObj, Expr}
-import de.sciss.lucre.{event => evt, stm}
-import evt.Publisher
-import de.sciss.serial.{Serializer, DataInput, Writable}
-import de.sciss.lucre.stm.{Elem, Disposable}
-import impl.{ReduceImpl => Impl}
+import de.sciss.lucre.event.Publisher
+import de.sciss.lucre.expr.IntObj
+import de.sciss.lucre.matrix.impl.{ReduceImpl => Impl}
+import de.sciss.lucre.stm.Elem
+import de.sciss.lucre.{event => evt}
+import de.sciss.serial.{DataInput, Serializer}
 
 object Reduce {
   final val opID = 2

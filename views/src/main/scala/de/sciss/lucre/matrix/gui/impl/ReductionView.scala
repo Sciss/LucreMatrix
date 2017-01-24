@@ -2,8 +2,8 @@
  *  ReductionView.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -208,11 +208,11 @@ object ReductionView {
   private final class Impl[S <: Sys[S]](peer: View[S], redH: stm.Source[S#Tx, Reduce[S]], val isLeaf: Boolean)
     extends ReductionView[S] /* with ComponentHolder[Component] */ {
 
-    def component = peer.component
+    def component: Component = peer.component
 
     def reduction(implicit tx: S#Tx): Reduce[S] = redH()
 
-    def dispose()(implicit tx: S#Tx) = peer.dispose()
+    def dispose()(implicit tx: S#Tx): Unit = peer.dispose()
   }
 
   private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Range)

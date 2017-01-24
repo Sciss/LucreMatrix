@@ -2,8 +2,8 @@
  *  DataSource.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -69,7 +69,7 @@ object DataSource extends Obj.Type {
       res
     }
 
-    def empty[S <: Sys[S]]: Seq[S] = new Seq()
+    def empty[S <: Sys[S]]: Seq[S] = new Seq[S]()
 
     final class Seq[S <: Sys[S]] private[Resolver]() extends Resolver[S] {
       private val sync = new AnyRef

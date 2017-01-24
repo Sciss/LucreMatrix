@@ -2,8 +2,8 @@
  *  AudioFileCacheImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -245,8 +245,8 @@ object AudioFileCacheImpl {
   }
 
   final private class Entry(val useCount: Int = 1, val future: Future[Result]) {
-    def inc = new Entry(useCount + 1, future)
-    def dec = new Entry(useCount - 1, future)
-    def isEmpty = useCount == 0
+    def inc               = new Entry(useCount + 1, future)
+    def dec               = new Entry(useCount - 1, future)
+    def isEmpty: Boolean  = useCount == 0
   }
 }

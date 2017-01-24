@@ -2,8 +2,8 @@
  *  ConstMatrixImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -27,7 +27,7 @@ object ConstMatrixImpl {
 
   def apply1D[S <: Sys[S]](name: String, units: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
-    val data  = new Data(name, units, shape, v)
+    val data  = Data(name, units, shape, v)
     new Impl[S](tx.newID(), data)
   }
 
@@ -36,7 +36,7 @@ object ConstMatrixImpl {
     val shape = Vec(v.size, sz1)
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
-    val data  = new Data(name, units, shape, flat)
+    val data  = Data(name, units, shape, flat)
     new Impl[S](tx.newID(), data)
   }
 
@@ -49,7 +49,7 @@ object ConstMatrixImpl {
       d1.size == sz1 && d1.forall(_.size == sz2)
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
-    val data  = new Data(name, units, shape, flat)
+    val data  = Data(name, units, shape, flat)
     new Impl[S](tx.newID(), data)
   }
 
@@ -94,7 +94,7 @@ object ConstMatrixImpl {
 
     private val numFramesI = if (streamDim < 0) 1 else shapeConst(streamDim)
 
-    def numFrames = numFramesI.toLong
+    def numFrames: Long = numFramesI.toLong
 
     //    val numChannels: Int = {
     //      val sz = (1L /: shape)(_ * _)
@@ -104,7 +104,7 @@ object ConstMatrixImpl {
     //    }
 
     private val scans       = Vec.tabulate(shapeConst.size + 1)(d => shapeConst.drop(d).product)  // numFrames must be 32-bit
-    val numChannels         = scans.head / numFramesI
+    val numChannels: Int    = scans.head / numFramesI
     private val streamScan  = scans(streamDim + 1)
     private val streamSkip  = if (streamDim < 0) 0 else scans(streamDim)
 
@@ -134,7 +134,7 @@ object ConstMatrixImpl {
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
     val streamDim = in.readShort()
     val data      = readData(in)
-    new KeyImpl(data, streamDim)
+    KeyImpl(data, streamDim)
   }
 
   final case class KeyImpl(data: Data, streamDim: Int)
@@ -159,7 +159,7 @@ object ConstMatrixImpl {
     val units       = in.readUTF()
     val shapeConst  = intVecSer   .read(in)
     val flatData    = doubleVecSer.read(in)
-    new Data(name, units, shapeConst, flatData)
+    Data(name, units, shapeConst, flatData)
   }
 
   final case class Data(name: String, units: String, shape: Vec[Int], flatData: Vec[Double]) {
@@ -179,9 +179,9 @@ object ConstMatrixImpl {
 
     import data.flatData
 
-    protected def shapeConst = data.shape
-    protected def nameConst  = data.name
-    protected def unitsConst = data.units
+    protected def shapeConst: Vec[Int]  = data.shape
+    protected def nameConst : String    = data.name
+    protected def unitsConst: String    = data.units
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
       new Impl(txOut.newID(), data)
@@ -191,7 +191,7 @@ object ConstMatrixImpl {
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, flatData, streamDim)
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = new KeyImpl(data, streamDim)
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(data, streamDim)
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double] = flatData
 

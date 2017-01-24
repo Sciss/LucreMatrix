@@ -1,10 +1,10 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.0.1"
+lazy val projectVersion     = "1.0.2-SNAPSHOT"
 lazy val mimaVersion        = "1.0.0"
 
-lazy val scalaMainVersion   = "2.11.8"
+lazy val scalaMainVersion   = "2.12.1"
 
 // ---- core dependencies ----
 
@@ -31,7 +31,7 @@ lazy val commonSettings = Seq(
   version            := projectVersion,
   organization       := "at.iem",
   scalaVersion       := scalaMainVersion,
-  crossScalaVersions := Seq("2.12.1", scalaMainVersion, "2.10.6"),
+  crossScalaVersions := Seq(scalaMainVersion, "2.11.8", "2.10.6"),
   homepage           := Some(url(s"https://github.com/iem-projects/$baseName")),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture", "-Xlint"),

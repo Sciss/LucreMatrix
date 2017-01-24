@@ -2,8 +2,8 @@
  *  ReduceImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -212,7 +212,7 @@ object ReduceImpl {
       writeOpData(out)
     }
 
-    final protected def disposeData()(implicit tx: S#Tx) = disconnect()
+    final protected def disposeData()(implicit tx: S#Tx): Unit = disconnect()
 
     // ---- event ----
 
@@ -522,8 +522,8 @@ object ReduceImpl {
 
       def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
         val net = resolver.resolve(file)
-        import scala.collection.JavaConversions._
-        val v = net.getVariables.find(_.getShortName == name).getOrElse(
+        import scala.collection.JavaConverters._
+        val v = net.getVariables.asScala.find(_.getShortName == name).getOrElse(
           sys.error(s"Variable '$name' does not exist in data source ${file.base}")
         )
 
@@ -634,55 +634,55 @@ object ReduceImpl {
       val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
       r.read(buf, 0, 1)
       val res = Vec.tabulate(r.numChannels)(ch => buf(ch)(0).toDouble)
-      return res
+      res
 
-      val data  = in.debugFlatten
-      val idx   = indexOfDim
-      if (idx == -1) return data
-
-      // currently support only `Apply` and `Slice`.
-      // Flat indices work as follows: dimensions are flatten from inside to outside,
-      // so the last dimension uses consecutive samples.
-      // (d0_0, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
-      // (d0_0, d1_1, d2_0), (d0_0, d1_1, d2_1), ... (d0_0, d1_1, d2_i),
-      // ...
-      // (d0_0, d1_j, d2_0), (d0_0, d1_j, d2_1), ... (d0_0, d1_j, d2_i),
-      // (d0_1, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
-      // ... ...
-      // ... ... (d0_k, d1_j, d2_i)
-
-      // therefore, if the selected dimension index is 0 <= si < rank,
-      // and the operator's start index is `lo` and the stop index is `hi` (exclusive),
-      // the copy operations is as follows:
-
-      // val num    = shape.take(si    ).product  // d0: 1, d1: k, d2: k * j
-      // val stride = shape.drop(si    ).product  // d0: k * j * i, d1: j * i, d2: i
-      // val block  = shape.drop(si + 1).product  // d0: j * i, d1: i, d2: 1
-      // for (x <- 0 until num) {
-      //   val offset = x * stride
-      //   copy `lo * block + offset` until `hi * block + offset`
-      // }
-
-      val (lo, hi): (Int, Int) = throw new Exception() // rangeOfDim(idx)
-      val sz = hi - lo + 1
-      // if (sz <= 0) return Vec.empty  // or throw exception?
-
-      val sh      = in.shape
-      val num     = sh.take(idx    ).product
-      val block   = sh.drop(idx + 1).product
-      val stride  = block * sh(idx)
-      val szFull  = num * stride        // full size
-      val szRed   = num * block * sz    // reduced size
-
-      val b     = Vec.newBuilder[Double]
-      b.sizeHint(szRed)
-      for (x <- 0 until szFull by stride) {
-        for (y <- lo * block + x until (hi+1) * block + x) {
-          b += data(y)
-        }
-      }
-
-      b.result()
+//      val data  = in.debugFlatten
+//      val idx   = indexOfDim
+//      if (idx == -1) return data
+//
+//      // currently support only `Apply` and `Slice`.
+//      // Flat indices work as follows: dimensions are flatten from inside to outside,
+//      // so the last dimension uses consecutive samples.
+//      // (d0_0, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
+//      // (d0_0, d1_1, d2_0), (d0_0, d1_1, d2_1), ... (d0_0, d1_1, d2_i),
+//      // ...
+//      // (d0_0, d1_j, d2_0), (d0_0, d1_j, d2_1), ... (d0_0, d1_j, d2_i),
+//      // (d0_1, d1_0, d2_0), (d0_0, d1_0, d2_1), ... (d0_0, d1_0, d2_i),
+//      // ... ...
+//      // ... ... (d0_k, d1_j, d2_i)
+//
+//      // therefore, if the selected dimension index is 0 <= si < rank,
+//      // and the operator's start index is `lo` and the stop index is `hi` (exclusive),
+//      // the copy operations is as follows:
+//
+//      // val num    = shape.take(si    ).product  // d0: 1, d1: k, d2: k * j
+//      // val stride = shape.drop(si    ).product  // d0: k * j * i, d1: j * i, d2: i
+//      // val block  = shape.drop(si + 1).product  // d0: j * i, d1: i, d2: 1
+//      // for (x <- 0 until num) {
+//      //   val offset = x * stride
+//      //   copy `lo * block + offset` until `hi * block + offset`
+//      // }
+//
+//      val (lo, hi): (Int, Int) = throw new Exception() // rangeOfDim(idx)
+//      val sz = hi - lo + 1
+//      // if (sz <= 0) return Vec.empty  // or throw exception?
+//
+//      val sh      = in.shape
+//      val num     = sh.take(idx    ).product
+//      val block   = sh.drop(idx + 1).product
+//      val stride  = block * sh(idx)
+//      val szFull  = num * stride        // full size
+//      val szRed   = num * block * sz    // reduced size
+//
+//      val b     = Vec.newBuilder[Double]
+//      b.sizeHint(szRed)
+//      for (x <- 0 until szFull by stride) {
+//        for (y <- lo * block + x until (hi+1) * block + x) {
+//          b += data(y)
+//        }
+//      }
+//
+//      b.result()
     }
 
     def shape(implicit tx: S#Tx): Vec[Int] = {
@@ -763,7 +763,7 @@ object ReduceImpl {
       op  write out
     }
 
-    protected def disposeData()(implicit tx: S#Tx) = disconnect()
+    protected def disposeData()(implicit tx: S#Tx): Unit = disconnect()
 
     // ---- event ----
 

@@ -2,8 +2,8 @@
  *  ReductionsView.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -32,7 +32,7 @@ object ReductionsView {
   }
 
   case class Update(size: Int, isLeaf: Boolean) {
-    def isEmpty = size == 0
+    def isEmpty: Boolean = size == 0
   }
 
   private final class Impl[S <: Sys[S]](val dimName: String)

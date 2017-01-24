@@ -2,8 +2,8 @@
  *  DimensionIndexImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -113,7 +113,7 @@ object DimensionIndexImpl {
 
     def fireReady(): Unit = dispatch(DimensionIndex.Ready)
 
-    def size = arr.length
+    def size: Int = arr.length
 
     def value(index: Int): Option[Double] = if (fut.isCompleted) Some(arr(index)) else None
 
@@ -124,6 +124,6 @@ object DimensionIndexImpl {
       x.map(_.map(_ => format(arr(index))))
     }
 
-    def dispose()(implicit tx: S#Tx) = ()
+    def dispose()(implicit tx: S#Tx): Unit = ()
   }
 }

@@ -2,8 +2,8 @@
  *  DataSourceImpl.scala
  *  (LucreMatrix)
  *
- *  Copyright (c) 2014-2016 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2016 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
+ *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -27,7 +27,7 @@ import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
 import ucar.nc2
 
 import scala.annotation.tailrec
-import scala.collection.{JavaConversions, breakOut, mutable}
+import scala.collection.{JavaConverters, breakOut, mutable}
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
@@ -49,8 +49,8 @@ object DataSourceImpl {
     val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
     val ds      = new Impl[S](id, artifact, varRef)
 
-    import JavaConversions._
-    val numericVars = netFile.getVariables.filter(_.getDataType.isNumeric)
+    import JavaConverters._
+    val numericVars = netFile.getVariables.asScala.filter(_.getDataType.isNumeric)
     val netMap: mutable.Map[String, nc2.Variable] = numericVars.map { net =>
       val name = net.getShortName
       (name, net)
@@ -264,14 +264,14 @@ object DataSourceImpl {
     def shape (implicit tx: S#Tx): Vec[Int  ] = Vec(        sizeConst)
     def ranges(implicit tx: S#Tx): Vec[Range] = Vec(0 until sizeConst)
 
-    override def rank(implicit tx: S#Tx) = 1
-    override def size(implicit tx: S#Tx) = sizeConst.toLong
+    override def rank(implicit tx: S#Tx): Int   = 1
+    override def size(implicit tx: S#Tx): Long  = sizeConst.toLong
 
     def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = Vec(this)
 
     def isLeaf = true
 
-    protected def disposeData()(implicit tx: S#Tx) = ()
+    protected def disposeData()(implicit tx: S#Tx): Unit = ()
   }
 
   private abstract class VariableImplLike[S <: Sys[S]]
@@ -314,8 +314,8 @@ object DataSourceImpl {
 
     final def data()(implicit tx: S#Tx, resolver: Resolver[S]): nc2.Variable = {
       val net = source.data()
-      import JavaConversions._
-      net.getVariables.find(_.getShortName == nameConst).getOrElse(
+      import JavaConverters._
+      net.getVariables.asScala.find(_.getShortName == nameConst).getOrElse(
         sys.error(s"Variable '$nameConst' does not exist in data source ${source.artifact.value.base}")
       )
     }
