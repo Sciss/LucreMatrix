@@ -3,10 +3,19 @@ package de.sciss.lucre.matrix
 object LinearReadAlgorithmTest {
   def main(args: Array[String]): Unit = run()
 
+//  def calcIndices(off: Int, shape: Vector[Int]): Vector[Int] = {
+//    val modsDivs = shape zip shape.scanRight(1)(_ * _).tail
+//    modsDivs.map { case (mod, div) =>
+//      (off / div) % mod
+//    }
+//  }
+
   def calcIndices(off: Int, shape: Vector[Int]): Vector[Int] = {
-    val modsDivs = shape zip shape.scanRight(1)(_ * _).tail
-    modsDivs.map { case (mod, div) =>
-      (off / div) % mod
+    val modsDivs = (shape, shape.scanRight(1)(_ * _).tail, shape.indices).zipped
+    modsDivs.map { case (mod, div, idx) =>
+      val x = off / div
+      if (idx == 0) x else x % mod
+//      (off / div) % mod
     }
   }
 
@@ -15,8 +24,10 @@ object LinearReadAlgorithmTest {
 //    if (res < 0) a.size else res + min
 //  }
 
-  def calcPOI(a: Vector[Int], b: Vector[Int], min: Int): Int = {
-    val res = (a.drop(min) zip b.drop(min)).indexWhere { case (ai, bi) => ai != bi }
+  def calcPOI(a: Vector[Int], b: Vector[Int], shape: Vector[Int], min: Int): Int = {
+    val modsDivs = shape zip shape.scanRight(1)(_ * _).tail
+    val trip = (a, b, shape).zipped.drop(min).toVector
+    val res = trip.indexWhere { case (ai, bi, mod) => (ai % mod) != (bi % mod) }
     if (res < 0) a.size else res + min
   }
 
@@ -45,7 +56,7 @@ object LinearReadAlgorithmTest {
 
   def partition(shape: Vector[Int], off: Int, len: Int): List[Vector[Range]] = {
     val rankM   = shape.size - 1
-    val shapeSz = shape.product
+//    val shapeSz = shape.product
 
     def loop(start: Int, stop: Int, poiMin: Int, dir: Boolean,
              res0: List[Vector[Range]]): List[Vector[Range]] =
@@ -54,16 +65,17 @@ object LinearReadAlgorithmTest {
 
         val s0  = calcIndices(start, shape)
         val s1  = calcIndices(stop , shape)
-        val poi = calcPOI(s0, s1, poiMin)
+//        val poi = calcPOI(s0, s1, poiMin)
+        val poi = calcPOI(s0, s1, shape, poiMin)
         val ti  = if (dir) s0 else s1
         val to  = if (dir) s1 else s0
         val st  = if (poi >= rankM) to else indexTrunc(ti, poi, inc = dir)
 
         val trunc = calcOff(st, shape)
-        val split = trunc != (if (dir) stop % shapeSz else start)
+        val split = trunc != (if (dir) stop else start)
 
         if (DEBUG)
-          println(f"[${if (dir) "lo" else "hi"}] start = $start%3d, stop = $stop%3d, s0 = ${indexStr(s0)}; s1 = ${indexStr(s1)} --> poi = $poi, trunc = ${indexStr(st)} / $trunc; split $split")
+          println(f"[${if (dir) "lo" else "hi"}] start = $start%3d, stop = $stop%3d, s0 = ${indexStr(s0)}; s1 = ${indexStr(s1)} --> poi = $poi (min $poiMin), trunc = ${indexStr(st)} / $trunc; split $split")
 
         if (split) {
           if (dir) {
@@ -141,8 +153,11 @@ object LinearReadAlgorithmTest {
   def run(): Unit = {
 //    val sh = Vector(1, 1, 1, 2)
 //    partition(sh, 1, 1)
-    val sh = Vector(1, 1, 3, 2)
-    partition(sh, 3, 3)
+//    val sh = Vector(1, 1, 3, 2)
+//    partition(sh, 3, 3)
+    val sh = Vector(1, 2, 2, 2)
+    val res = partition(sh, 5, 3)
+    assert(res.size == 3, res.size)
   }
 
   def run_(): Unit = {
@@ -174,17 +189,19 @@ object LinearReadAlgorithmTest {
             val len   = math.min(secSize - pos, chunk)
             var ok    = false
             try {
-              b ++= reader.read(len)
+              val data = reader.read(len)
+              assert(data.size == len, s"data.size ${data.size} != len $len, data $data")
+              b ++= data
               ok = true
             } finally {
               if (!ok)
-                println(s"FAILED for pos = $pos, len = $len; secSize $secSize; sec = $sec")
+                println(s"FAILED for chunk = $chunk, pos = $pos, len = $len; secSize $secSize; sec = $sec")
             }
           }
           val res = b.result()
-          assert(res.size == secSize)
           val direct = v.read(sec)
-          assert(res == direct)
+          assert(res.size == secSize, s"res.size = ${res.size}; secSize = $secSize; chunk = $chunk; res = $res; direct = $direct")
+          assert(res == direct, s"chunk = $chunk; res = $res; direct = $direct")
         }
       }
 
