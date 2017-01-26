@@ -83,8 +83,8 @@ object ReaderImpl {
   //    res
   //  }
 
-  private def partition(shape: Array[Int], start0: Long, stop0: Long)(consume: Vec[Range] => Unit): Unit = {
-    val rank = shape.length
+  def partition(shape: Array[Int], start0: Long, stop0: Long)(consume: Vec[Range] => Unit): Unit = {
+    val rank  = shape.length
     val rankM = rank - 1
 
     val s0    = new Array[Int](rank)
@@ -93,12 +93,12 @@ object ReaderImpl {
     val divs  = new Array[Int](rank)
 
     {
-      var i = rankM
+      var i   = rankM
       var div = 1
       while (i >= 0) {
-        val sh = shape(i)
+        val sh  = shape(i)
         divs(i) = div
-        div *= sh
+        div    *= sh
         i -= 1
       }
     }

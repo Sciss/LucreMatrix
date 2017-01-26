@@ -1,5 +1,7 @@
 package de.sciss.lucre.matrix
 
+import de.sciss.lucre.matrix.impl.ReaderImpl
+
 object LinearReadAlgorithmTest {
   def main(args: Array[String]): Unit = run()
 
@@ -146,10 +148,19 @@ object LinearReadAlgorithmTest {
 
     def statMaxReads: Int = _statMaxReads
 
+    private[this] val inShapeArr = inShape.toArray
+
     def read(len: Int): Vector[A] = {
       require (len >= 0 && _pos + len <= size, s"pos = ${_pos}, len = $len; size = $size")
 
-      val sub = partition(shape = inShape, off = _pos, len = len)
+//      val sub = partition(shape = inShape, off = _pos, len = len)
+      val sub = {
+        var b = List.empty[Vec[Range]]
+        ReaderImpl.partition(shape = inShapeArr, start0 = _pos, stop0 = _pos + len) { range =>
+          b ::= range
+        }
+        b.reverse
+      }
       if (sub.size > _statMaxReads) _statMaxReads = sub.size
       val res: Vector[A] = sub.flatMap { ranges =>
         val sec = (in, ranges).zipped.map(sampleRange)
