@@ -19,17 +19,17 @@ object LinearReadAlgorithmTest {
     }
   }
 
-//  def calcPOI(a: Vector[Int], b: Vector[Int], min: Int): Int = {
-//    val res = (a.drop(min) zip b.drop(min)).indexWhere { case (ai, bi) => ai != bi }
-//    if (res < 0) a.size else res + min
-//  }
-
-  def calcPOI(a: Vector[Int], b: Vector[Int], shape: Vector[Int], min: Int): Int = {
-    val modsDivs = shape zip shape.scanRight(1)(_ * _).tail
-    val trip = (a, b, shape).zipped.drop(min).toVector
-    val res = trip.indexWhere { case (ai, bi, mod) => (ai % mod) != (bi % mod) }
+  def calcPOI(a: Vector[Int], b: Vector[Int], min: Int): Int = {
+    val res = (a.drop(min) zip b.drop(min)).indexWhere { case (ai, bi) => ai != bi }
     if (res < 0) a.size else res + min
   }
+
+//  def calcPOI(a: Vector[Int], b: Vector[Int], shape: Vector[Int], min: Int): Int = {
+//    val modsDivs = shape zip shape.scanRight(1)(_ * _).tail
+//    val trip = (a, b, shape).zipped.drop(min).toVector
+//    val res = trip.indexWhere { case (ai, bi, mod) => (ai % mod) != (bi % mod) }
+//    if (res < 0) a.size else res + min
+//  }
 
   def zipToRange(a: Vector[Int], b: Vector[Int]): Vector[Range] =
     (a, b).zipped.map { (ai, bi) =>
@@ -54,6 +54,10 @@ object LinearReadAlgorithmTest {
 
   def indexStr(a: Vector[Int]): String = a.mkString("[", ", ", "]")
 
+  def indicesStr(off: Int, len: Int, shape: Vector[Int]): String =
+    (off until (off + len)).map(calcIndices(_, shape))
+      .map(_.mkString("[", ", ", "]")).mkString("\n")
+
   def partition(shape: Vector[Int], off: Int, len: Int): List[Vector[Range]] = {
     val rankM   = shape.size - 1
 //    val shapeSz = shape.product
@@ -62,32 +66,37 @@ object LinearReadAlgorithmTest {
              res0: List[Vector[Range]]): List[Vector[Range]] =
       if (start == stop) res0 else {
         assert(start < stop)
+        val last = stop - 1
 
         val s0  = calcIndices(start, shape)
-        val s1  = calcIndices(stop , shape)
-//        val poi = calcPOI(s0, s1, poiMin)
-        val poi = calcPOI(s0, s1, shape, poiMin)
+//        val s1  = calcIndices(stop , shape)
+        val s1  = calcIndices(last , shape)
+        val poi = calcPOI(s0, s1, poiMin)
+//        val poi = calcPOI(s0, s1, shape, poiMin)
         val ti  = if (dir) s0 else s1
         val to  = if (dir) s1 else s0
         val st  = if (poi >= rankM) to else indexTrunc(ti, poi, inc = dir)
 
         val trunc = calcOff(st, shape)
-        val split = trunc != (if (dir) stop else start)
+        val split = trunc != (if (dir) last /* stop */ else start)
 
         if (DEBUG)
           println(f"[${if (dir) "lo" else "hi"}] start = $start%3d, stop = $stop%3d, s0 = ${indexStr(s0)}; s1 = ${indexStr(s1)} --> poi = $poi (min $poiMin), trunc = ${indexStr(st)} / $trunc; split $split")
 
         if (split) {
           if (dir) {
+            val trP  = trunc + 1
             val res1 = loop(start, trunc, poiMin = poi + 1, dir = true , res0 = res0)
             loop           (trunc, stop , poiMin = poi    , dir = false, res0 = res1)
           } else {
             val s1tm = calcIndices(trunc - 1, shape)
             val res1 = zipToRange(s0, s1tm) :: res0
+            if (DEBUG) println(s"read from ${indexStr(s0)} to ${indexStr(s1tm)}")
             loop           (trunc, stop , poiMin = poi + 1, dir = false, res0 = res1)
           }
         } else {
           val s1m = calcIndices(stop - 1, shape)
+          if (DEBUG) println(s"read from ${indexStr(s0)} to ${indexStr(s1m)}")
           zipToRange(s0, s1m) :: res0
         }
       }
@@ -152,12 +161,21 @@ object LinearReadAlgorithmTest {
 
   def run(): Unit = {
 //    val sh = Vector(1, 1, 1, 2)
-//    partition(sh, 1, 1)
-//    val sh = Vector(1, 1, 3, 2)
-//    partition(sh, 3, 3)
-    val sh = Vector(1, 2, 2, 2)
-    val res = partition(sh, 5, 3)
-    assert(res.size == 3, res.size)
+//    val off = 1
+//    val len = 1
+
+    val sh = Vector(1, 1, 3, 2)
+    val off = 3
+    val len = 3
+
+//    val sh = Vector(1, 2, 2, 2)
+//    val off = 5
+//    val len = 3
+
+    println(indicesStr(off, len, sh))
+    val res   = partition(sh, off, len)
+    val resSz = res.map(_.map(_.size).product).sum
+    assert(resSz == len, resSz)
   }
 
   def run_(): Unit = {
