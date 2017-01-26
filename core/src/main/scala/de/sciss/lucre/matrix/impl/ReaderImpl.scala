@@ -216,10 +216,12 @@ abstract class ReaderImpl extends Matrix.Reader {
 
     def readSection(sect: Seq[Range]): Unit = {
       val uSect = toUcarSection(sect)
-      val arr = mkArray(uSect)
-      val it = arr.getIndexIterator
-      val len0 = arr.getSize.toInt
-      val stop0 = off + len0
+      val arr   = mkArray(uSect)
+      val it    = arr.getIndexIterator
+      val len0  = arr.getSize.toInt
+      // val len1  = sect.map(_.size).product
+      // assert(len0 == len1, s"len0 $len0, len1 $len1")
+      val stop0 = i + len0
       while (i < stop0) {
         dBuf(i) = indexMap.nextDouble(it)
         i += 1
