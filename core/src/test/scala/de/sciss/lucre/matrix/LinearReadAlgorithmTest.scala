@@ -15,7 +15,6 @@ object LinearReadAlgorithmTest {
     modsDivs.map { case (mod, div, idx) =>
       val x = off / div
       if (idx == 0) x else x % mod
-//      (off / div) % mod
     }
   }
 
@@ -60,8 +59,7 @@ object LinearReadAlgorithmTest {
 
 
   def partition(shape: Vector[Int], off: Int, len: Int): List[Vector[Range]] = {
-    val rankM   = shape.size - 1
-//    val shapeSz = shape.product
+    val rankM = shape.size - 1
 
     def loop(start: Int, stop: Int, poiMin: Int, dir: Boolean,
              res0: List[Vector[Range]]): List[Vector[Range]] =
@@ -73,8 +71,7 @@ object LinearReadAlgorithmTest {
         val s1  = calcIndices(stop , shape)
         val s1m = calcIndices(last , shape)
         val poi = calcPOI(s0, s1m, poiMin)
-//        val poi = calcPOI(s0, s1, shape, poiMin)
-        val ti  = if (dir) s0 else s1m
+        val ti  = if (dir) s0 else s1 // m
         val to  = if (dir) s1 else s0
         val st  = if (poi >= rankM) to else indexTrunc(ti, poi, inc = dir)
 
@@ -86,9 +83,8 @@ object LinearReadAlgorithmTest {
 
         if (split) {
           if (dir) {
-            val trP  = trunc // + 1
-            val res1 = loop(start, trP /* trunc */, poiMin = poi + 1, dir = true , res0 = res0)
-            loop           (trP /* trunc */, stop , poiMin = poi    , dir = false, res0 = res1)
+            val res1 = loop(start, trunc, poiMin = poi + 1, dir = true , res0 = res0)
+            loop           (trunc, stop , poiMin = 0      , dir = false, res0 = res1)
           } else {
             val s1tm = calcIndices(trunc - 1, shape)
             val res1 = zipToRange(s0, s1tm) :: res0
@@ -96,7 +92,6 @@ object LinearReadAlgorithmTest {
             loop           (trunc, stop , poiMin = poi + 1, dir = false, res0 = res1)
           }
         } else {
-          // val s1m = calcIndices(stop - 1, shape)
           if (DEBUG) println(s"read from ${indexStr(s0)} to ${indexStr(s1m)}")
           zipToRange(s0, s1m) :: res0
         }
@@ -178,9 +173,13 @@ object LinearReadAlgorithmTest {
 //    val off = 5
 //    val len = 3
 
-    val sh = Vector(1, 1, 2, 2)
-    val off = 0
-    val len = 3
+//    val sh = Vector(1, 1, 2, 2)
+//    val off = 0
+//    val len = 3
+
+    val sh = Vector(2, 3, 4, 5)
+    val off = 6
+    val len = 21
 
     println(indicesStr(off, len, sh))
     val res   = partition(sh, off, len)
