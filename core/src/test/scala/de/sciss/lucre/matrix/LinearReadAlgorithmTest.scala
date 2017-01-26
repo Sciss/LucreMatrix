@@ -50,13 +50,14 @@ object LinearReadAlgorithmTest {
       else              ai
     }
 
-  private[this] val DEBUG = true
+  private[this] val DEBUG = false
 
   def indexStr(a: Vector[Int]): String = a.mkString("[", ", ", "]")
 
   def indicesStr(off: Int, len: Int, shape: Vector[Int]): String =
     (off until (off + len)).map(calcIndices(_, shape))
       .map(_.mkString("[", ", ", "]")).mkString("\n")
+
 
   def partition(shape: Vector[Int], off: Int, len: Int): List[Vector[Range]] = {
     val rankM   = shape.size - 1
@@ -69,25 +70,25 @@ object LinearReadAlgorithmTest {
         val last = stop - 1
 
         val s0  = calcIndices(start, shape)
-//        val s1  = calcIndices(stop , shape)
-        val s1  = calcIndices(last , shape)
-        val poi = calcPOI(s0, s1, poiMin)
+        val s1  = calcIndices(stop , shape)
+        val s1m = calcIndices(last , shape)
+        val poi = calcPOI(s0, s1m, poiMin)
 //        val poi = calcPOI(s0, s1, shape, poiMin)
-        val ti  = if (dir) s0 else s1
+        val ti  = if (dir) s0 else s1m
         val to  = if (dir) s1 else s0
         val st  = if (poi >= rankM) to else indexTrunc(ti, poi, inc = dir)
 
         val trunc = calcOff(st, shape)
-        val split = trunc != (if (dir) last /* stop */ else start)
+        val split = trunc != (if (dir) stop /* last */ /* stop */ else start)
 
         if (DEBUG)
-          println(f"[${if (dir) "lo" else "hi"}] start = $start%3d, stop = $stop%3d, s0 = ${indexStr(s0)}; s1 = ${indexStr(s1)} --> poi = $poi (min $poiMin), trunc = ${indexStr(st)} / $trunc; split $split")
+          println(f"[${if (dir) "lo" else "hi"}] start = $start%3d, stop = $stop%3d, s0 = ${indexStr(s0)}; s1 = ${indexStr(s1)}; s1m = ${indexStr(s1m)} --> poi = $poi (min $poiMin), trunc = ${indexStr(st)} / $trunc; split $split")
 
         if (split) {
           if (dir) {
-            val trP  = trunc + 1
-            val res1 = loop(start, trunc, poiMin = poi + 1, dir = true , res0 = res0)
-            loop           (trunc, stop , poiMin = poi    , dir = false, res0 = res1)
+            val trP  = trunc // + 1
+            val res1 = loop(start, trP /* trunc */, poiMin = poi + 1, dir = true , res0 = res0)
+            loop           (trP /* trunc */, stop , poiMin = poi    , dir = false, res0 = res1)
           } else {
             val s1tm = calcIndices(trunc - 1, shape)
             val res1 = zipToRange(s0, s1tm) :: res0
@@ -95,7 +96,7 @@ object LinearReadAlgorithmTest {
             loop           (trunc, stop , poiMin = poi + 1, dir = false, res0 = res1)
           }
         } else {
-          val s1m = calcIndices(stop - 1, shape)
+          // val s1m = calcIndices(stop - 1, shape)
           if (DEBUG) println(s"read from ${indexStr(s0)} to ${indexStr(s1m)}")
           zipToRange(s0, s1m) :: res0
         }
@@ -146,10 +147,15 @@ object LinearReadAlgorithmTest {
     def pos : Int = _pos
     val size: Int = inShape.product
 
+    private[this] var _statMaxReads = 0
+
+    def statMaxReads: Int = _statMaxReads
+
     def read(len: Int): Vector[A] = {
       require (len >= 0 && _pos + len <= size, s"pos = ${_pos}, len = $len; size = $size")
 
       val sub = partition(shape = inShape, off = _pos, len = len)
+      if (sub.size > _statMaxReads) _statMaxReads = sub.size
       val res: Vector[A] = sub.flatMap { ranges =>
         val sec = (in, ranges).zipped.map(sampleRange)
         v.read(sec)
@@ -159,18 +165,22 @@ object LinearReadAlgorithmTest {
     }
   }
 
-  def run(): Unit = {
+  def run_(): Unit = {
 //    val sh = Vector(1, 1, 1, 2)
 //    val off = 1
 //    val len = 1
 
-    val sh = Vector(1, 1, 3, 2)
-    val off = 3
-    val len = 3
+//    val sh = Vector(1, 1, 3, 2)
+//    val off = 3
+//    val len = 3
 
 //    val sh = Vector(1, 2, 2, 2)
 //    val off = 5
 //    val len = 3
+
+    val sh = Vector(1, 1, 2, 2)
+    val off = 0
+    val len = 3
 
     println(indicesStr(off, len, sh))
     val res   = partition(sh, off, len)
@@ -178,7 +188,7 @@ object LinearReadAlgorithmTest {
     assert(resSz == len, resSz)
   }
 
-  def run_(): Unit = {
+  def run(): Unit = {
     val shape = Vector(5, 6, 7, 8)
     val vSize = shape.product
     val rank  = shape.size
@@ -187,6 +197,15 @@ object LinearReadAlgorithmTest {
     lazy val fibs: Stream[Int] = 0 #:: fibs.scanLeft(1)(_ + _)
     val chunkSizes = fibs.drop(2).takeWhile(_ <= vSize).toVector
     println(s"There are ${chunkSizes.size} chunk-sizes")
+    var statMaxReads = 0
+
+    def numRanges(n: Int) = n * (n + 1) / 2
+
+    val numIter   = shape.map(numRanges).product
+    var iter      = 0
+    var lastProg  = 0
+
+    println("_" * 100)
 
     def loop(sec: Vector[Range]): Unit =
       if (sec.size < rank) {
@@ -220,10 +239,19 @@ object LinearReadAlgorithmTest {
           val direct = v.read(sec)
           assert(res.size == secSize, s"res.size = ${res.size}; secSize = $secSize; chunk = $chunk; res = $res; direct = $direct")
           assert(res == direct, s"chunk = $chunk; res = $res; direct = $direct")
+          statMaxReads = math.max(statMaxReads, reader.statMaxReads)
+        }
+
+        iter += 1
+        val prog = (iter * 100) / numIter
+        while (lastProg < prog) {
+          print('#')
+          lastProg += 1
         }
       }
 
     loop(Vector.empty)
-    println("Alright!")
+    println()
+    println(s"Alright! Maximum reads was $statMaxReads.")
   }
 }
