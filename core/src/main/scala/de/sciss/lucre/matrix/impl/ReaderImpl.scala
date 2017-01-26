@@ -93,7 +93,7 @@ object ReaderImpl {
     val divs  = new Array[Int](rank)
 
     {
-      var i = rankM - 1
+      var i = rankM
       var div = 1
       while (i >= 0) {
         val sh = shape(i)
@@ -107,9 +107,9 @@ object ReaderImpl {
       if (start < stop) {
         val last = stop - 1
 
-        calcIndices(start, shape, divs, s0)
-        calcIndices(stop, shape, divs, s1)
-        calcIndices(last, shape, divs, s1m)
+        calcIndices(start, shape, divs = divs, out = s0 )
+        calcIndices(stop , shape, divs = divs, out = s1 )
+        calcIndices(last , shape, divs = divs, out = s1m)
 
         val poi: Int = calcPOI(s0, s1m, poiMin)
         val trunc: Long = if (poi >= rankM) {
@@ -125,7 +125,7 @@ object ReaderImpl {
             loop(start, trunc, poiMin = poi + 1, dir = true )
             loop(trunc, stop , poiMin = 0      , dir = false)
           } else {
-            calcIndices(trunc - 1, shape, divs, s1m)
+            calcIndices(trunc - 1, shape, divs = divs, out = s1m)
             val range = zipToRange(s0, s1m)
             consume(range)
             loop(trunc, stop , poiMin = poi + 1, dir = false)
