@@ -20,7 +20,127 @@ import java.{util => ju}
 
 import ucar.ma2
 
-trait ReaderImpl extends Matrix.Reader {
+import scala.collection.breakOut
+
+object ReaderImpl {
+  private def zipToRange(a: Array[Int], b: Array[Int]): Vec[Range] = {
+    val vb = Vector.newBuilder[Range]
+    val n = a.length
+    vb.sizeHint(n)
+    var i = 0
+    while (i < n) {
+      vb += a(i) to b(i)
+      i += 1
+    }
+    vb.result()
+  }
+
+  private def calcIndices(off: Long, mods: Array[Int], divs: Array[Int], out: Array[Int]): Unit = {
+    var i = 0
+    val n = out.length
+    while (i < n) {
+      val x = off / divs(i)
+      val y = if (i == 0) x else x % mods(i)
+      out(i) = y.toInt
+      i += 1
+    }
+  }
+
+  @inline
+  private def calcPOI(a: Array[Int], b: Array[Int], min: Int): Int = {
+    var i = min
+    val n = a.length
+    while (i < n && a(i) == b(i)) i += 1
+    i
+  }
+
+  private def indexTrunc(a: Array[Int], poi: Int, inc: Boolean, divs: Array[Int]): Int = {
+    var i = 0
+    val n = a.length
+    var res = 0
+    while (i < n) {
+      val ai = a(i)
+      val x =
+        if (i < poi) ai
+        else if (i > poi) 0
+        else if (inc) ai + 1
+        else ai
+
+      res += x * divs(i)
+      i += 1
+    }
+    res
+  }
+
+  //  private def calcOff(a: Array[Int], divs: Array[Int]): Int = {
+  //    var i = 0
+  //    val n = a.length
+  //    var res = 0
+  //    while (i < n) {
+  //      res += a(i) * divs(i)
+  //      i += 1
+  //    }
+  //    res
+  //  }
+
+  private def partition(shape: Array[Int], start0: Long, stop0: Long)(consume: Vec[Range] => Unit): Unit = {
+    val rank = shape.length
+    val rankM = rank - 1
+
+    val s0    = new Array[Int](rank)
+    val s1    = new Array[Int](rank)
+    val s1m   = new Array[Int](rank)
+    val divs  = new Array[Int](rank)
+
+    {
+      var i = rankM - 1
+      var div = 1
+      while (i >= 0) {
+        val sh = shape(i)
+        divs(i) = div
+        div *= sh
+        i -= 1
+      }
+    }
+
+    def loop(start: Long, stop: Long, poiMin: Int, dir: Boolean): Unit =
+      if (start < stop) {
+        val last = stop - 1
+
+        calcIndices(start, shape, divs, s0)
+        calcIndices(stop, shape, divs, s1)
+        calcIndices(last, shape, divs, s1m)
+
+        val poi: Int = calcPOI(s0, s1m, poiMin)
+        val trunc: Long = if (poi >= rankM) {
+          if (dir) stop else start
+        } else {
+          indexTrunc(if (dir) s0 else s1, poi, inc = dir, divs = divs)
+        }
+
+        val split = trunc != (if (dir) stop else start)
+
+        if (split) {
+          if (dir) {
+            loop(start, trunc, poiMin = poi + 1, dir = true )
+            loop(trunc, stop , poiMin = 0      , dir = false)
+          } else {
+            calcIndices(trunc - 1, shape, divs, s1m)
+            val range = zipToRange(s0, s1m)
+            consume(range)
+            loop(trunc, stop , poiMin = poi + 1, dir = false)
+          }
+        } else {
+          val range = zipToRange(s0, s1m)
+          consume(range)
+        }
+      }
+
+    loop(start0, stop0, poiMin = 0, dir = true)
+  }
+}
+
+abstract class ReaderImpl extends Matrix.Reader {
   // ---- abstract ----
 
   protected def streamDim: Int
@@ -35,7 +155,17 @@ trait ReaderImpl extends Matrix.Reader {
 
   private[this] val numFramesI: Int = if (streamDim < 0) 1 else section(streamDim).size
 
-  final val size: Long = if (section.isEmpty) 0L else (1L /: section)(_ * _.size)
+  private[this] val shape: Array[Int] = section.map(_.size)(breakOut)
+
+  final val size: Long = if (shape.length == 0) 0L else {
+    var res = 1L
+    var i = 0
+    while (i < shape.length) {
+      res *= shape(i)
+      i += 1
+    }
+    res
+  }
 
   private[this] val numChannelsL: Long = size / numFramesI
 
@@ -47,7 +177,7 @@ trait ReaderImpl extends Matrix.Reader {
 
   private[this] var pos = 0L
 
-  def numFrames: Long = numFramesI.toLong
+  final def numFrames: Long = numFramesI.toLong
 
   final def readFloat2D(fBuf: Array[Array[Float]], off: Int, len: Int): Unit = {
     if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
@@ -59,8 +189,8 @@ trait ReaderImpl extends Matrix.Reader {
     }
     val arr = mkArray(toUcarSection(sect1))
     // cf. Arrays.txt for (de-)interleaving scheme
-    val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
-    val it  = t.getIndexIterator
+    val t = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
+    val it = t.getIndexIterator
 
     var i = off
     val j = off + len
@@ -81,29 +211,36 @@ trait ReaderImpl extends Matrix.Reader {
     if (len < 0) throw new IllegalArgumentException(s"Illegal read length $len")
     val stop = pos + len
     if (stop > size) throw new EOFException(s"Reading past the end ($stop > $size)")
-    val sect1 = if (pos == 0 && stop == size) section else {
-      val newRange = sampleRange(section(streamDim), pos, stop)
-      section.updated(streamDim, newRange)
-    }
-    val arr = mkArray(toUcarSection(sect1))
-    // cf. Arrays.txt for (de-)interleaving scheme
-    val t   = if (streamDim <= 0) arr else arr.transpose(0, streamDim)
-    val it  = t.getIndexIterator
 
     var i = off
-    val j = off + len
-    while (i < j) {
-      dBuf(i) = indexMap.nextDouble(it)
-      i += 1
+
+    def readSection(sect: Seq[Range]): Unit = {
+      val uSect = toUcarSection(sect)
+      val arr = mkArray(uSect)
+      val it = arr.getIndexIterator
+      val len0 = arr.getSize.toInt
+      val stop0 = off + len0
+      while (i < stop0) {
+        dBuf(i) = indexMap.nextDouble(it)
+        i += 1
+      }
     }
 
+    if (pos == 0 && stop == size) {
+      readSection(section)
+    } else {
+      ReaderImpl.partition(shape, pos, stop)(readSection)
+    }
+
+    assert(i == off + len)
     pos = stop
   }
 
-  final protected def toUcarSection(in: Vec[Range]): ma2.Section = {
-    val sz      = in.size
-    val list    = new ju.ArrayList[ma2.Range](sz)
-    var i = 0; while (i < sz) {
+  final protected def toUcarSection(in: Seq[Range]): ma2.Section = {
+    val sz    = in.size
+    val list  = new ju.ArrayList[ma2.Range](sz)
+    var i = 0
+    while (i < sz) {
       list.add(toUcarRange(in(i)))
       i += 1
     }
