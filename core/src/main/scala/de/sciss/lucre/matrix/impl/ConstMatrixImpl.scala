@@ -206,6 +206,8 @@ object ConstMatrixImpl {
     protected def nameConst : String    = data.name
     protected def unitsConst: String    = data.units
 
+//    def fillValue(implicit tx: S#Tx): Double = Double.NaN
+
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
       new Impl(txOut.newID(), data)
 

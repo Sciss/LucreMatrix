@@ -149,6 +149,8 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     */
   def shape(implicit tx: S#Tx): Vec[Int]
 
+  // def fillValue(implicit tx: S#Tx): Double
+
   /** The sequence of underlying dimension matrices. The part of each dimension
     * covered by this matrix is reflected by the corresponding entry in `ranges`!
     *

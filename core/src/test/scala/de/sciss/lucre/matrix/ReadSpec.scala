@@ -2,8 +2,7 @@ package de.sciss.lucre.matrix
 
 import java.{util => ju}
 
-import de.sciss.lucre.expr
-import de.sciss.lucre.expr.{IntObj, Expr}
+import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.InMemory
 import org.scalatest.{Matchers, Outcome, fixture}
@@ -38,7 +37,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
     arr
   }
 
-  implicit val DummyRes = DataSource.Resolver.empty[S]
+  implicit val DummyRes: DataSource.Resolver.Seq[S] = DataSource.Resolver.empty
 
   "A Zeros Matrix" should "read data" in { cursor =>
     cursor.step { implicit tx =>

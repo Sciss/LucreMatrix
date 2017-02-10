@@ -231,7 +231,11 @@ abstract class ReaderImpl extends Matrix.Reader {
     if (pos == 0 && stop == size) {
       readSection(section)
     } else {
-      ReaderImpl.partition(shape, pos, stop)(readSection)
+      ReaderImpl.partition(shape, pos, stop) { rBy =>
+        val rIn  = section
+        val rOut = (rIn, rBy).zipped.map(sampleRange)
+        readSection(rOut)
+      }
     }
 
     assert(i == off + len)
