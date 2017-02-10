@@ -241,6 +241,7 @@ object MatrixViewImpl {
       //        add(Swing.HGlue, BorderPanel.Position.East)
       //      }
       val scroll    = new ScrollPane(p)
+      scroll.peer.putClientProperty("styleId", "nofocus")
       // scroll.border = Swing.EmptyBorder
       p1.contents += scroll
 
