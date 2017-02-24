@@ -1,14 +1,14 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.1.0-SNAPSHOT"
+lazy val projectVersion     = "1.1.0"
 lazy val mimaVersion        = "1.0.0"
 
 lazy val scalaMainVersion   = "2.12.1"
 
 // ---- core dependencies ----
 
-lazy val netCDFVersion      = "4.6.6"
+lazy val netCDFVersion      = "4.6.8"
 lazy val audioFileVersion   = "1.4.6"
 lazy val fileCacheVersion   = "0.3.4"
 lazy val lucreVersion       = "3.3.2"
