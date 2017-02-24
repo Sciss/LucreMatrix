@@ -57,6 +57,22 @@ object ZeroMatrixImpl {
 
     def readDouble1D(buf: Array[Double], off: Int, len: Int): Unit =
       ju.Arrays.fill(buf, off, off + len, 0.0)
+
+    def readWindowDouble1D(dims: Array[Int], buf: Array[Double], off: Int): Unit = {
+      if (dims.length == 0) return
+
+      var i = 0
+      var l = 1L
+      while (i < dims.length) {
+        val j = dims(i)
+        l *= shape(j)
+        i += 1
+      }
+      if (l > 0x7FFFFFFF) throw new IllegalStateException(s"Window size ($l) exceeds 32-bit")
+      val len = l.toInt
+
+      ju.Arrays.fill(buf, off, off + len, 0.0)
+    }
   }
 
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {

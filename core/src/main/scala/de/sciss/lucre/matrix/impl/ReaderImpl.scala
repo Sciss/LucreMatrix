@@ -242,6 +242,86 @@ abstract class ReaderImpl extends Matrix.Reader {
     pos = stop
   }
 
+  final def readWindowDouble1D(dims: Array[Int], dBuf: Array[Double], off: Int): Unit = {
+    val rank      = shape.length
+    val sect      = new Array[Range](rank)
+    var i         = rank - 1
+    var posR      = pos
+    while (i >= 0) {
+      var j = 0
+      var inWin = false
+      while (!inWin && j < dims.length) {
+        if (dims(j) == i) inWin = true
+        else j += 1
+      }
+      val rIn = section(i)
+      val r: Range =
+        if (inWin) rIn
+        else {
+          val sk  = shape(i)
+          val m   = if (i == 0) posR else posR % sk
+          posR /= sk
+          sampleRange(rIn, m, m)
+        }
+
+      sect(i) = r
+      i -= 1
+    }
+
+    val uSect = toUcarSection(sect)
+    val arr0  = mkArray(uSect)
+
+    i = 1
+    var hasPerm = false
+    while (!hasPerm && i < dims.length) {
+      val j = dims(i)
+      if (dims(i) < dims(i - 1)) hasPerm = true
+      else i += 1
+    }
+    val arr = if (hasPerm) {
+      // permute(dims): "the old index dims[k] becomes the new kth index"
+      val perm = new Array[Int](rank)
+      i = 0
+      var k = 0
+      while (i < rank) {
+        var j = 0
+        var inWin = false
+        while (!inWin && j < dims.length) {
+          if (dims(j) == i) inWin = true
+          else j += 1
+        }
+        if (!inWin) {
+          perm(k) = i
+          k += 1
+        }
+        i += 1
+      }
+      i = 0
+      while (k < rank) {
+        perm(k) = dims(i)
+        i += 1
+        k += 1
+      }
+      assert (i == dims.length)
+
+      arr0.permute(perm)
+    } else {
+      arr0
+    }
+
+    val it    = arr.getIndexIterator
+    val len0  = arr.getSize.toInt
+
+    i = off
+    val stop0 = i + len0
+    while (i < stop0) {
+      dBuf(i) = indexMap.nextDouble(it)
+      i += 1
+    }
+
+    pos += 1
+  }
+
   final protected def toUcarSection(in: Seq[Range]): ma2.Section = {
     val sz    = in.size
     val list  = new ju.ArrayList[ma2.Range](sz)

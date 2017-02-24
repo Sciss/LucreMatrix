@@ -152,6 +152,10 @@ object ConstMatrixImpl {
         off1 += 1
       }
     }
+
+    def readWindowDouble1D(dims: Array[Int], buf: Array[Double], off: Int): Unit = {
+      ???
+    }
   }
 
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {

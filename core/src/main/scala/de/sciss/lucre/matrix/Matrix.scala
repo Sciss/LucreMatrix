@@ -78,6 +78,7 @@ object Matrix extends Obj.Type {
     /** The number of channels is the matrix size divided by the number of frames. */
     def numChannels: Int
 
+    /** The number of elements in the underlying matrix (section). */
     def size: Long
 
     /** Reads a chunk of matrix data into a provided buffer. If the stream-transposed
@@ -87,15 +88,47 @@ object Matrix extends Obj.Type {
       * and so on until `b0, ck-1` where `k` is the size of third dimension, followed
       * by `b1, c0` etc.
       *
+      * '''Note:''' Calls must not be mixed with calls to `readDouble1` or `readWindowDouble1D`!
+      *
       * @param buf  the buffer to read into. This must be two-dimensional with the
       *             outer dimension corresponding to channels, and the inner arrays
       *             having at least a size of `off + len`.
       * @param off  the offset into each channel of `buf`
       * @param len  the number of frames to read
       */
-    def readFloat2D (buf: Array[Array[Float]], off: Int, len: Int): Unit
+    def readFloat2D(buf: Array[Array[Float]], off: Int, len: Int): Unit
 
-    def readDouble1D(buf: Array[Double]      , off: Int, len: Int): Unit
+    /** Reads a chunk of matrix data into a provided buffer. Multi-dimensional
+      * matrices are de-interleaved according to their natural dimensional ordering.
+      *
+      * '''Note:''' Calls must not be mixed with calls to `readFloat2D` or `readWindowDouble1D`!
+      *
+      * @param buf  the buffer to read into. This must
+      *             have at least a size of `off + len`.
+      * @param off  the offset into `buf`
+      * @param len  the number of elements to read
+      */
+    def readDouble1D(buf: Array[Double], off: Int, len: Int): Unit
+
+    /** Reads a window (chunk) of matrix data into a provided buffer.
+      * The window is a selection of dimensions, provided by the `dims` argument.
+      * For each call, a successive window is read, where successive means iterating
+      * over the remaining dimensions.
+      *
+      * For example, if the input matrix has shape `[time: 180][lon: 12][lat: 36][alt: 601]`,
+      * then specifying `dims = [0, 3]` means that we get time-altitude windows, the first
+      * window corresponding to `lon = 0, lat = 0`, the second window corresponding to
+      * `lon = 0, lat = 1`, the 37th window corresponding to `lon = 1, lat = 0`, etc.
+      *
+      * '''Note:''' Calls must not be mixed with calls to `readFloat2D` or `readDouble1D`!
+      * Also in repeated calls, `dims` must not be changed.
+      *
+      * @param dims array of dimension indices which form the window.
+      * @param buf  the buffer to read into. This must
+      *             have at least a size of `off + len`.
+      * @param off  the offset into `buf`
+      */
+    def readWindowDouble1D(dims: Array[Int], buf: Array[Double], off: Int): Unit
   }
 
   // ---- key ----
