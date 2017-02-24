@@ -261,13 +261,14 @@ abstract class ReaderImpl extends Matrix.Reader {
           val sk  = shape(i)
           val m   = if (i == 0) posR else posR % sk
           posR /= sk
-          sampleRange(rIn, m, m)
+          sampleRange(rIn, m, m + 1)
         }
 
       sect(i) = r
       i -= 1
     }
 
+    // println(s"SECTION ${sect.mkString("[", ", ", "]")}")
     val uSect = toUcarSection(sect)
     val arr0  = mkArray(uSect)
 

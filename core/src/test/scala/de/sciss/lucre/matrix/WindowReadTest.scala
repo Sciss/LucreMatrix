@@ -32,10 +32,10 @@ object WindowReadTest {
           val ds        = dsv()
           val Some(vr)  = ds.variables.find(_.name == "Temperature")
           assert(vr.shape == Vector(180, 12, 36, 601)) // [Time][Longitude][Latitude][Altitude]
-          val r1        = Reduce(vr, Dimension.Selection.Name("Longitude"), Reduce.Op.Apply(6 ))
-          val r2        = Reduce(r1, Dimension.Selection.Name("Latitude" ), Reduce.Op.Slice(18, 19))
-          val r3        = Reduce(r2, Dimension.Selection.Name("Time"     ), Reduce.Op.Slice(10, 16))
-          val r4        = Reduce(r3, Dimension.Selection.Name("Altitude" ), Reduce.Op.Slice(100, 104))
+          val r1        = Reduce(vr, Dimension.Selection.Name[S]("Longitude"), Reduce.Op.Apply[S](6 ))
+          val r2        = Reduce(r1, Dimension.Selection.Name[S]("Latitude" ), Reduce.Op.Slice[S](18, 19))
+          val r3        = Reduce(r2, Dimension.Selection.Name[S]("Time"     ), Reduce.Op.Slice[S](10, 16))
+          val r4        = Reduce(r3, Dimension.Selection.Name[S]("Altitude" ), Reduce.Op.Slice[S](100, 104))
           assert(r4.shape == Vector(7, 1, 2, 5))
           // r4.reader(-1)
           val id = tx.newID()
@@ -53,7 +53,7 @@ object WindowReadTest {
         val data2 = Array(
           Array(239.51402, 240.23567, 239.74763, 239.79013, 238.76927, 238.71835, 239.07732),
           Array(238.73468, 239.40346, 238.98271, 239.00453, 237.9738 , 237.93555, 238.2944 ),
-          Array(237.9652 , 238.56984, 238.2201 , 238.2225 , 238.2225 , 237.15935, 237.51498),
+          Array(237.9652 , 238.56984, 238.2201 , 238.2225 , 237.18947, 237.15935, 237.51498),
           Array(237.19894, 237.74808, 237.44017, 237.44537, 236.41159, 236.38472, 236.74347),
           Array(236.42651, 236.93643, 236.64626, 236.66455, 235.6329 , 235.60703, 235.96756)
         )
@@ -63,35 +63,35 @@ object WindowReadTest {
         val win1b = data1.transpose.flatten
         val win2b = data2.transpose.flatten
 
-        val dimsA = Array(0, 3)
-        val dimsB = Array(3, 0)
+        val dimsA = Array(3, 0)   // right-most iteration is time, left-most is altitude
+        val dimsB = Array(0, 3)   // and vice versa
 
-        def assertSame(a: Array[Double], b: Array[Double], tol: Double = 1.0e-4): Unit = {
-          assert(a.length == b.length, s"a.length = ${a.length} vs b.length = ${b.length}")
+        def assertSame(name: String, a: Array[Double], b: Array[Double], tol: Double = 1.0e-4): Unit = {
+          assert(a.length == b.length, s"$name - a.length = ${a.length} vs b.length = ${b.length}")
           var i = 0
           while (i < a.length) {
             val aa = a(i)
             val bb = b(i)
             val d  = math.abs(aa - bb)
-            assert(d < tol, s"a($i) = $aa vs b($i) = $bb; |d| = $d")
+            assert(d < tol, s"$name - a($i) = $aa vs b($i) = $bb; |d| = $d")
             i += 1
           }
         }
 
-        def run(win1: Array[Double], win2: Array[Double], dims: Array[Int]): Unit = {
+        def run(name: String, win1: Array[Double], win2: Array[Double], dims: Array[Int]): Unit = {
           val reader = system.step { implicit tx =>
             val vr = vrv()
             vr.reader(-1)
           }
           val buf = new Array[Double](win1.length)
           reader.readWindowDouble1D(dims, buf, 0)
-          assertSame(win1, buf)
+          assertSame(s"$name-1", win1, buf)
           reader.readWindowDouble1D(dims, buf, 0)
-          assertSame(win2, buf)
+          assertSame(s"$name-2", win2, buf)
         }
 
-        run(win1a, win2a, dimsA)
-        run(win1b, win2b, dimsB)
+        run("A", win1a, win2a, dimsA)
+        run("B", win1b, win2b, dimsB)
 
       } finally {
         net.close()
