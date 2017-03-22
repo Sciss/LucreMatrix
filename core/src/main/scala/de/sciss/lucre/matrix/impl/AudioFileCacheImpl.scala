@@ -134,7 +134,7 @@ object AudioFileCacheImpl {
     private val cache = {
       val cfg2              = filecache.Config[CacheKey, CacheValue]()
       cfg2.capacity         = config.capacity
-      cfg2.accept           = (key, value) => {
+      cfg2.accept           = (_ /* key */, _ /* value */) => {
         val res = true // XXX TODO - check if netcdf file changed: key.file.lastModified() == value.netModified && key.file.length() == value.netSize
         // debug(s"accept key = ${key.file.name} (lastModified = ${new java.util.Date(key.file.lastModified())}}), value = $value? $res")
         res

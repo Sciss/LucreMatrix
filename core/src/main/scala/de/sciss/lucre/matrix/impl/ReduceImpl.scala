@@ -439,7 +439,7 @@ object ReduceImpl {
           case t /* t: ReaderFactory.Opaque */ =>
             var section = mkAllRange(inShape)
             if (dimIdx >= 0) section = section.updated(dimIdx, op.map(section(dimIdx)))
-            new ReaderFactory.Cloudy(t /*.source */, streamDim, section)
+            ReaderFactory.Cloudy(t /*.source */, streamDim, section)
         }
 
       case op: Op.Var[S] => loop(op())
@@ -486,13 +486,13 @@ object ReduceImpl {
         val name      = in.readUTF()
         val streamDim = in.readShort()
         val section   = rangeVecSer.read(in)
-        new ReaderFactory.Transparent(file = f, name = name, streamDim = streamDim, section = section)
+        ReaderFactory.Transparent(file = f, name = name, streamDim = streamDim, section = section)
 
       case ReaderFactory.CloudyType =>
         val source    = Matrix.Key.read(in)
         val streamDim = in.readShort()
         val section   = rangeVecSer.read(in)
-        new ReaderFactory.Cloudy(source = source, streamDim = streamDim, section = section)
+        ReaderFactory.Cloudy(source = source, streamDim = streamDim, section = section)
 
       case _ => sys.error(s"Unexpected reduce key op $tpeID")
     }
@@ -506,7 +506,7 @@ object ReduceImpl {
       var section: Vec[Range]
     }
 
-    final class Transparent(file: File, name: String, val streamDim: Int, var section: Vec[Range])
+    final case class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
       private def rangeString(r: Range): String = {
@@ -538,7 +538,7 @@ object ReduceImpl {
       }
     }
 
-    final class Cloudy(source: Matrix.Key, val streamDim: Int, var section: Vec[Range])
+    final case class Cloudy(source: Matrix.Key, streamDim: Int, var section: Vec[Range])
       extends HasSection {
 
       protected def tpeID: Int = CloudyType
@@ -575,7 +575,7 @@ object ReduceImpl {
     protected def tpeID: Int
 
     final protected def writeData(out: DataOutput): Unit = {
-      out.writeShort(opID)
+      out.writeShort(tpeID)
       writeFactoryData(out)
     }
 

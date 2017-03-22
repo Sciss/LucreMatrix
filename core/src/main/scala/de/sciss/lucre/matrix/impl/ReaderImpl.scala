@@ -275,7 +275,6 @@ abstract class ReaderImpl extends Matrix.Reader {
     i = 1
     var hasPerm = false
     while (!hasPerm && i < dims.length) {
-      val j = dims(i)
       if (dims(i) < dims(i - 1)) hasPerm = true
       else i += 1
     }

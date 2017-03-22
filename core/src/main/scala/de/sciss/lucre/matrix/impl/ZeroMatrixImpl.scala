@@ -78,10 +78,10 @@ object ZeroMatrixImpl {
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
     val streamDim   = in.readShort()
     val shapeConst  = intVecSer.read(in)
-    new KeyImpl(shapeConst, streamDim)
+    KeyImpl(shapeConst, streamDim)
   }
 
-  private final class KeyImpl(shapeConst: Vec[Int], val streamDim: Int) extends impl.KeyImpl {
+  private final case class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
     protected def opID: Int = ZeroMatrixImpl.opID
 
     override def toString = s"ZeroMatrix.Key(shape = ${shapeConst.mkString("[","][","]")}, streamDim = $streamDim)"
@@ -110,7 +110,7 @@ object ZeroMatrixImpl {
 
     protected def opID: Int = ZeroMatrixImpl.opID
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = new KeyImpl(shapeConst, streamDim)
+    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(shapeConst, streamDim)
 
     def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
       val sz = size

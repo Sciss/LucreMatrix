@@ -55,7 +55,7 @@ object DataSource extends Obj.Type {
     def read[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Variable[S] =
       serializer[S].read(in, access)
   }
-  trait Variable[S <: Sys[S]] extends Matrix[S] with Writable {
+  trait Variable[S <: Sys[S]] extends Matrix[S] {
     def source /* (implicit tx: S#Tx) */: DataSource[S]
     def parents: List[String]
 
