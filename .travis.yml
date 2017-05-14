@@ -3,8 +3,8 @@ sudo: false
 language: scala
 
 scala:
-  - 2.12.1
-  - 2.11.8
+  - 2.12.2
+  - 2.11.11
   - 2.10.6
 
 env:
@@ -17,5 +17,5 @@ before_script:
 matrix:
   # scala 2.12 requires java 8
   exclude:
-    - scala: 2.12.1
+    - scala: 2.12.2
       env: JDK=openjdk7
