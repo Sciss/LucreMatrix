@@ -2,9 +2,12 @@ package de.sciss.lucre.matrix
 
 import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
-import de.sciss.lucre.expr.{StringObj, IntObj}
+import de.sciss.lucre.expr.{IntObj, StringObj}
 import de.sciss.lucre.stm.InMemory
 import ucar.nc2
+
+import scala.concurrent.Future
+import scala.util.Success
 
 object NewReadTest extends App {
   val p = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
@@ -61,33 +64,43 @@ object NewReadTest extends App {
     }
   }
 
-  locally {
-    val r       = step { implicit tx => redLatH().reader(streamDim = dimTemp)}
-    val numCh   = r.numChannels
-    assert(numCh == 18)
-    assert(r.numFrames == 168)
-    println("\n:::: all latitudes ::::")
-    show(r)
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  private val f1 = locally {
+    val rFut    = step { implicit tx => redLatH().reader(streamDim = dimTemp)}
+    rFut.andThen { case Success(r) =>
+      val numCh   = r.numChannels
+      assert(numCh == 18)
+      assert(r.numFrames == 168)
+      println("\n:::: all latitudes ::::")
+      show(r)
+    }
   }
 
-  locally {
-    val r = step { implicit tx =>
+  private val f2 = locally {
+    val rFut = step { implicit tx =>
       redLatFromH().update(IntObj.newConst(1))
       redLatToH  ().update(IntObj.newConst(4))
       redLatH().reader(streamDim = dimTemp)
     }
-    println("\n:::: latitude indices 1 to 4 ::::")
-    show(r)
+    rFut.andThen { case Success(r) =>
+      println("\n:::: latitude indices 1 to 4 ::::")
+      show(r)
+    }
   }
 
-  locally {
-    val r = step { implicit tx =>
+  private val f3 = locally {
+    val rFut = step { implicit tx =>
       redLatVarH().update(redLatStH())
       redLatH().reader(streamDim = dimTemp)
     }
-    println("\n:::: latitude indices 1 to 4 by 2 ::::")
-    show(r)
+    rFut.andThen { case Success(r) =>
+      println("\n:::: latitude indices 1 to 4 by 2 ::::")
+      show(r)
+    }
   }
 
-  ncf.close()
+  Future.sequence(List(f1, f2, f3)).onComplete {
+    _ => ncf.close()
+  }
 }

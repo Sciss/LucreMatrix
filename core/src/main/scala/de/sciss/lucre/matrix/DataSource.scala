@@ -19,7 +19,7 @@ import java.io.File
 import de.sciss.lucre.artifact.Artifact
 import de.sciss.lucre.matrix.impl.{DataSourceImpl => Impl}
 import de.sciss.lucre.stm.Obj
-import de.sciss.serial.{DataInput, Serializer, Writable}
+import de.sciss.serial.{DataInput, Serializer}
 import ucar.nc2
 
 object DataSource extends Obj.Type {

@@ -4,6 +4,9 @@ import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.stm.InMemory
 
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+
 object WindowReadTest {
   def main(args: Array[String]): Unit = run()
 
@@ -78,20 +81,29 @@ object WindowReadTest {
           }
         }
 
-        def run(name: String, win1: Array[Double], win2: Array[Double], dims: Array[Int]): Unit = {
-          val reader = system.step { implicit tx =>
+        import scala.concurrent.ExecutionContext.Implicits.global
+
+        def run(name: String, win1: Array[Double], win2: Array[Double], dims: Array[Int]): Future[Unit] = {
+          val rFut = system.step { implicit tx =>
             val vr = vrv()
             vr.reader(-1)
           }
-          val buf = new Array[Double](win1.length)
-          reader.readWindowDouble1D(dims, buf, 0)
-          assertSame(s"$name-1", win1, buf)
-          reader.readWindowDouble1D(dims, buf, 0)
-          assertSame(s"$name-2", win2, buf)
+          rFut.map { reader =>
+            val buf = new Array[Double](win1.length)
+            reader.readWindowDouble1D(dims, buf, 0)
+            assertSame(s"$name-1", win1, buf)
+            reader.readWindowDouble1D(dims, buf, 0)
+            assertSame(s"$name-2", win2, buf)
+            ()
+          }
         }
 
-        run("A", win1a, win2a, dimsA)
-        run("B", win1b, win2b, dimsB)
+        val futTot = for {
+          _ <- run("A", win1a, win2a, dimsA)
+          _ <- run("B", win1b, win2b, dimsB)
+        } yield ()
+
+        Await.result(futTot, Duration.Inf)
 
       } finally {
         net.close()

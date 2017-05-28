@@ -20,8 +20,10 @@ import java.{util => ju}
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.stm
-import de.sciss.lucre.stm.{Elem, Copy}
-import de.sciss.serial.{DataInput, ImmutableSerializer, DataOutput}
+import de.sciss.lucre.stm.{Copy, Elem}
+import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object ZeroMatrixImpl {
   final val opID = 0
@@ -91,8 +93,10 @@ object ZeroMatrixImpl {
       intVecSer.write(shapeConst, out)
     }
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
-      new ReaderImpl(shapeConst, streamDim)
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
+      val r: Reader = new ReaderImpl(shapeConst, streamDim)
+      Future.successful(r)
+    }
   }
 
   private final class Impl[S <: Sys[S]](val id: S#ID, protected val shapeConst: Vec[Int])
@@ -112,11 +116,12 @@ object ZeroMatrixImpl {
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(shapeConst, streamDim)
 
-    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
       val sz = size
       require(sz <= 0x7FFFFFFF)
       val szI = sz.toInt
-      Vec.fill(szI)(0.0)
+      val v = Vec.fill(szI)(0.0)
+      Future.successful(v)
     }
 
     protected def writeData1(out: DataOutput): Unit = {

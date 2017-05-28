@@ -32,6 +32,7 @@ import ucar.{ma2, nc2}
 
 import scala.annotation.{switch, tailrec}
 import scala.collection.breakOut
+import scala.concurrent.{ExecutionContext, Future}
 
 object ReduceImpl {
   def apply[S <: Sys[S]](in : Matrix[S], dim: Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] = {
@@ -520,14 +521,16 @@ object ReduceImpl {
 
       protected def tpeID: Int = TransparentType
 
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = {
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                                exec: ExecutionContext): Future[Reader] = {
         val net = resolver.resolve(file)
         import scala.collection.JavaConverters._
         val v = net.getVariables.asScala.find(_.getShortName == name).getOrElse(
           sys.error(s"Variable '$name' does not exist in data source ${file.base}")
         )
 
-        new TransparentReader(v, streamDim, section)
+        val r: Reader = new TransparentReader(v, streamDim, section)
+        Future.successful(r)
       }
 
       protected def writeFactoryData(out: DataOutput): Unit = {
@@ -543,10 +546,11 @@ object ReduceImpl {
 
       protected def tpeID: Int = CloudyType
 
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = {
+      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
         source match {
           case const: ConstMatrixImpl.KeyImpl =>
-            new ConstMatrixImpl.ReducedReaderImpl(const.data, streamDim, section)
+            val r: Reader = new ConstMatrixImpl.ReducedReaderImpl(const.data, streamDim, section)
+            Future.successful(r)
 
           case _ => ??? // later
         }
@@ -628,13 +632,15 @@ object ReduceImpl {
       }
     }
 
-    def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
       implicit val resolver = DataSource.Resolver.empty[S]
-      val r   = reader(-1)
-      val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
-      r.readFloat2D(buf, 0, 1)
-      val res = Vec.tabulate(r.numChannels)(ch => buf(ch)(0).toDouble)
-      res
+      val rFut = reader(-1)
+      rFut.map { r =>
+        val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)
+        r.readFloat2D(buf, 0, 1)
+        val res = Vec.tabulate(r.numChannels)(ch => buf(ch)(0).toDouble)
+        res
+      }
 
 //      val data  = in.debugFlatten
 //      val idx   = indexOfDim

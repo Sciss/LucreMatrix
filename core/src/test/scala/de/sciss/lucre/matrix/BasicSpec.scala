@@ -8,6 +8,14 @@ import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.language.implicitConversions
 
+object BasicSpec {
+  implicit class FlattenNow[S <: Sys[S]](val m: Matrix[S]) extends AnyVal {
+    def flattenNow(implicit tx: S#Tx): Vec[Double] = {
+      import scala.concurrent.ExecutionContext.Implicits.global
+      m.debugFlatten.value.get.get
+    }
+  }
+}
 /*
   to run only this test:
   test-only de.sciss.lucre.matrix.BasicSpec
@@ -17,6 +25,8 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
   type FixtureParam = Durable
 
   initTypes()
+
+  import BasicSpec.FlattenNow
 
   def withFixture(test: OneArgTest): Outcome = {
     val system = Durable(BerkeleyDB.tmp())
@@ -94,7 +104,7 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       //      val b0 = Array.ofDim[Float](24, 1)
       //      m0.reader(-1).read(b0, 0, 24)
       //      assert (b0.flatten.toVector === (1 to 24))
-      assert (m0.debugFlatten === (1 to 24))
+      assert (m0.flattenNow === (1 to 24))
 
       val si  = IntObj.newVar[S](0)
       val sv  = Dimension.Selection.Var(Dimension.Selection.Index(si))
@@ -102,28 +112,28 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       val ov  = Reduce.Op.Var(Reduce.Op.Apply(oi))
       val m1  = Reduce(m0, sv, ov)
 
-      assert (m1.debugFlatten === ( 1 to 12))
+      assert (m1.flattenNow === ( 1 to 12))
 
       oi() = 1
-      assert (m1.debugFlatten === (13 to 24))
+      assert (m1.flattenNow === (13 to 24))
 
       si() = 1
       oi() = 0
-      assert (m1.debugFlatten === (1 to  4) ++ (13 to 16))
+      assert (m1.flattenNow === (1 to  4) ++ (13 to 16))
       oi() = 1
-      assert (m1.debugFlatten === (5 to  8) ++ (17 to 20))
+      assert (m1.flattenNow === (5 to  8) ++ (17 to 20))
       oi() = 2
-      assert (m1.debugFlatten === (9 to 12) ++ (21 to 24))
+      assert (m1.flattenNow === (9 to 12) ++ (21 to 24))
 
       si() = 2
       oi() = 0
-      assert (m1.debugFlatten === Vec(1, 5,  9, 13, 17, 21))
+      assert (m1.flattenNow === Vec(1, 5,  9, 13, 17, 21))
       oi() = 1
-      assert (m1.debugFlatten === Vec(2, 6, 10, 14, 18, 22))
+      assert (m1.flattenNow === Vec(2, 6, 10, 14, 18, 22))
       oi() = 2
-      assert (m1.debugFlatten === Vec(3, 7, 11, 15, 19, 23))
+      assert (m1.flattenNow === Vec(3, 7, 11, 15, 19, 23))
       oi() = 3
-      assert (m1.debugFlatten === Vec(4, 8, 12, 16, 20, 24))
+      assert (m1.flattenNow === Vec(4, 8, 12, 16, 20, 24))
     }
   }
 }

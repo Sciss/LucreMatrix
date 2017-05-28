@@ -10,6 +10,7 @@ object Test extends App {
 
   def run[S <: Sys[S]]()(implicit tx: S#Tx): Unit = {
     val m = Matrix.zeros(4, 5)
-    println(m.debugFlatten)
+    import scala.concurrent.ExecutionContext.Implicits.global
+    println(m.debugFlatten.value.get.get)
   }
 }

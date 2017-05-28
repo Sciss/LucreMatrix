@@ -28,6 +28,7 @@ import ucar.nc2
 
 import scala.annotation.tailrec
 import scala.collection.{JavaConverters, breakOut, mutable}
+import scala.concurrent.{ExecutionContext, Future}
 
 object DataSourceImpl {
   private final val SOURCE_COOKIE = 0x737973736F6E6400L   // "syssond\0"
@@ -199,7 +200,7 @@ object DataSourceImpl {
   }
 
   private val parentsSer  = ImmutableSerializer.list[String]
-  import Serializers.RangeSerializer
+//  import Serializers.RangeSerializer
 
   // private final case class ShapeInfo(dim: Dimension.Value, range: Range)
 
@@ -291,13 +292,13 @@ object DataSourceImpl {
     final def name (implicit tx: S#Tx): String = nameConst
     final def units(implicit tx: S#Tx): String = unitsConst
 
-    final def debugFlatten(implicit tx: S#Tx): Vec[Double] = {
+    final def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
       // if (size > 256) throw new UnsupportedOperationException(s"debugFlatten is restricted to matrices with size <= 256")
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }
 
     final def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
-      new ReduceImpl.ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
+      ReduceImpl.ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
         section = ReduceImpl.mkAllRange(shape))
 
     final protected def writeData(out: DataOutput): Unit = {

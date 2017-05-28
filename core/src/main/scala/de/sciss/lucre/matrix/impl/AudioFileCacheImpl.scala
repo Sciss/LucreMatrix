@@ -153,8 +153,7 @@ object AudioFileCacheImpl {
 
     private val map = TMap.empty[Matrix.Key, Entry]
 
-    private def produceValue[S <: Sys[S]](reader: Matrix.Reader)
-                                         (implicit resolver: Resolver[S], cursor: stm.Cursor[S]): CacheValue = {
+    private def produceValue[S <: Sys[S]](reader: Matrix.Reader): CacheValue = {
       //      val v             = /* workspace. */ cursor.step { implicit tx => source.data() }
       //      val vs            = VariableSection(v, section.map(OpenRange.closed))
       //      val arr           = vs.readSafe()
@@ -202,10 +201,13 @@ object AudioFileCacheImpl {
                             (implicit tx: S#Tx, resolver: Resolver[S], cursor: stm.Cursor[S]): Future[Result] = {
       implicit val itx = tx.peer
       map.get(key).fold {
-        val fut0 = cache.acquire(key) {
-          blocking {
-            val reader = cursor.step { implicit tx => key.reader() }
-            produceValue(reader)
+        val fut0 = cache.acquireWith(key) {
+          import cache.executionContext
+          val readerFut = cursor.step { implicit tx => key.reader() }
+          readerFut.map { reader =>
+            blocking {
+              produceValue(reader)
+            }
           }
         }
 //        // import cache.executionContext

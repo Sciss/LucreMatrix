@@ -1,8 +1,8 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.3.0"
-lazy val mimaVersion        = "1.3.0"
+lazy val projectVersion     = "1.4.0-SNAPSHOT"
+lazy val mimaVersion        = "1.4.0"
 
 lazy val scalaMainVersion   = "2.12.2"
 

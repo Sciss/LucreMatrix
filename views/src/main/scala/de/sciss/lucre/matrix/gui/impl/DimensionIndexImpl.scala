@@ -38,10 +38,10 @@ object DimensionIndexImpl {
     val fut = p.future
 
     try {
-      val r = key.reader()
-      assert(r.numChannels == 1 && r.numFrames == sz)
+      val rFut = key.reader()
       tx.afterCommit {
-        val fut1 = Future {
+        val fut1 = rFut.map { r =>
+          assert(r.numChannels == 1 && r.numFrames == sz)
           blocking {
             val buf = Array(arr)
             r.readFloat2D(buf, 0, sz)

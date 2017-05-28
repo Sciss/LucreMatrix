@@ -39,6 +39,8 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
 
   implicit val DummyRes: DataSource.Resolver.Seq[S] = DataSource.Resolver.empty
 
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   "A Zeros Matrix" should "read data" in { cursor =>
     cursor.step { implicit tx =>
       val _z = Matrix.zeros(4, 3, 2)
@@ -47,7 +49,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
       assert(_z.shape === Vec(4, 3, 2))
       assert(_z.reducedShape === Vec(4, 3, 2))
 
-      val r2 = _z.reader(2)
+      val r2 = _z.reader(2).value.get.get
       assert(r2.numFrames   ===  2)
       assert(r2.numChannels === 12)
       val b2 = fillBuf(numFrames = 4, numChannels = 12, value = 1f)
@@ -57,7 +59,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
         assert(b2c.to[Vector] === Vector(1f, 0f, 0f, 1f))
       }
 
-      val r1 = _z.reader(1)
+      val r1 = _z.reader(1).value.get.get
       assert(r1.numFrames   ===  3)
       assert(r1.numChannels ===  8)
       val b1 = fillBuf(numFrames = 5, numChannels = 8, value = 1f)
@@ -67,7 +69,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
         assert(b1c.to[Vector] === Vector(1f, 0f, 0f, 0f, 1f))
       }
 
-      val r0 = _z.reader(0)
+      val r0 = _z.reader(0).value.get.get
       assert(r0.numFrames   ===  4)
       assert(r0.numChannels ===  6)
       val b0 = fillBuf(numFrames = 6, numChannels = 6, value = 1f)
@@ -77,7 +79,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
         assert(b0c.to[Vector] === Vector(1f, 0f, 0f, 0f, 0f, 1f))
       }
 
-      val rm = _z.reader(-1)
+      val rm = _z.reader(-1).value.get.get
       assert(rm.numFrames   ===  1)
       assert(rm.numChannels ===  24)
       val bm = fillBuf(numFrames = 3, numChannels = 24, value = 1f)
@@ -104,7 +106,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
       assert(_z.shape === Vec(4, 3, 2))
       assert(_z.reducedShape === Vec(4, 3, 2))
 
-      val r2 = _z.reader(2)
+      val r2 = _z.reader(2).value.get.get
       assert(r2.numFrames   ===  2)
       assert(r2.numChannels === 12)
       val b2 = fillBuf(numFrames = 4, numChannels = 12, value = 99f)
@@ -113,7 +115,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
       for (ch <- 0 until 12)
         assert(b2(ch).to[Vector] === Vector(99f, (ch * 2).toFloat, (ch * 2 + 1).toFloat, 99f))
 
-      val r1 = _z.reader(1)
+      val r1 = _z.reader(1).value.get.get
       assert(r1.numFrames   ===  3)
       assert(r1.numChannels ===  8)
       val b1 = fillBuf(numFrames = 5, numChannels = 8, value = 99f)
@@ -131,7 +133,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
       assertCh1(6)(18, 20, 22)
       assertCh1(7)(19, 21, 23)
 
-      val r0 = _z.reader(0)
+      val r0 = _z.reader(0).value.get.get
       assert(r0.numFrames   ===  4)
       assert(r0.numChannels ===  6)
       val b0 = fillBuf(numFrames = 6, numChannels = 6, value = 99f)
@@ -140,7 +142,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
       for (ch <- 0 until 6)
         assert(b0(ch).to[Vector] === (99f +: Vector.tabulate(4)(i => i * 6 + ch) :+ 99f))
 
-      val rm = _z.reader(-1)
+      val rm = _z.reader(-1).value.get.get
       assert(rm.numFrames   ===  1)
       assert(rm.numChannels ===  24)
       val bm = fillBuf(numFrames = 3, numChannels = 24, value = 99f)

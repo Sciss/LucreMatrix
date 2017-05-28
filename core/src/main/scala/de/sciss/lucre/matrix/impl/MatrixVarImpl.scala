@@ -21,6 +21,8 @@ import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.model.Change
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
 
+import scala.concurrent.{ExecutionContext, Future}
+
 object MatrixVarImpl {
   def apply[S <: Sys[S]](init: Matrix[S])(implicit tx: S#Tx): Matrix.Var[S] = {
     val targets = Targets[S]
@@ -76,7 +78,7 @@ object MatrixVarImpl {
     def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key =
       matrixPeer.getDimensionKey(index = index, useChannels = useChannels)
 
-    def debugFlatten(implicit tx: S#Tx): Vec[Double]  = matrixPeer.debugFlatten
+    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = matrixPeer.debugFlatten
 
     def shape     (implicit tx: S#Tx): Vec[Int]       = matrixPeer.shape
     def ranges    (implicit tx: S#Tx): Vec[Range]     = matrixPeer.ranges
