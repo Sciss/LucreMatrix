@@ -63,6 +63,8 @@ object DimensionView {
               // to   = IntObj.newVar(IntObj.newConst(Int.MaxValue - 1)),
               step = IntObj.newVar(IntObj.newConst(1))
             )
+          case ReduceOpEnum.Average =>
+            Reduce.Op.Average[S]
         }
         val newRed = Reduce(prev, dim, op)
         EditVar[S, Matrix[S], Matrix.Var[S]](s"Add ${opV.name} to $name", vr, newRed)

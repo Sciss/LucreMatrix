@@ -102,18 +102,22 @@ object Reduce {
       def step : IntObj[S]
     }
 
-    case class Update[S <: Sys[S]](op: Op[S])
+    object Average {
+      final val opID = 4
+
+      def apply[S <: Sys[S]](implicit tx: S#Tx): Average[S] = Impl.applyOpAverage
+    }
+    /** A single point selection or 'index'. */
+    trait Average[S <: Sys[S]] extends Op[S]
+
+    final case class Update[S <: Sys[S]](op: Op[S])
   }
   sealed trait Op[S <: Sys[S]]
     extends Elem[S] with Publisher[S, Op.Update[S]] {
 
     final def tpe: Elem.Type = Op
 
-    // def mkCopy()(implicit tx: S#Tx): Op[S]
-
     def size(in: Int)(implicit tx: S#Tx): Int
-
-    // def map(r: Matrix.Reader, shape: Vec[Int], redDim: Int, streamDim: Int)(implicit tx: S#Tx): Matrix.Reader = ...
   }
 }
 trait Reduce[S <: Sys[S]] extends Matrix[S] {

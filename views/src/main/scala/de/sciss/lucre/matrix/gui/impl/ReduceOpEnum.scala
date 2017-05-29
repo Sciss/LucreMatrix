@@ -17,11 +17,12 @@ package gui
 package impl
 
 object ReduceOpEnum {
-  case object Apply  extends ReduceOpEnum { val id = 0; val name = "Index"  }
-  case object Slice  extends ReduceOpEnum { val id = 1; val name = "Slice"  }
-  case object Stride extends ReduceOpEnum { val id = 2; val name = "Stride" }
+  case object Apply   extends ReduceOpEnum { val id = 0; val name = "Index"   }
+  case object Slice   extends ReduceOpEnum { val id = 1; val name = "Slice"   }
+  case object Stride  extends ReduceOpEnum { val id = 2; val name = "Stride"  }
+  case object Average extends ReduceOpEnum { val id = 3; val name = "Average" }
 
-  val seq: Vec[ReduceOpEnum] = Vector(Apply, Slice, Stride)
+  val seq: Vec[ReduceOpEnum] = Vector(Apply, Slice, Stride, Average)
 }
 sealed trait ReduceOpEnum {
   def id  : Int

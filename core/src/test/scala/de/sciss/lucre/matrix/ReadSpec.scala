@@ -31,7 +31,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
 
   implicit def mkConst(i: Int)(implicit tx: S#Tx): IntObj.Const[S] = IntObj.newConst(i)
 
-  private def fillBuf(numFrames: Int, numChannels: Int, value: Float = 0f) = {
+  private def fillBuf(numFrames: Int, numChannels: Int, value: Float) = {
     val arr = Array.ofDim[Float](numChannels, numFrames)
     for (ch <- 0 until numChannels) ju.Arrays.fill(arr(ch), value)
     arr

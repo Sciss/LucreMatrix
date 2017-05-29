@@ -30,7 +30,7 @@ import scala.util.Try
 object DimensionIndexImpl {
   def apply[S <: Sys[S]](dim: Matrix[S])(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
                                          exec: ExecutionContext): DimensionIndex[S] = {
-    if (dim.rank != 1) throw new IllegalArgumentException(s"Matrix must be 1-dimensional")
+    if (dim.rank != 1) throw new IllegalArgumentException(s"Matrix must be 1-dimensional: $dim")
     val sz  = dim.size.toInt
     val key = dim.getKey(0)
     val p   = Promise[Unit]()

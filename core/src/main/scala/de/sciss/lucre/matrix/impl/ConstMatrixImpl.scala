@@ -55,7 +55,7 @@ object ConstMatrixImpl {
     new Impl[S](tx.newID(), data)
   }
 
-  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput): Matrix[S] = {
     val data = readData(in)
     new Impl[S](id, data)
   }

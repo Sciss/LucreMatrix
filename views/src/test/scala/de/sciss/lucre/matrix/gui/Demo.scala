@@ -8,6 +8,7 @@ import javax.swing.KeyStroke
 import javax.swing.TransferHandler.TransferSupport
 
 import de.sciss.desktop
+import de.sciss.desktop.UndoManager
 import de.sciss.desktop.impl.UndoManagerImpl
 import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
@@ -21,15 +22,14 @@ import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
 import scala.swing.{Action, CheckBox, Frame, MainFrame, Menu, MenuBar, MenuItem, SimpleSwingApplication}
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object Demo extends SimpleSwingApplication {
-  type S                  = InMemory
-  implicit val system: S  = InMemory()
-
-  implicit val undo       = new UndoManagerImpl
-
-  implicit val resolver   = DataSource.Resolver.empty[S]
+  type S                                              = InMemory
+  implicit val system   : S                           = InMemory()
+  implicit val undo     : UndoManager                 = new UndoManagerImpl
+  implicit val resolver : DataSource.Resolver.Seq[S]  = DataSource.Resolver.empty
 
   override def main(args: Array[String]): Unit = {
     try {
@@ -96,7 +96,7 @@ object Demo extends SimpleSwingApplication {
     }
   }
 
-  lazy val view = system.step { implicit tx =>
+  lazy val view: MatrixView[S] = system.step { implicit tx =>
     import ExecutionContext.Implicits.global
     val m         = MatrixView[S](Some(th))
     val c         = Matrix.newConst2D[S]("M", Vec(Vec(1, 2, 3), Vec(4, 5, 6)))
@@ -113,6 +113,17 @@ object Demo extends SimpleSwingApplication {
         contents += new MenuItem(new Action("Open NetCDF...") {
           accelerator = Some(KeyStroke.getKeyStroke(KeyEvent.VK_O, Toolkit.getDefaultToolkit.getMenuShortcutKeyMask))
           def apply(): Unit = openNetCDF()
+        })
+        contents += new MenuItem(Action("Debug Print") {
+          system.step { implicit tx =>
+            import ExecutionContext.Implicits.global
+            view.matrix.foreach { m =>
+              m.debugFlatten.onComplete {
+                case Success(vec) => println(vec.mkString("[", ", ", "]"))
+                case Failure(ex)  => ex.printStackTrace()
+              }
+            }
+          }
         })
       }
       contents += new Menu("Edit") {

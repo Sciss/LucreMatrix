@@ -31,7 +31,7 @@ object ZeroMatrixImpl {
   def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] =
     new Impl[S](tx.newID(), shape)
 
-  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput)(implicit tx: S#Tx): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput): Matrix[S] = {
     val shape = intVecSer.read(in)
     new Impl[S](id, shape)
   }

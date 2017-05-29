@@ -196,6 +196,17 @@ object ReductionView {
         }
         (ReduceOpEnum.Stride, view, os, vr)
 
+      case oa: Reduce.Op.Average[S] =>
+        val view: View[S] = new View[S] {
+          lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
+            contents += new Label("\u2192 Avg")
+            contents += Swing.HStrut(4)
+          }
+
+          def dispose()(implicit tx: S#Tx): Unit = ()
+        }
+        (ReduceOpEnum.Average, view, oa, vr)
+
       case dv: Reduce.Op.Var[S] =>
         loopOp(dv(), Some(dv))
     }

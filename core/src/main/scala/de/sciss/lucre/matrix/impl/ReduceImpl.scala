@@ -17,14 +17,14 @@ package matrix
 package impl
 
 import de.sciss.file._
-import de.sciss.lucre.event.Targets
+import de.sciss.lucre.event.{EventLike, Targets}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Dimension.Selection
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.Reduce.Op
 import de.sciss.lucre.matrix.Reduce.Op.Update
-import de.sciss.lucre.stm.impl.ElemSerializer
+import de.sciss.lucre.stm.impl.{ConstElemImpl, ElemSerializer}
 import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
@@ -165,17 +165,14 @@ object ReduceImpl {
     new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step).connect()
   }
 
+  def applyOpAverage[S <: Sys[S]](implicit tx: S#Tx): Op.Average[S] =
+    new OpAverageImpl[S]
+
   // ---- actual implementations ----
 
   private final class OpVarImpl[S <: Sys[S]](protected val targets: Targets[S],
                                              protected val ref: S#Var[Op[S]])
     extends Op.Var[S] with VarImpl[S, Op.Update[S], Op[S], Op.Update[S]] {
-
-//    def mkCopy()(implicit tx: S#Tx): Op[S] = {
-//      val tgt = evt.Targets[S]
-//      val peerCpy = tx.newVar(tgt.id, ref().mkCopy())
-//      new OpVarImpl[S](tgt, peerCpy)
-//    }
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
@@ -214,26 +211,11 @@ object ReduceImpl {
     }
 
     final protected def disposeData()(implicit tx: S#Tx): Unit = disconnect()
-
-    // ---- event ----
-
-    // final def changed: EventLike[S, Op.Update[S]] = this
-
-    // final protected def reader: evt.Reader[S, Op[S]] = Op.serializer
   }
 
   private final class OpApplyImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
                                                val index: IntObj[S])
     extends OpNativeImpl[S] with Op.Apply[S] { self =>
-
-//    def mkCopy()(implicit tx: S#Tx): Op[S] = {
-//      val tgt = evt.Targets[S]
-//      val indexCpy = index match {
-//        case IntObj.Var(vr) => IntObj.newVar(vr())
-//        case other => other
-//      }
-//      new OpApplyImpl[S](tgt, indexCpy)
-//    }
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
@@ -241,7 +223,7 @@ object ReduceImpl {
       new OpApplyImpl(targetsOut, indexOut).connect()
     }
 
-    override def toString() = s"Apply$id($index)"
+    override def toString = s"Apply$id($index)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
 
@@ -281,19 +263,6 @@ object ReduceImpl {
                                                val from: IntObj[S], val to: IntObj[S])
     extends OpNativeImpl[S] with Op.Slice[S] { self =>
 
-//    def mkCopy()(implicit tx: S#Tx): Op[S] = {
-//      val tgt = evt.Targets[S]
-//      val fromCpy = from match {
-//        case IntObj.Var(vr) => IntObj.newVar(vr())
-//        case other => other
-//      }
-//      val toCpy = to match {
-//        case IntObj.Var(vr) => IntObj.newVar(vr())
-//        case other => other
-//      }
-//      new OpSliceImpl[S](tgt, fromCpy, toCpy)
-//    }
-
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val fromOut     = context(from)
@@ -301,7 +270,7 @@ object ReduceImpl {
       new OpSliceImpl(targetsOut, fromOut, toOut).connect()
     }
 
-    override def toString() = s"Slice$id($from, $to)"
+    override def toString = s"Slice$id($from, $to)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = {
       val lo  = from .value
@@ -354,22 +323,13 @@ object ReduceImpl {
                                                 /* val from: IntObj[S], val to: IntObj[S], */ val step: IntObj[S])
     extends OpNativeImpl[S] with Op.Stride[S] { self =>
 
-//    def mkCopy()(implicit tx: S#Tx): Op[S] = {
-//      val tgt = evt.Targets[S]
-//      val stepCpy = step match {
-//        case IntObj.Var(vr) => IntObj.newVar(vr())
-//        case other => other
-//      }
-//      new OpStrideImpl[S](tgt, /* fromCpy, toCpy, */ stepCpy)
-//    }
-
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val stepOut     = context(step)
       new OpStrideImpl(targetsOut, stepOut).connect()
     }
 
-    override def toString() = s"Stride$id($step)"
+    override def toString = s"Stride$id($step)"
 
     def size(in: Int)(implicit tx: S#Tx): Int = {
       // val lo  = from .value
@@ -426,6 +386,25 @@ object ReduceImpl {
       // to   .changed -/-> this
       step .changed -/-> changed
     }
+  }
+
+  private final class OpAverageImpl[S <: Sys[S]]
+    extends /* OpNativeImpl[S] with */ Op.Average[S] with ConstElemImpl[S] { self =>
+
+    def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
+      this.asInstanceOf[OpAverageImpl[Out]]
+
+    override def toString = "Average"
+
+    def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
+
+    protected def writeData(out: DataOutput): Unit = {
+      out writeByte 1 // cookie
+      out writeInt Op.typeID
+      out writeInt Op.Average.opID
+    }
+
+    def changed: EventLike[S, Op.Update[S]] = evt.Dummy.apply
   }
 
   private def mkReduceReaderFactory[S <: Sys[S]](op0: Reduce.Op[S], inKey: Matrix.Key, inShape: Vec[Int],
@@ -592,14 +571,6 @@ object ReduceImpl {
     with MatrixProxy[S]
     with evt.impl.SingleNode[S, Matrix.Update[S]] { self =>
 
-//    def mkCopy()(implicit tx: S#Tx): Matrix[S] = {
-//      val tgt     = evt.Targets[S]
-//      val inCpy   = in .mkCopy()
-//      val dimCpy  = dim.mkCopy()
-//      val opCpy   = op .mkCopy()
-//      new Impl(tgt, inCpy, dimCpy, opCpy)
-//    }
-
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
       val targetsOut  = Targets[Out]
       val inOut       = context(in)
@@ -608,7 +579,7 @@ object ReduceImpl {
       new Impl(targetsOut, inOut, dimOut, opOut).connect()
     }
 
-    override def toString() = s"Reduce$id($in, $dim, $op)"
+    override def toString = s"Reduce$id($in, $dim, $op)"
 
     protected def matrixPeer(implicit tx: S#Tx): Matrix[S] = in
 

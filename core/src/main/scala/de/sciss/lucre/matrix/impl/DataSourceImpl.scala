@@ -271,8 +271,6 @@ object DataSourceImpl {
     def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = Vec(this)
 
     def isLeaf = true
-
-    protected def disposeData()(implicit tx: S#Tx): Unit = ()
   }
 
   private abstract class VariableImplLike[S <: Sys[S]]
