@@ -8,10 +8,11 @@ lazy val scalaMainVersion   = "2.12.2"
 
 // ---- core dependencies ----
 
-lazy val netCDFVersion      = "4.6.8"
+lazy val netCDFVersion      = "4.6.10"
 lazy val audioFileVersion   = "1.4.6"
 lazy val fileCacheVersion   = "0.3.4"
 lazy val lucreVersion       = "3.4.0"
+lazy val fscapeVersion      = "2.7.0"
 
 // ---- core/test dependencies ----
 
@@ -19,7 +20,7 @@ lazy val scalaTestVersion   = "3.0.3"
 
 // ---- views dependencies ----
 
-lazy val lucreSwingVersion  = "1.5.0"
+lazy val lucreSwingVersion  = "1.5.1"
 
 // ---- views/test dependencies ----
 
@@ -85,6 +86,7 @@ lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
       "edu.ucar"      %  "netcdf4"         % netCDFVersion,
       "de.sciss"      %% "filecache-txn"   % fileCacheVersion,
       "de.sciss"      %% "scalaaudiofile"  % audioFileVersion,
+      "de.sciss"      %% "fscape"          % fscapeVersion,         // asynchronous processing
       "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",
       "de.sciss"      %% "lucre-bdb"       % lucreVersion     % "test"
     ),
