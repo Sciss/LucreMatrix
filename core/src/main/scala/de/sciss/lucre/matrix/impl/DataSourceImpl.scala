@@ -296,7 +296,7 @@ object DataSourceImpl {
     }
 
     final def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
-      ReduceImpl.ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
+      ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
         section = ReduceImpl.mkAllRange(shape))
 
     final protected def writeData(out: DataOutput): Unit = {

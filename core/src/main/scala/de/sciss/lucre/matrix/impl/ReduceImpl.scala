@@ -19,9 +19,7 @@ package impl
 import de.sciss.file._
 import de.sciss.lucre.event.{EventLike, Targets}
 import de.sciss.lucre.expr.IntObj
-import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Dimension.Selection
-import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.Reduce.Op
 import de.sciss.lucre.matrix.Reduce.Op.Update
 import de.sciss.lucre.stm.impl.{ConstElemImpl, ElemSerializer}
@@ -422,6 +420,23 @@ object ReduceImpl {
             ReaderFactory.Cloudy(t /*.source */, streamDim, section)
         }
 
+      case _: Op.Average[S] =>
+        inKey match {
+          case t: ReaderFactory.HasSection =>
+            val rangeOld = t.section(dimIdx)
+            if (rangeOld.size <= 1 || dimIdx < 0) {
+              t
+            } else {
+              val sectionNew  = t.section.updated(dimIdx, 0 to 0)
+              val shapeOut    = sectionNew.map(_.size)
+              val sectionOut  = mkAllRange(shapeOut)
+              ReaderFactory.Average(t, streamDim = streamDim, dimIdx = dimIdx, section = sectionOut)
+            }
+
+          case _ =>
+            ???
+        }
+
       case op: Op.Var[S] => loop(op())
 
       case _ =>
@@ -456,7 +471,7 @@ object ReduceImpl {
     protected def mkArray(sect: ma2.Section): ma2.Array = sync.synchronized(v.read(sect))
   }
 
-  private val rangeVecSer = ImmutableSerializer.indexedSeq[Range](Serializers.RangeSerializer)
+  final val rangeVecSer: ImmutableSerializer[Vec[Range]] = ImmutableSerializer.indexedSeq(Serializers.RangeSerializer)
 
   private[matrix] def readIdentifiedKey(in: DataInput): Matrix.Key = {
     val tpeID     = in.readShort()
@@ -474,95 +489,11 @@ object ReduceImpl {
         val section   = rangeVecSer.read(in)
         ReaderFactory.Cloudy(source = source, streamDim = streamDim, section = section)
 
+      case ReaderFactory.AverageType =>
+        ???
+
       case _ => sys.error(s"Unexpected reduce key op $tpeID")
     }
-  }
-
-  object ReaderFactory {
-    final val TransparentType = 0
-    final val CloudyType      = 1
-
-    sealed trait HasSection extends ReaderFactory {
-      var section: Vec[Range]
-    }
-
-    final case class Transparent(file: File, name: String, streamDim: Int, var section: Vec[Range])
-      extends HasSection {
-
-      private def rangeString(r: Range): String = {
-        val con = if (r.isInclusive) "to" else "until"
-        val suf = if (r.step == 1) "" else s" by ${r.step}"
-        s"${r.start} $con ${r.end}$suf"
-      }
-
-      override def toString =
-        s"Reduce.Key.Transparent(${file.base}, $name, streamDim = $streamDim, section = ${section.map(rangeString).mkString("[","][","]")})"
-
-      protected def tpeID: Int = TransparentType
-
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                                exec: ExecutionContext): Future[Reader] = {
-        val net = resolver.resolve(file)
-        import scala.collection.JavaConverters._
-        val v = net.getVariables.asScala.find(_.getShortName == name).getOrElse(
-          sys.error(s"Variable '$name' does not exist in data source ${file.base}")
-        )
-
-        val r: Reader = new TransparentReader(v, streamDim, section)
-        Future.successful(r)
-      }
-
-      protected def writeFactoryData(out: DataOutput): Unit = {
-        out.writeUTF(file.getPath)
-        out.writeUTF(name)
-        out.writeShort(streamDim)
-        rangeVecSer.write(section, out)
-      }
-    }
-
-    final case class Cloudy(source: Matrix.Key, streamDim: Int, var section: Vec[Range])
-      extends HasSection {
-
-      protected def tpeID: Int = CloudyType
-
-      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
-        source match {
-          case const: ConstMatrixImpl.KeyImpl =>
-            val r: Reader = new ConstMatrixImpl.ReducedReaderImpl(const.data, streamDim, section)
-            Future.successful(r)
-
-          case _ => ??? // later
-        }
-      }
-
-      protected def writeFactoryData(out: DataOutput): Unit = {
-        source.write(out)
-        out.writeShort(streamDim)
-        rangeVecSer.write(section, out)
-      }
-    }
-
-    //    /** Takes an eagerly instantiated reader, no possibility to optimize. */
-    //    final class Opaque(val source: Matrix.Key) extends ReaderFactory {
-    //      // def make()(implicit tx: S#Tx, resolver: DataSource.Resolver[S]): Reader = source
-    //
-    //      def tpeID: Int = ...
-    //
-    //      def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S]): Reader = source.reader()
-    //
-    //      protected def writeFactoryData(out: DataOutput): Unit = ...
-    //    }
-  }
-  sealed trait ReaderFactory extends impl.KeyImpl {
-    protected def opID : Int = Reduce.opID
-    protected def tpeID: Int
-
-    final protected def writeData(out: DataOutput): Unit = {
-      out.writeShort(tpeID)
-      writeFactoryData(out)
-    }
-
-    protected def writeFactoryData(out: DataOutput): Unit
   }
 
   private final class Impl[S <: Sys[S]](protected val targets: Targets[S], val in: Matrix[S],
