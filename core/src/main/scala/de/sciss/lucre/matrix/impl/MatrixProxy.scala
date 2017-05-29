@@ -25,7 +25,8 @@ trait MatrixProxy[S <: Sys[S]] extends Matrix[S] {
   //  def debugFlatten(implicit tx: S#Tx): Vec[Double]  = peer.debugFlatten
   //
   //  def shape     (implicit tx: S#Tx): Vec[Int]       = peer.shape
-  //  def ranges    (implicit tx: S#Tx): Vec[Range]     = peer.ranges
+
+//  final def ranges(implicit tx: S#Tx): Vec[Option[Range]] = peer.ranges
 
   final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = peer.dimensions
 

@@ -216,12 +216,13 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     * will have a size of four, but the first range will be 1 to 2 (and thus
     * size 2).
     */
-  def ranges(implicit tx: S#Tx): Vec[Range]
+  def ranges(implicit tx: S#Tx): Vec[Option[Range]]
 
   def reducedRank       (implicit tx: S#Tx): Int            = shape.count (_ > 1)
   def reducedShape      (implicit tx: S#Tx): Vec[Int]       = shape.filter(_ > 1)
   // def reducedDimensions(implicit tx: S#Tx): Vec[Dimension.Value]  = reduce(dimensions)
-  def reducedRanges     (implicit tx: S#Tx): Vec[Range]     = reduce(ranges)
+
+  def reducedRanges     (implicit tx: S#Tx): Vec[Option[Range]] = reduce(ranges)
 
   def reducedDimensions(implicit tx: S#Tx): Vec[Matrix[S]]  = reduce(dimensions)
 

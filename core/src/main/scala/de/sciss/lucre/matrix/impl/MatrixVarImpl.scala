@@ -80,8 +80,8 @@ object MatrixVarImpl {
 
     def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = matrixPeer.debugFlatten
 
-    def shape     (implicit tx: S#Tx): Vec[Int]       = matrixPeer.shape
-    def ranges    (implicit tx: S#Tx): Vec[Range]     = matrixPeer.ranges
+    def shape     (implicit tx: S#Tx): Vec[Int]           = matrixPeer.shape
+    def ranges    (implicit tx: S#Tx): Vec[Option[Range]] = matrixPeer.ranges
 
     // ---- event ----
 

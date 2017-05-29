@@ -226,7 +226,7 @@ object ReductionView {
     def dispose()(implicit tx: S#Tx): Unit = peer.dispose()
   }
 
-  private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Range)
+  private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Option[Range])
     extends View[S] with ComponentHolder[TextField] {
 
     private var observer: Disposable[S#Tx] = _
@@ -249,9 +249,11 @@ object ReductionView {
     }
 
     private def mkUnit(idx: Int): String = {
-      val opt = if (idx < 0 || idx >= dimRange.size) None else {
-        val idxInDim = dimRange(idx)
-        dimIdxView.tryFormat(idxInDim)
+      val opt = dimRange match {
+        case Some(r) if idx >= 0 && idx < r.size =>
+          val idxInDim = r(idx)
+          dimIdxView.tryFormat(idxInDim)
+        case _ => None
       }
 
       val text = opt.fold("") {

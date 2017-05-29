@@ -236,8 +236,8 @@ object DataSourceImpl {
 
     protected def writeDimensions(out: DataOutput): Unit = dimsSer[S].write(dimConst, out)
 
-    def shape (implicit tx: S#Tx): Vec[Int  ] = dimConst.map(        _.size.toInt)  // XXX TODO - check Int overflow
-    def ranges(implicit tx: S#Tx): Vec[Range] = dimConst.map(0 until _.size.toInt)
+    def shape (implicit tx: S#Tx): Vec[Int          ] = dimConst.map(_.size.toInt)  // XXX TODO - check Int overflow
+    def ranges(implicit tx: S#Tx): Vec[Option[Range]] = dimConst.map(d => Some(0 until d.size.toInt))
 
     def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = dimConst
 
@@ -262,13 +262,13 @@ object DataSourceImpl {
 
     protected def writeDimensions(out: DataOutput): Unit = out.writeInt(sizeConst)
 
-    def shape (implicit tx: S#Tx): Vec[Int  ] = Vec(        sizeConst)
-    def ranges(implicit tx: S#Tx): Vec[Range] = Vec(0 until sizeConst)
+    def shape (implicit tx: S#Tx): Vec[Int          ] = Vector(             sizeConst )
+    def ranges(implicit tx: S#Tx): Vec[Option[Range]] = Vector(Some(0 until sizeConst))
 
     override def rank(implicit tx: S#Tx): Int   = 1
     override def size(implicit tx: S#Tx): Long  = sizeConst.toLong
 
-    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = Vec(this)
+    def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] = Vector(this)
 
     def isLeaf = true
   }

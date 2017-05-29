@@ -32,7 +32,7 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S,
   // final def mkCopy()(implicit tx: S#Tx): Matrix[S] = this
 
   final def shape     (implicit tx: S#Tx): Vec[Int]             = shapeConst
-  final def ranges    (implicit tx: S#Tx): Vec[Range]           = shapeConst.map(0 until _)
+  final def ranges    (implicit tx: S#Tx): Vec[Option[Range]]   = shapeConst.map(sz => Some(0 until sz))
 
   //  final def dimensions(implicit tx: S#Tx): Vec[Dimension.Value] =
   //    shapeConst.zipWithIndex.map { case (sz, idx) => Dimension.Value(s"dim$idx", sz) }
