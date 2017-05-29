@@ -60,8 +60,8 @@ object ConstMatrixImpl {
     new Impl[S](id, data)
   }
 
-  private val intVecSer     = ImmutableSerializer.indexedSeq[Int   ]
-  private val doubleVecSer  = ImmutableSerializer.indexedSeq[Double]
+  private[this] val intVecSer     = ImmutableSerializer.indexedSeq[Int   ]
+  private[this] val doubleVecSer  = ImmutableSerializer.indexedSeq[Double]
 
   /*
 

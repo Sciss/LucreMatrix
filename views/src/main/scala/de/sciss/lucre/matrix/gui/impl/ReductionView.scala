@@ -229,8 +229,8 @@ object ReductionView {
   private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Option[Range])
     extends View[S] with ComponentHolder[TextField] {
 
-    private var observer: Disposable[S#Tx] = _
-    private var value: Int = _
+    private[this] var observer: Disposable[S#Tx]  = _
+    private[this] var value   : Int               = _
 
     def init(ex: IntObj[S])(implicit tx: S#Tx): this.type = {
       val v0      = ex.value
@@ -328,13 +328,13 @@ object ReductionView {
     extends Label(null, null, Alignment.Center) {
 
     icon = new Icon {
-      private val extent  = 28
+      private[this] val extent = 28
 
-      private val shape = {
+      private[this] val shape = {
         val p = new GeneralPath(Path2D.WIND_EVEN_ODD)
         mkDnDShape(p)
         p.closePath()
-        val scale   = extent/32f
+        val scale = extent/32f
         AffineTransform.getScaleInstance(scale, scale).createTransformedShape(p)
       }
 
@@ -420,10 +420,11 @@ object ReductionView {
 
     peer.setTransferHandler(Transfer)
 
-    private var dndInitX    = 0
-    private var dndInitY    = 0
-    private var dndPressed  = false
-    private var dndStarted  = false
+    private[this] var dndInitX    = 0
+    private[this] var dndInitY    = 0
+    private[this] var dndPressed  = false
+    private[this] var dndStarted  = false
+
     private object Mouse extends MouseAdapter {
       override def mousePressed(e: MouseEvent): Unit = {
         dndInitX	  = e.getX
