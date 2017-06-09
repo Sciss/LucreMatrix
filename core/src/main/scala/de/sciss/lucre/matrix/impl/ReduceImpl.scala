@@ -429,6 +429,13 @@ object ReduceImpl {
 
       case _: Op.Average[S] =>
         inF match {
+          case t: ReaderFactoryImpl.Average[S] =>
+            val avgDimName  = in0.dimensions.apply(dimIdx).name
+            val inKeyT      = t.key
+            val sectionNew  = t.section.updated(dimIdx, 0 to 0)
+            val newKey      = t.key.copy(section = sectionNew, avgDims = inKeyT.avgDims :+ avgDimName)
+            new ReaderFactoryImpl.Average[S](t.inH, newKey)
+
           case t: ReaderFactoryImpl.HasSection[S] =>
             val rangeOld = t.section(dimIdx)
             if (rangeOld.size <= 1 || dimIdx < 0) {
@@ -438,8 +445,9 @@ object ReduceImpl {
               val shapeOut    = sectionNew.map(_.size)
               val sectionOut  = mkAllRange(shapeOut)
               val inH         = tx.newHandle(in0)
+              val avgDimName  = in0.dimensions.apply(dimIdx).name
               val newKey      = ReaderFactoryImpl.AverageKey(inKey, streamDim = streamDim, section = sectionOut,
-                avgDimIdx = dimIdx)
+                avgDims = Vector(avgDimName))
               new ReaderFactoryImpl.Average[S](inH, newKey)
             }
 
@@ -503,8 +511,9 @@ object ReduceImpl {
         val source    = Matrix.Key.read(in)
         val streamDim = in.readShort()
         val section   = rangeVecSer.read(in)
-        val avgDimIdx = in.readShort()
-        ReaderFactoryImpl.AverageKey(source = source, streamDim = streamDim, section = section, avgDimIdx = avgDimIdx)
+        val avgDimsSz = in.readShort()
+        val avgDims   = Vector.fill(avgDimsSz)(in.readUTF())
+        ReaderFactoryImpl.AverageKey(source = source, streamDim = streamDim, section = section, avgDims = avgDims)
 
       case _ => sys.error(s"Unexpected reduce key op $tpeID")
     }

@@ -16,7 +16,7 @@ package de.sciss.lucre.matrix
 package impl
 
 import de.sciss.file._
-import de.sciss.fscape.Graph
+import de.sciss.fscape.{GE, Graph}
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.impl.ReduceImpl.{TransparentReader, rangeVecSer}
@@ -145,7 +145,8 @@ object ReaderFactoryImpl {
     }
   }
 
-  final case class AverageKey(source: Matrix.Key, streamDim: Int, section: Vec[Range], avgDimIdx: Int)
+  final case class AverageKey(source: Matrix.Key, streamDim: Int, section: Vec[Range],
+                              avgDims: Vec[String])
     extends KeyHasSection {
 
     protected def tpeID: Int = AverageType
@@ -154,11 +155,14 @@ object ReaderFactoryImpl {
       source.write(out)
       out.writeShort(streamDim)
       rangeVecSer.write(section, out)
-      out.writeShort(avgDimIdx)
+      out.writeShort(avgDims.size)
+      avgDims.foreach { name =>
+        out.writeUTF(name)
+      }
     }
   }
 
-  final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], val key: AverageKey)
+  final class Average[S <: Sys[S]](val inH: stm.Source[S#Tx, Matrix[S]], val key: AverageKey)
     extends HasSection[S] {
 
     def reduce(dimIdx: Int, range: Range): HasSection[S] = {
@@ -181,7 +185,25 @@ object ReaderFactoryImpl {
        */
 
       val g = Graph {
+        import at.iem.sysson.fscape.graph._
+        import de.sciss.fscape.graph._
+        val mIn     = Matrix("in")
+        val dims    = key.avgDims.map(name => Dim(mIn, name))
+        val dSz     = dims.map(_.size)
+        val win     = mIn.valueWindow(dims: _*)
+        val winSz   = dSz.reduce[GE](_ * _) // dSz1 * dSz2
+        val isOk    = !win.isNaN
+        val v       = Gate(win, isOk) // * isOk // XXX TODO --- NaN * 0 is not zero
 
+        val tr      = Metro(winSz)
+        val sum     = RunningSum(v   , tr)
+        val count   = RunningSum(isOk, tr)
+        val sumTrunc= ResizeWindow(sum  , size = winSz, start = winSz - 1)
+        val cntTrunc= ResizeWindow(count, size = winSz, start = winSz - 1)
+        val mOut    = sumTrunc / cntTrunc
+        val specIn  = mIn.spec
+        val specOut = dims.foldLeft(specIn)(_ drop _) // specIn.drop(dim1).drop(dim2)
+        MkMatrix("out", specOut, mOut)
       }
 
       ??? // RRR
