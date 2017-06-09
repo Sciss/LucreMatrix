@@ -10,7 +10,7 @@ import de.sciss.lucre.stm.Sys
 import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 
 import scala.collection.immutable.{IndexedSeq => Vec}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ContextImpl[S <: Sys[S]]
   extends UGenGraphBuilder.Context[S] /* UGenGraphBuilderContextImpl[S] */ {
@@ -155,11 +155,9 @@ trait ContextImpl[S <: Sys[S]]
 
   private def requestMatrixValueSeq(vr: Matrix)(implicit tx: S#Tx): Matrix.ValueSeq.Value = {
     val m     = findMatrix(vr)
+    val factory: LMatrix.ReaderFactory[S] = m.prepareReader(-1)
     val res   = new Matrix.ValueSeq.Value {
-      val matrix: LMatrix.Key = {
-        val f: LMatrix.ReaderFactory[S] = m.prepareReader(-1)
-        f.key
-      } // reader(-1)
+      val matrix: LMatrix.Key = factory.key
 
       // XXX TODO: `reader` is called from non-txn
       // and thus we need to create it early here. This is not
@@ -167,9 +165,9 @@ trait ContextImpl[S <: Sys[S]]
       // if just the cache is validated. We should perhaps change
       // in LucreMatrix the API to use `TxnLike` (what workspace-addDependent uses)
       // instead of `S#Tx`, so we can insert a cheap single txn here
-      val /* def */ reader: LMatrix.Reader = {
+      val /* def */ reader: Future[LMatrix.Reader] = {
         implicit val resolver: DataSource.Resolver[S] = WorkspaceResolver[S]
-        ??? // RRR matrix.reader()
+        factory.reader()
       }
     }
     res
@@ -188,14 +186,13 @@ trait ContextImpl[S <: Sys[S]]
       dimsB += dimIdx
     }
 
+    val factory: LMatrix.ReaderFactory[S] = m.prepareReader(-1)
     val res = new Matrix.ValueWindow.Value {
-      val matrix: LMatrix.Key = {
-        val f: LMatrix.ReaderFactory[S] = m.prepareReader(-1)
-        f.key
-      }
-      val reader: LMatrix.Reader = {
+      val matrix: LMatrix.Key = factory.key
+
+      val reader: Future[LMatrix.Reader] = {
         implicit val resolver: DataSource.Resolver[S] = WorkspaceResolver[S]
-        ??? // RRR matrix.reader()
+        factory.reader()
       }
 
       val winSize: Long = _winSize

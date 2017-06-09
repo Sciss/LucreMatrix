@@ -24,11 +24,13 @@ import de.sciss.fscape.{GE, Lazy, UGen, UGenGraph, UGenIn, UGenInLike, UGenSourc
 import de.sciss.lucre.matrix.{Vec, Matrix => LMatrix}
 import de.sciss.serial.{DataOutput, ImmutableSerializer}
 
+import scala.concurrent.Future
+
 object Matrix {
   object ValueSeq {
     trait Value extends UGB.Value with Aux {
       def matrix: LMatrix.Key
-      def reader: LMatrix.Reader
+      def reader: Future[LMatrix.Reader]
 
       final def write(out: DataOutput): Unit = {
         out.writeByte(100)
@@ -75,7 +77,7 @@ object Matrix {
   object ValueWindow {
     trait Value extends UGB.Value with Aux {
       def matrix  : LMatrix.Key
-      def reader  : LMatrix.Reader
+      def reader  : Future[LMatrix.Reader]
       def winSize : Long
       def dims    : List[Int]
 

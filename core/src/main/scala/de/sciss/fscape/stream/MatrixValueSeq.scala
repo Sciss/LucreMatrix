@@ -15,13 +15,14 @@
 package de.sciss.fscape
 package stream
 
-import akka.stream.stage.OutHandler
 import akka.stream.{Attributes, SourceShape}
-import de.sciss.fscape.stream.impl.{BlockingGraphStage, NodeImpl}
+import de.sciss.fscape.stream.impl.{BlockingGraphStage, MatrixValueImpl, NodeImpl}
 import de.sciss.lucre.matrix.Matrix
 
+import scala.concurrent.Future
+
 object MatrixValueSeq {
-  def apply(matrix: Matrix.Reader)(implicit b: Builder): OutD = {
+  def apply(matrix: Future[Matrix.Reader])(implicit b: Builder): OutD = {
     val source  = new Stage(matrix)
     val stage   = b.add(source)
     stage.out
@@ -31,7 +32,7 @@ object MatrixValueSeq {
 
   private type Shape = SourceShape[BufD]
 
-  private final class Stage(matrix: Matrix.Reader)(implicit ctrl: Control)
+  private final class Stage(matrix: Future[Matrix.Reader])(implicit ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($matrix)") {
 
     val shape = SourceShape(OutD(s"$name.out"))
@@ -40,18 +41,14 @@ object MatrixValueSeq {
       new Logic(shape, matrix)
   }
 
-  private final class Logic(shape: Shape, matrix: Matrix.Reader)(implicit ctrl: Control)
-    extends NodeImpl(s"$name($matrix)", shape) with OutHandler {
+  private final class Logic(shape: Shape, matrixF: Future[Matrix.Reader])(implicit ctrl: Control)
+    extends MatrixValueImpl(name, shape, matrixF) {
 
     private[this] val bufSize: Int = ctrl.blockSize
 
     private[this] var framesRead  = 0L
 
-    setHandler(shape.out, this)
-
-    def onPull(): Unit = process()
-
-    private def process(): Unit = {
+    protected def process(matrix: Matrix.Reader): Unit = {
       val chunk = math.min(bufSize, matrix.size - framesRead).toInt
       if (chunk == 0) {
         logStream(s"completeStage() $this")

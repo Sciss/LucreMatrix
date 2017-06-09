@@ -15,15 +15,15 @@
 package de.sciss.fscape
 package stream
 
-import akka.stream.stage.OutHandler
 import akka.stream.{Attributes, SourceShape}
-import de.sciss.fscape.stream.impl.{BlockingGraphStage, NodeImpl}
+import de.sciss.fscape.stream.impl.{BlockingGraphStage, MatrixValueImpl, NodeImpl}
 import de.sciss.lucre.matrix.Matrix
 
 import scala.collection.immutable.{Seq => ISeq}
+import scala.concurrent.Future
 
 object MatrixValueWindow {
-  def apply(matrix: Matrix.Reader, winSize: Int, dims: ISeq[Int])(implicit b: Builder): OutD = {
+  def apply(matrix: Future[Matrix.Reader], winSize: Int, dims: ISeq[Int])(implicit b: Builder): OutD = {
     val source  = new Stage(matrix, winSize = winSize, dims = dims.toArray)
     val stage   = b.add(source)
     stage.out
@@ -33,7 +33,7 @@ object MatrixValueWindow {
 
   private type Shape = SourceShape[BufD]
 
-  private final class Stage(matrix: Matrix.Reader, winSize: Int, dims: Array[Int])(implicit ctrl: Control)
+  private final class Stage(matrix: Future[Matrix.Reader], winSize: Int, dims: Array[Int])(implicit ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($matrix)") {
 
     val shape = SourceShape(OutD(s"$name.out"))
@@ -42,9 +42,9 @@ object MatrixValueWindow {
       new Logic(shape, matrix, winSize = winSize, dims = dims)
   }
 
-  private final class Logic(shape: Shape, matrix: Matrix.Reader, winSize: Int, dims: Array[Int])
+  private final class Logic(shape: Shape, matrixF: Future[Matrix.Reader], winSize: Int, dims: Array[Int])
                            (implicit ctrl: Control)
-    extends NodeImpl(s"$name($matrix)", shape) with OutHandler {
+    extends MatrixValueImpl(name, shape, matrixF) {
 
     private[this] val bufSize: Int = ctrl.blockSize
     private[this] var winBuf = new Array[Double](winSize)
@@ -52,16 +52,12 @@ object MatrixValueWindow {
 
     private[this] var framesRead  = 0L
 
-    setHandler(shape.out, this)
-
-    def onPull(): Unit = process()
-
     override protected def stopped(): Unit = {
       super.stopped()
       winBuf = null
     }
 
-    private def process(): Unit = {
+    protected def process(matrix: Matrix.Reader): Unit = {
       val chunk = math.min(bufSize, matrix.size - framesRead).toInt
       if (chunk == 0) {
         logStream(s"completeStage() $this")
