@@ -99,7 +99,7 @@ object AudioFileCache {
 }
 trait AudioFileCache {
   import AudioFileCache.Value
-  def acquire[S <: Sys[S]](key: Matrix.Key)
+  def acquire[S <: Sys[S]](factory: Matrix.ReaderFactory[S])
                           (implicit tx: S#Tx, resolver: Resolver[S], context: GenContext[S]): Future[Value]
 
   def release(key: Matrix.Key)(implicit tx: TxnLike): Unit

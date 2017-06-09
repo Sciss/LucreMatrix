@@ -48,17 +48,17 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   "A Zeros Matrix" should "sing while you sell" in { args =>
     implicit val (cursor, cache, context) = args
 
-    val Seq(km, k0, k1) = cursor.step { implicit tx =>
+    val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val _z = Matrix.zeros(13, 21)
-      (-1 to 1).map(_z.getKey)
+      (-1 to 1).map(_z.prepareReader)
     }
 
     implicit val resolver : DataSource.Resolver [S] = DataSource.Resolver.empty
 //    implicit val ws       : WorkspaceHandle     [S] = WorkspaceHandle.Implicits.dummy
 
-    def testKey(key: Matrix.Key, numCh: Int, numFr: Int): Unit = {
+    def testFactory(factory: Matrix.ReaderFactory[S], numCh: Int, numFr: Int): Unit = {
       val fut   = cursor.step { implicit tx =>
-        cache.acquire(key)
+        cache.acquire(factory)
       }
       val value = Await.result(fut, Duration.Inf)
 
@@ -75,9 +75,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
 
     showLog = true
     for (_ <- 1 to 2) {
-      testKey(km, numCh = 13 * 21, numFr = 1)
-      testKey(k0, numCh = 21, numFr = 13)
-      testKey(k1, numCh = 13, numFr = 21)
+      testFactory(fm, numCh = 13 * 21, numFr = 1)
+      testFactory(f0, numCh = 21, numFr = 13)
+      testFactory(f1, numCh = 13, numFr = 21)
     }
     showLog = false
   }
@@ -140,16 +140,16 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val (cursor, cache, context) = args
     implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq(ncf)
 
-    val Seq(km, k0, k1) = cursor.step { implicit tx =>
+    val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val loc = ArtifactLocation.newConst[S](f.parent)
       val art = Artifact(loc, f)
       val ds  = DataSource(art)
       val _z  = ds.variables.find(_.name == "temperature").get
-      (-1 to 1).map(_z.getKey)
+      (-1 to 1).map(_z.prepareReader)
     }
 
-    def testKey(key: Matrix.Key, numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
-      val fut   = cursor.step { implicit tx => cache.acquire(key) }
+    def testFactory(factory: Matrix.ReaderFactory[S], numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
+      val fut   = cursor.step { implicit tx => cache.acquire(factory) }
       val value = Await.result(fut, Duration.Inf)
 
       assert(value.spec.numChannels === numCh)
@@ -170,9 +170,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val d0 = (0 until 21).flatMap(lon => (0 until 13).map(lat => (lat * 100 + lon).toFloat))
     val d1 = dm
     for (_ <- 1 to 2) {
-      testKey(km, numCh = 13 * 21, numFr =  1, data = dm)
-      testKey(k0, numCh = 21     , numFr = 13, data = d0)
-      testKey(k1, numCh = 13     , numFr = 21, data = d1)
+      testFactory(fm, numCh = 13 * 21, numFr =  1, data = dm)
+      testFactory(f0, numCh = 21     , numFr = 13, data = d0)
+      testFactory(f1, numCh = 13     , numFr = 21, data = d1)
     }
     showLog = false
   }
@@ -184,7 +184,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     implicit val (cursor, cache, context) = args
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
-    val Seq(km, k0, k1) = cursor.step { implicit tx =>
+    val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val loc = ArtifactLocation.newConst[S](f.parent)
       val art = Artifact(loc, f)
       val ds  = DataSource(art)
@@ -192,11 +192,11 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       val v0  = Reduce(v , Dimension.Selection.Name("lon"), Reduce.Op.Slice[S](2, 16))
       val v1  = Reduce(v0, Dimension.Selection.Name("lon"), Reduce.Op.Stride[S](3))
       val _z  = Reduce(v1, Dimension.Selection.Name("lat"), Reduce.Op.Slice [S](3, 8))
-      (-1 to 1).map(_z.getKey)
+      (-1 to 1).map(_z.prepareReader)
     }
 
-    def testKey(key: Matrix.Key, numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
-      val fut   = cursor.step { implicit tx => cache.acquire(key) }
+    def testFactory(factory: Matrix.ReaderFactory[S], numCh: Int, numFr: Int, data: Vec[Float]): Unit = {
+      val fut   = cursor.step { implicit tx => cache.acquire(factory) }
       val value = Await.result(fut, Duration.Inf)
 
       assert(value.spec.numChannels === numCh)
@@ -219,9 +219,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val d0 = lonRange.flatMap(lon => latRange.map(lat => (lat * 100 + lon).toFloat))
     val d1 = dm
     for (_ <- 1 to 2) {
-      testKey(km, numCh = 6 * 5, numFr = 1, data = dm)
-      testKey(k0, numCh = 5    , numFr = 6, data = d0)
-      testKey(k1, numCh = 6    , numFr = 5, data = d1)
+      testFactory(fm, numCh = 6 * 5, numFr = 1, data = dm)
+      testFactory(f0, numCh = 5    , numFr = 6, data = d0)
+      testFactory(f1, numCh = 6    , numFr = 5, data = d1)
     }
     showLog = false
   }

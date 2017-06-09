@@ -297,9 +297,13 @@ object DataSourceImpl {
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }
 
-    final def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key =
-      ReaderFactory.Transparent(file = source.artifact.value, name = name, streamDim = streamDim,
-        section = ReduceImpl.mkAllRange(shape))
+    final def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] = {
+      val key = ReaderFactoryImpl.TransparentKey(
+        file = source.artifact.value, name = name, streamDim = streamDim,
+        section = ReduceImpl.mkAllRange(shape)
+      )
+      new ReaderFactoryImpl.Transparent[S](key)
+    }
 
     final protected def writeData(out: DataOutput): Unit = {
 //      out writeByte 1   // cookie

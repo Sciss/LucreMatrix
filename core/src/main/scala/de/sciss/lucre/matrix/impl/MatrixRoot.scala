@@ -16,8 +16,9 @@ package de.sciss.lucre.matrix
 package impl
 
 trait MatrixRoot[S <: Sys[S]] extends Matrix[S] {
-  final def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key = {
+  final def prepareDimensionReader(index: Int, useChannels: Boolean)
+                                  (implicit tx: S#Tx): Matrix.ReaderFactory[S] = {
     val streamDim = if (useChannels) -1 else 0
-    dimensions.apply(index).getKey(streamDim = streamDim)
+    dimensions.apply(index).prepareReader(streamDim = streamDim)
   }
 }

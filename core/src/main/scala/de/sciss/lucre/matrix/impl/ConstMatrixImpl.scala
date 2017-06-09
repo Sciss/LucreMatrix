@@ -91,7 +91,7 @@ object ConstMatrixImpl {
         until numChannels values have been processed
    */
 
-  private final class ReaderImpl(key: KeyImpl) extends Matrix.Reader {
+  private final class ReaderImpl[S <: Sys[S]](key: KeyImpl[S]) extends Matrix.Reader {
     import key.data.{shape => shapeConst, _}
     import key.streamDim
 
@@ -167,16 +167,22 @@ object ConstMatrixImpl {
     KeyImpl(data, streamDim)
   }
 
-  final case class KeyImpl(data: Data, streamDim: Int)
-    extends impl.KeyImpl {
+  trait Key {
+    def data: Data
+  }
+
+  private final case class KeyImpl[S <: Sys[S]](data: Data, streamDim: Int)
+    extends impl.KeyImpl with Key with Matrix.ReaderFactory[S] {
 
     override def productPrefix = "ConstMatrix.Key"
 
-    override def toString = s"$productPrefix($data, streamDim = $streamDim)"
+    def key: Matrix.Key = this
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
-                              context: GenContext[S]): Future[Reader] =
+    def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                 context: GenContext[S]): Future[Reader] =
       Future.successful(new ReaderImpl(this))
+
+    override def toString = s"$productPrefix($data, streamDim = $streamDim)"
 
     protected def opID: Int = ConstMatrixImpl.opID
 
@@ -225,7 +231,7 @@ object ConstMatrixImpl {
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, flatData, streamDim)
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(data, streamDim)
+    def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] = KeyImpl(data, streamDim)
 
     def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
                      exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] =

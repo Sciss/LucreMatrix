@@ -33,7 +33,7 @@ object DimensionIndexImpl {
                                          exec: ExecutionContext, context: GenContext[S]): DimensionIndex[S] = {
     if (dim.rank != 1) throw new IllegalArgumentException(s"Matrix must be 1-dimensional: $dim")
     val sz  = dim.size.toInt
-    val key = dim.getKey(0)
+    val key = dim.prepareReader(0)
     val p   = Promise[Unit]()
     val arr = new Array[Float](sz)
     val fut = p.future
@@ -62,8 +62,8 @@ object DimensionIndexImpl {
   }
 
   def shouldUseUnitsString(units: String): Boolean =
-    units.startsWith("days since")    ||
-    units.startsWith("hours since")   ||
+    units.startsWith("days since"   ) ||
+    units.startsWith("hours since"  ) ||
     units.startsWith("seconds since")
 
   def mkUnitsString(units: String): String = units match {

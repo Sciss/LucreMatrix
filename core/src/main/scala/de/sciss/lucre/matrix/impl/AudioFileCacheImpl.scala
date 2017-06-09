@@ -197,13 +197,14 @@ object AudioFileCacheImpl {
       CacheValue(/* netSize = file.length(), netModified = file.lastModified(), */ file = afF, spec = spec)
     }
 
-    def acquire[S <: Sys[S]](key: Matrix.Key)
+    def acquire[S <: Sys[S]](factory: Matrix.ReaderFactory[S])
                             (implicit tx: S#Tx, resolver: Resolver[S], context: GenContext[S]): Future[Result] = {
       implicit val itx = tx.peer
+      val key = factory.key
       map.get(key).fold {
         val fut0 = cache.acquireWith(key) {
           import cache.executionContext
-          val readerFut = context.cursor.step { implicit tx => key.reader() }
+          val readerFut = context.cursor.step { implicit tx => factory.reader() }
           readerFut.map { reader =>
             blocking {
               produceValue(reader)

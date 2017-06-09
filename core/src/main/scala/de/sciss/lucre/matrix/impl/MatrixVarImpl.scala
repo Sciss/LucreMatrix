@@ -74,10 +74,11 @@ object MatrixVarImpl {
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader = matrixPeer.reader(streamDim)
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = matrixPeer.getKey(streamDim)
+    def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] =
+      matrixPeer.prepareReader(streamDim)
 
-    def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key =
-      matrixPeer.getDimensionKey(index = index, useChannels = useChannels)
+    def prepareDimensionReader(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.ReaderFactory[S] =
+      matrixPeer.prepareDimensionReader(index = index, useChannels = useChannels)
 
     def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S], exec: ExecutionContext,
                      context: GenContext[S]): Future[Vec[Double]] =

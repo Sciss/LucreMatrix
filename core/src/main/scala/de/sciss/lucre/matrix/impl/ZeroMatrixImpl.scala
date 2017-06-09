@@ -84,7 +84,9 @@ object ZeroMatrixImpl {
     KeyImpl(shapeConst, streamDim)
   }
 
-  private final case class KeyImpl(shapeConst: Vec[Int], streamDim: Int) extends impl.KeyImpl {
+  private final case class KeyImpl(shapeConst: Vec[Int], streamDim: Int)
+    extends impl.KeyImpl {
+
     protected def opID: Int = ZeroMatrixImpl.opID
 
     override def toString = s"ZeroMatrix.Key(shape = ${shapeConst.mkString("[","][","]")}, streamDim = $streamDim)"
@@ -93,10 +95,16 @@ object ZeroMatrixImpl {
       out.writeShort(streamDim)
       intVecSer.write(shapeConst, out)
     }
+  }
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
-                              context: GenContext[S]): Future[Reader] = {
-      val r: Reader = new ReaderImpl(shapeConst, streamDim)
+  private final class ReaderFactoryImpl[S <: Sys[S]](val key: KeyImpl)
+    extends Matrix.ReaderFactory[S] {
+
+    override def toString = s"ZeroMatrix.ReaderFactory($key)"
+
+    def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                 context: GenContext[S]): Future[Reader] = {
+      val r: Reader = new ReaderImpl(key.shapeConst, key.streamDim)
       Future.successful(r)
     }
   }
@@ -116,7 +124,8 @@ object ZeroMatrixImpl {
 
     protected def opID: Int = ZeroMatrixImpl.opID
 
-    def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(shapeConst, streamDim)
+    def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] =
+      new ReaderFactoryImpl[S](KeyImpl(shapeConst, streamDim))
 
     def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
                      exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] = {

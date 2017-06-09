@@ -146,12 +146,28 @@ object Matrix extends Obj.Type {
 
     def isStreaming: Boolean = streamDim >= 0
 
+//    /** Creates a reader instance that can the be used to retrieve the actual matrix data.
+//      *
+//      * @param resolver   the resolver is used for matrices backed up by NetCDF files.
+//      */
+//    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+//                              exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader]
+  }
+
+  object ReaderFactory {
+    def read(in: DataInput): Key = impl.KeyImpl.read(in)
+
+    implicit def serializer: ImmutableSerializer[Key] = impl.KeyImpl.serializer
+  }
+  trait ReaderFactory[S <: Sys[S]] {
+     def key: Key
+
     /** Creates a reader instance that can the be used to retrieve the actual matrix data.
       *
       * @param resolver   the resolver is used for matrices backed up by NetCDF files.
       */
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                              exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader]
+    def reader()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                 exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader]
   }
 
   // ---- serialization ----
@@ -198,6 +214,19 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     */
   def dimensions(implicit tx: S#Tx): Vec[Matrix[S]]
 
+//  /** Produces a matrix key for the dimension of a given index. Since a
+//    * dimension is 1-dimensional, the key will either have a streaming-index of
+//    * zero (when `useChannels` is `false`), resulting in a 1-channel reader
+//    * with `shape(index)` frames; or it will have a streaming-index of `-1`
+//    * (when `useChannels` is `true`), resulting in an n-channel reader with
+//    * one frame, where `n == shape(index)`.
+//    *
+//    * @param index        the index of the dimension, from zero until `rank`
+//    * @param useChannels  if `true` produces multi-channel file of one frame,
+//    *                     if `false` produces monophonic file of several frames.
+//    */
+//  def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key
+
   /** Produces a matrix key for the dimension of a given index. Since a
     * dimension is 1-dimensional, the key will either have a streaming-index of
     * zero (when `useChannels` is `false`), resulting in a 1-channel reader
@@ -209,7 +238,7 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     * @param useChannels  if `true` produces multi-channel file of one frame,
     *                     if `false` produces monophonic file of several frames.
     */
-  def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key
+  def prepareDimensionReader(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.ReaderFactory[S]
 
   /** The ranges specify the regions inside the underlying dimension matrices
     * covered by this matrix. For example if a 4 x 5 matrix is reduced in its
@@ -235,7 +264,15 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
 
   def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
                              exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader] =
-    getKey(streamDim).reader()
+    prepareReader(streamDim).reader()
+
+//  /** The key of a matrix is an immutable value that represents its current state,
+//    * possibly prepared with a transposition to be streamed along one of its dimensions.
+//    *
+//    * @param streamDim  the index of the dimension to stream the matrix data through, or `-1`
+//    *                   to read the whole matrix in one frame.
+//    */
+//  def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key
 
   /** The key of a matrix is an immutable value that represents its current state,
     * possibly prepared with a transposition to be streamed along one of its dimensions.
@@ -243,5 +280,5 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
     * @param streamDim  the index of the dimension to stream the matrix data through, or `-1`
     *                   to read the whole matrix in one frame.
     */
-  def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key
+  def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S]
 }
