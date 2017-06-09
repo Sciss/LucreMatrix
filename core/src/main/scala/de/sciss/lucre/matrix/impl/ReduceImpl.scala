@@ -429,6 +429,7 @@ object ReduceImpl {
 
       case _: Op.Average[S] =>
         inF match {
+          // group several averaging operations into one offline program
           case t: ReaderFactoryImpl.Average[S] =>
             val avgDimName  = in0.dimensions.apply(dimIdx).name
             val inKeyT      = t.key
@@ -452,7 +453,7 @@ object ReduceImpl {
             }
 
           case _ =>
-            ???
+            ??? // XXX TODO --- we could have a variant of ReaderFactoryImpl.Average that doesn't support HasSection
         }
 
       case op: Op.Var[S] => loop(op())
