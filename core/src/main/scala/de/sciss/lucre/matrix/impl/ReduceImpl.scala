@@ -406,23 +406,24 @@ object ReduceImpl {
     def changed: EventLike[S, Op.Update[S]] = evt.Dummy.apply
   }
 
-  private def mkReduceReaderFactory[S <: Sys[S]](op0: Reduce.Op[S], in0: Matrix[S], inShape: Vec[Int],
+  private def mkReduceReaderFactory[S <: Sys[S]](op0: Reduce.Op[S], in0: Matrix[S], inF: Matrix.ReaderFactory[S],
+                                                 inShape: Vec[Int],
                                                  dimIdx: Int, streamDim: Int)
                                                 (implicit tx: S#Tx): Matrix.ReaderFactory[S] = {
-    val inF   = in0.prepareReader(streamDim = streamDim)
+//    val inF   = in0.prepareReader(streamDim = streamDim)
     val inKey = inF.key
 
     @tailrec def loop(op: Reduce.Op[S]): Matrix.ReaderFactory[S] = op match {
       case op: OpNativeImpl[S] =>
         inF match {
           case t0: ReaderFactoryImpl.HasSection[S] =>
-            val t1 = if (dimIdx >= 0) t0 else t0.reduce(dimIdx, op.map(t0.section(dimIdx)))
+            val t1 = if (dimIdx < 0) t0 else t0.reduce(dimIdx, op.map(t0.section(dimIdx)))
             t1
 
-          case t /* t: ReaderFactory.Opaque */ =>
-            var section = mkAllRange(inShape)
-            if (dimIdx >= 0) section = section.updated(dimIdx, op.map(section(dimIdx)))
-            val newKey = ReaderFactoryImpl.CloudyKey(inKey /*.source */, streamDim, section)
+          case _ /* t: ReaderFactory.Opaque */ =>
+            val section0 = mkAllRange(inShape)
+            val section  = if (dimIdx < 0) section0 else section0.updated(dimIdx, op.map(section0(dimIdx)))
+            val newKey   = ReaderFactoryImpl.CloudyKey(inKey /*.source */, streamDim, section)
             new ReaderFactoryImpl.Cloudy[S](newKey)
         }
 
@@ -437,7 +438,9 @@ object ReduceImpl {
               val shapeOut    = sectionNew.map(_.size)
               val sectionOut  = mkAllRange(shapeOut)
               val inH         = tx.newHandle(in0)
-              new ReaderFactoryImpl.Average(inH, streamDim = streamDim, dimIdx = dimIdx, section = sectionOut)
+              val newKey      = ReaderFactoryImpl.AverageKey(inKey, streamDim = streamDim, section = sectionOut,
+                avgDimIdx = dimIdx)
+              new ReaderFactoryImpl.Average[S](inH, newKey)
             }
 
           case _ =>
@@ -497,7 +500,11 @@ object ReduceImpl {
         ReaderFactoryImpl.CloudyKey(source = source, streamDim = streamDim, section = section)
 
       case ReaderFactoryImpl.AverageType =>
-        ??? // RRR
+        val source    = Matrix.Key.read(in)
+        val streamDim = in.readShort()
+        val section   = rangeVecSer.read(in)
+        val avgDimIdx = in.readShort()
+        ReaderFactoryImpl.AverageKey(source = source, streamDim = streamDim, section = section, avgDimIdx = avgDimIdx)
 
       case _ => sys.error(s"Unexpected reduce key op $tpeID")
     }
@@ -523,21 +530,23 @@ object ReduceImpl {
 
     def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] = {
       // mkReduceReaderFactory(this, streamDim)
-      mkReduceReaderFactory(op, in, inShape = in.shape, dimIdx = indexOfDim, streamDim = streamDim)
+      val inF = in.prepareReader(streamDim = streamDim)
+      mkReduceReaderFactory(op, in, inF, inShape = in.shape, dimIdx = indexOfDim, streamDim = streamDim)
     }
 
     def prepareDimensionReader(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.ReaderFactory[S] = {
       val redIdx  = indexOfDim
-      val inKey   = in.prepareDimensionReader(index = index, useChannels = useChannels)
+      val inF     = in.prepareDimensionReader(index = index, useChannels = useChannels)
       if (redIdx != index) {  // if the reference is to a dimension other than the reduced, simply fall back
-        inKey
+        inF
       } else {
         // re-use mkReduceReaderFactory with the 1-dimensional matrix
         // ; therefore, dimIdx and streamDim become zero,
         //   and the input shape becomes 1-D
         val inShape   = Vec(in.shape.apply(index))
         val streamDim = if (useChannels) -1 else 0
-        ??? // RRR mkReduceReaderFactory(op, inKey = inKey, inShape = inShape, dimIdx = 0, streamDim = streamDim)
+        val inD       = dimensions.apply(index)
+        mkReduceReaderFactory(op, inD, inF, inShape = inShape, dimIdx = 0, streamDim = streamDim)
       }
     }
 

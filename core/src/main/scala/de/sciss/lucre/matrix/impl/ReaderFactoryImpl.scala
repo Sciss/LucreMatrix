@@ -145,19 +145,29 @@ object ReaderFactoryImpl {
     }
   }
 
-  final class Average[S <: Sys[S]](source: stm.Source[S#Tx, Matrix[S]], streamDim: Int, dimIdx: Int,
-                                   val section: Vec[Range])
+  final case class AverageKey(source: Matrix.Key, streamDim: Int, section: Vec[Range], avgDimIdx: Int)
+    extends KeyHasSection {
+
+    protected def tpeID: Int = AverageType
+
+    protected def writeFactoryData(out: DataOutput): Unit = {
+      source.write(out)
+      out.writeShort(streamDim)
+      rangeVecSer.write(section, out)
+      out.writeShort(avgDimIdx)
+    }
+  }
+
+  final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], val key: AverageKey)
     extends HasSection[S] {
 
-//    protected def tpeID: Int = AverageType
-//
-//    protected def writeFactoryData(out: DataOutput): Unit = {
-//      ???
-//    }
+    def reduce(dimIdx: Int, range: Range): HasSection[S] = {
+      import key.{copy, source, streamDim}
+      val newKey = copy(source = source, streamDim = streamDim, section = section.updated(dimIdx, range))
+      new Average[S](inH, newKey)
+    }
 
-    def reduce(dimIdx: Int, range: Range): HasSection[S] = ???
-
-    def key: Matrix.Key = ???
+    def section: Vec[Range] = key.section
 
     def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
                  context: GenContext[S]): Future[Reader] = {
