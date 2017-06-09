@@ -100,16 +100,21 @@ trait ContextImpl[S <: Sys[S]]
       val dimsIn  = m.dimensions
       val rank    = dimsIn.size // m.rank
       val dims0: Vec[Matrix.Spec.Dim] = Vector.tabulate(rank) { dimIdx =>
-        val dimKey  = m.prepareDimensionReader(dimIdx, useChannels = false)
+        val dimRF  = m.prepareDimensionReader(dimIdx, useChannels = false)
         //        val reader: LMatrix.Reader = dim.reader(-1)
-        val reader: LMatrix.Reader = ??? // RRR dimKey.reader()
-        val lenL  = reader.size
-        require(lenL <= 0x7FFFFFFF)
-        val len   = lenL.toInt
-        val buf   = new Array[Double](len)
-        reader.readDouble1D(buf, 0, len)
+        val readerF: Future[LMatrix.Reader] = dimRF.reader()
+        val valuesF = readerF.map { reader =>
+          val lenL = reader.size
+          require(lenL <= 0x7FFFFFFF)
+          val len = lenL.toInt
+          val buf = new Array[Double](len)
+          reader.readDouble1D(buf, 0, len)
+          buf.toIndexedSeq
+        }
         val dim   = dimsIn(dimIdx)
-        Matrix.Spec.Dim(dim.name, dim.units, buf.toIndexedSeq)
+        val szL   = dim.size
+        val sz    = if (szL <= 0x7FFFFFFF) szL.toInt else sys.error(s"Integer overflow: $szL")
+        Matrix.Spec.DimRead(dim.name, dim.units, sz, dimRF.key, valuesF)
       }
       Matrix.Spec.Value(name = m.name, units = m.units, dimensions = dims0)
     } else {
@@ -146,7 +151,7 @@ trait ContextImpl[S <: Sys[S]]
           case Left(msg) => throw new Exception(msg)
         }
         val values  = valuesC.map(_.doubleValue)
-        val dim     = Matrix.Spec.Dim(name = dimDef.name, units = dimDef.units, values = values)
+        val dim     = Matrix.Spec.DimConst(name = dimDef.name, units = dimDef.units, valuesC = values)
         specIn.copy(dimensions = dims0 :+ dim)
     }
 

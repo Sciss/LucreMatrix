@@ -22,11 +22,15 @@ import akka.stream.{Attributes, FlowShape}
 import at.iem.sysson.fscape.graph.Matrix
 import de.sciss.file._
 import de.sciss.fscape.stream.impl.{BlockingGraphStage, NodeImpl}
+import de.sciss.lucre.matrix.Vec
 import de.sciss.lucre.matrix.impl.ReaderImpl
 import ucar.ma2.DataType
 import ucar.nc2.NetcdfFileWriter
 import ucar.nc2.constants.CDM
 import ucar.{ma2, nc2}
+
+import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 object MatrixOut {
   def apply(file: File, spec: Matrix.Spec.Value, in: OutD)(implicit b: Builder): OutL = {
@@ -76,43 +80,59 @@ object MatrixOut {
     setHandler(shape.in , this)
     setHandler(shape.out, this)
 
-    protected final def isSuccess     : Boolean  = _isSuccess
+    protected final def isSuccess: Boolean  = _isSuccess
 
-    final def onPull(): Unit = if (isAvailable(shape.in )) process()
-    final def onPush(): Unit = if (isAvailable(shape.out)) process()
+    final def onPull(): Unit = if (isAvailable(shape.in ) && writer != null) process()
+    final def onPush(): Unit = if (isAvailable(shape.out) && writer != null) process()
 
     override def preStart(): Unit = {
-      writer      = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf3, file.path, null)
-      val varDims = new util.ArrayList[nc2.Dimension](rank)
-      val dimsData = spec.dimensions.map { dimSpec =>
-        val dim   = writer.addDimension(null, dimSpec.name, dimSpec.values.size)
-        val dimL  = new util.ArrayList[nc2.Dimension](1)
-        dimL.add(dim)
-        varDims.add(dim)
-        val dimVar = writer.addVariable(null, dimSpec.name, DataType.DOUBLE, dimL)
-        if (!dimSpec.units.isEmpty)
-          dimVar.addAttribute(new nc2.Attribute(CDM.UNITS, dimSpec.units))
+      val ctrl = control
+      import ctrl.config.executionContext
 
-        (dimVar, dimSpec.values)
-      }
+      val dimsFutT = spec.dimensions.map(_.values)
+      val dimsFut: Future[Vec[Vec[Double]]] = Future.sequence(dimsFutT)
 
-      outVar = writer.addVariable(null, spec.name, DataType.DOUBLE, varDims)
-      if (!spec.units.isEmpty)
-        outVar.addAttribute(new nc2.Attribute(CDM.UNITS, spec.units))
+      val callback = getAsyncCallback[Try[Vec[Vec[Double]]]] {
+        case Success(dimsData) =>
+          writer = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf3, file.path, null)
+          val varDims = new util.ArrayList[nc2.Dimension](rank)
+          val dimsVars: Vec[nc2.Variable] = spec.dimensions.map { dimSpec =>
+            val dim   = writer.addDimension(null, dimSpec.name, dimSpec.size)
+            val dimL  = new util.ArrayList[nc2.Dimension](1)
+            dimL.add(dim)
+            varDims.add(dim)
+            val dimVar = writer.addVariable(null, dimSpec.name, DataType.DOUBLE, dimL)
+            if (!dimSpec.units.isEmpty)
+              dimVar.addAttribute(new nc2.Attribute(CDM.UNITS, dimSpec.units))
 
-      // create the file; ends "define mode"
-      writer.create()
+            dimVar
+          }
 
-      dimsData.foreach { case (dimVar, dimData) =>
-        val arr = ma2.Array.factory(dimData.toArray)
-        writer.write(dimVar, arr)
+          outVar = writer.addVariable(null, spec.name, DataType.DOUBLE, varDims)
+          if (!spec.units.isEmpty)
+            outVar.addAttribute(new nc2.Attribute(CDM.UNITS, spec.units))
+
+          // create the file; ends "define mode"
+          writer.create()
+
+          (dimsVars zip dimsData).foreach { case (dimVar, dimData) =>
+            val arr = ma2.Array.factory(dimData.toArray)
+            writer.write(dimVar, arr)
+          }
+
+          if (isAvailable(shape.in) && isAvailable(shape.out)) process()
+
+        case Failure(ex) =>
+          failStage(ex)
       }
 
       pull(shape.in)
+
+      dimsFut.onComplete(callback.invoke)
     }
 
     override protected def stopped(): Unit = {
-      if (!_isSuccess) writer.abort()
+      if (!_isSuccess && writer != null) writer.abort()
       super.stopped()
     }
 

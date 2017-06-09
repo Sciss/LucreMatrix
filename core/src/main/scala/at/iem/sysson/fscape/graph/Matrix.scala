@@ -22,7 +22,7 @@ import de.sciss.fscape.lucre.{UGenGraphBuilder => UGB}
 import de.sciss.fscape.stream.{StreamIn, StreamOut, Builder => SBuilder}
 import de.sciss.fscape.{GE, Lazy, UGen, UGenGraph, UGenIn, UGenInLike, UGenSource, stream}
 import de.sciss.lucre.matrix.{Vec, Matrix => LMatrix}
-import de.sciss.serial.{DataOutput, ImmutableSerializer}
+import de.sciss.serial.{DataOutput, ImmutableSerializer, Writable}
 
 import scala.concurrent.Future
 
@@ -147,22 +147,61 @@ object Matrix {
   sealed trait Op
 
   object Spec {
-    final case class Dim(name: String, units: String, values: Vec[Double]) extends Aux {
-      override def productPrefix: String  = s"Matrix$$Spec$$Dim"
-      override def toString               = s"Dim($name, units = $units, values = $values)"
+    sealed trait Dim extends Writable {
+      def name  : String
+      def units : String
+      def size  : Int
+
+      def values: Future[Vec[Double]]
+
+      override def toString = s"Dim($name, units = $units, size = $size)"
+    }
+
+    final case class DimConst(name: String, units: String, valuesC: Vec[Double])
+      extends Dim {
+
+      override def productPrefix: String = s"Matrix$$Spec$$DimConst"
+
+      def size: Int = valuesC.size
+
+      def values: Future[Vec[Double]] = Future.successful(valuesC)
+
+      def write(out: DataOutput): Unit = {
+        out.writeByte(106)
+        out.writeUTF(name )
+        out.writeUTF(units)
+        ImmutableSerializer.indexedSeq[Double].write(valuesC, out)
+      }
+    }
+
+    final case class DimRead(name: String, units: String, size: Int, key: LMatrix.Key, values: Future[Vec[Double]])
+      extends Dim {
+
+      override def productPrefix: String = s"Matrix$$Spec$$DimRead"
+
+//      def values: Future[Vec[Double]] = reader.map { r =>
+//        val lenL  = r.size
+//        require(lenL <= 0x7FFFFFFF)
+//        val len   = lenL.toInt
+//        val buf   = new Array[Double](len)
+//        r.readDouble1D(buf, 0, len)
+//        buf.toIndexedSeq
+//      }
 
       def write(out: DataOutput): Unit = {
         out.writeByte(103)
         out.writeUTF(name )
         out.writeUTF(units)
-        ImmutableSerializer.indexedSeq[Double].write(values, out)
+        out.writeInt(size)
+        key.write(out)
       }
     }
 
     final case class Value(name: String, units: String, dimensions: Vec[Spec.Dim])
       extends UGB.Value with Aux {
 
-      lazy val shape : Vec[Int]  = dimensions.map(_.values.size)
+//      lazy val shape : Vec[Int]  = dimensions.map(_.values.size)
+      lazy val shape : Vec[Int]  = dimensions.map(_.size)
       lazy val rank  : Int       = shape.size
       lazy val size  : Long      = if (shape.isEmpty) 0L else (1L /: shape)(_ * _)
 

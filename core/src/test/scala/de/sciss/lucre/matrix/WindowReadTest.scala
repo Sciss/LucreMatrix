@@ -107,6 +107,7 @@ object WindowReadTest {
         } yield ()
 
         Await.result(futTot, Duration.Inf)
+        println("WindowReadTest Done.")
 
       } finally {
         net.close()
