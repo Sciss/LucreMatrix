@@ -5,6 +5,7 @@ import java.{util => ju}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.InMemory
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.language.implicitConversions
@@ -15,14 +16,16 @@ import scala.language.implicitConversions
  */
 class ReadSpec extends fixture.FlatSpec with Matchers {
   type S            = InMemory
-  type FixtureParam = InMemory
+  type FixtureParam = (InMemory, GenContext[S])
 
   initTypes()
 
   def withFixture(test: OneArgTest): Outcome = {
-    val system = InMemory()
+    implicit val system: S = InMemory()
     try {
-      test(system)
+      implicit val ws: WorkspaceHandle[S] = WorkspaceHandle.Implicits.dummy
+      val context = system.step { implicit tx => GenContext[S] }
+      test((system, context))
     }
     finally {
       system.close()
@@ -41,7 +44,9 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  "A Zeros Matrix" should "read data" in { cursor =>
+  "A Zeros Matrix" should "read data" in { fix =>
+    implicit val (cursor, context) = fix
+
     cursor.step { implicit tx =>
       val _z = Matrix.zeros(4, 3, 2)
       assert(_z.rank === 3)
@@ -91,7 +96,9 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  "A Constant Matrix" should "read data" in { cursor =>
+  "A Constant Matrix" should "read data" in { fix =>
+    implicit val (cursor, context) = fix
+
     cursor.step { implicit tx =>
       val _z = Matrix.newConst3D("M",
         Vec(

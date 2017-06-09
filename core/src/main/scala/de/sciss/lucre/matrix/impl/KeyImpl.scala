@@ -26,7 +26,7 @@ object KeyImpl {
       case Reduce         .opID => ReduceImpl     .readIdentifiedKey(in)
       case ConstMatrixImpl.opID => ConstMatrixImpl.readIdentifiedKey(in)
       case ZeroMatrixImpl .opID => ZeroMatrixImpl .readIdentifiedKey(in)
-      case _ => sys.error(s"Unexpected matrix key type $opID")
+      case _                    => sys.error(s"Unexpected matrix key type $opID")
     }
   }
 

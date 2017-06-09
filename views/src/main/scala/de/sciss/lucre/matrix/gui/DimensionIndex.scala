@@ -17,6 +17,7 @@ package gui
 
 import de.sciss.lucre.stm.Disposable
 import de.sciss.model.Model
+import de.sciss.synth.proc.GenContext
 import impl.{DimensionIndexImpl => Impl}
 
 import scala.concurrent.ExecutionContext
@@ -27,7 +28,8 @@ object DimensionIndex {
   case object Ready extends Update
 
   def apply[S <: Sys[S]](dim: Matrix[S])(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                                         exec: ExecutionContext): DimensionIndex[S] = Impl(dim)
+                                         exec: ExecutionContext, context: GenContext[S]): DimensionIndex[S] =
+    Impl(dim)
 
   /** Queries whether a variable with the given `units` should use `mkUnitsString` in axis labels. */
   def shouldUseUnitsString(units: String): Boolean = Impl.shouldUseUnitsString(units)

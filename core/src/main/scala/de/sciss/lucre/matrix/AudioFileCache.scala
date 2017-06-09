@@ -17,13 +17,13 @@ package de.sciss.lucre.matrix
 import de.sciss.file.File
 import de.sciss.filecache.Limit
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.stm
+import de.sciss.lucre.matrix.impl.{AudioFileCacheImpl => Impl}
 import de.sciss.lucre.stm.TxnLike
 import de.sciss.serial.ImmutableSerializer
 import de.sciss.synth.io.AudioFileSpec
-import impl.{AudioFileCacheImpl => Impl}
+import de.sciss.synth.proc.GenContext
 
-import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 object AudioFileCache {
@@ -100,7 +100,7 @@ object AudioFileCache {
 trait AudioFileCache {
   import AudioFileCache.Value
   def acquire[S <: Sys[S]](key: Matrix.Key)
-                          (implicit tx: S#Tx, resolver: Resolver[S], cursor: stm.Cursor[S]): Future[Value]
+                          (implicit tx: S#Tx, resolver: Resolver[S], context: GenContext[S]): Future[Value]
 
   def release(key: Matrix.Key)(implicit tx: TxnLike): Unit
 }

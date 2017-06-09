@@ -20,6 +20,7 @@ import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.stm.{Copy, Elem}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import de.sciss.synth.proc.GenContext
 import ucar.ma2
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -173,7 +174,8 @@ object ConstMatrixImpl {
 
     override def toString = s"$productPrefix($data, streamDim = $streamDim)"
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] =
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                              context: GenContext[S]): Future[Reader] =
       Future.successful(new ReaderImpl(this))
 
     protected def opID: Int = ConstMatrixImpl.opID
@@ -225,7 +227,8 @@ object ConstMatrixImpl {
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(data, streamDim)
 
-    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] =
+    def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                     exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] =
       Future.successful(flatData)
 
     protected def opID: Int = ConstMatrixImpl.opID

@@ -33,6 +33,7 @@ import de.sciss.lucre.stm.Disposable
 import de.sciss.lucre.swing.edit.EditVar
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing.{IntRangeSliderView, IntSpinnerView, View, deferTx}
+import de.sciss.synth.proc.GenContext
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
@@ -42,7 +43,7 @@ import scala.util.{Failure, Success}
 object ReductionView {
   def apply[S <: Sys[S]](dimVal: Dimension.Value, red: Reduce[S], transferHandler: Option[MatrixView.TransferHandler[S]])
                         (implicit tx: S#Tx, csr: stm.Cursor[S], resolver: DataSource.Resolver[S],
-                         exec: ExecutionContext,
+                         exec: ExecutionContext, context: GenContext[S],
                          undo: UndoManager): ReductionView[S] = {
     val dims        = red.dimensions
     val dimIdx      = dims.indexWhere(_.name == dimVal.name)

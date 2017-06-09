@@ -24,6 +24,7 @@ import de.sciss.lucre.stm.impl.ObjSerializer
 import de.sciss.lucre.stm.{Copy, Elem, NoSys, Obj}
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
+import de.sciss.synth.proc.GenContext
 import ucar.nc2
 
 import scala.annotation.tailrec
@@ -290,7 +291,8 @@ object DataSourceImpl {
     final def name (implicit tx: S#Tx): String = nameConst
     final def units(implicit tx: S#Tx): String = unitsConst
 
-    final def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
+    final def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                           exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] = {
       // if (size > 256) throw new UnsupportedOperationException(s"debugFlatten is restricted to matrices with size <= 256")
       throw new UnsupportedOperationException("debugFlatten on a NetCDF backed matrix")
     }

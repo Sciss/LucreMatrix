@@ -22,6 +22,7 @@ import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.stm
 import de.sciss.lucre.stm.{Copy, Elem}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -93,7 +94,8 @@ object ZeroMatrixImpl {
       intVecSer.write(shapeConst, out)
     }
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                              context: GenContext[S]): Future[Reader] = {
       val r: Reader = new ReaderImpl(shapeConst, streamDim)
       Future.successful(r)
     }
@@ -116,7 +118,8 @@ object ZeroMatrixImpl {
 
     def getKey(streamDim: Int)(implicit tx: S#Tx): Matrix.Key = KeyImpl(shapeConst, streamDim)
 
-    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
+    def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                     exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] = {
       val sz = size
       require(sz <= 0x7FFFFFFF)
       val szI = sz.toInt

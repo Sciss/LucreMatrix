@@ -20,6 +20,7 @@ import de.sciss.lucre.event.Targets
 import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.model.Change
 import de.sciss.serial.{DataInput, DataOutput, Serializer}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -78,7 +79,9 @@ object MatrixVarImpl {
     def getDimensionKey(index: Int, useChannels: Boolean)(implicit tx: S#Tx): Matrix.Key =
       matrixPeer.getDimensionKey(index = index, useChannels = useChannels)
 
-    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = matrixPeer.debugFlatten
+    def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S], exec: ExecutionContext,
+                     context: GenContext[S]): Future[Vec[Double]] =
+      matrixPeer.debugFlatten
 
     def shape     (implicit tx: S#Tx): Vec[Int]           = matrixPeer.shape
     def ranges    (implicit tx: S#Tx): Vec[Option[Range]] = matrixPeer.ranges

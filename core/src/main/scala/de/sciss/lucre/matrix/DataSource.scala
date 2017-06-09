@@ -72,8 +72,10 @@ object DataSource extends Obj.Type {
     def empty[S <: Sys[S]]: Seq[S] = new Seq[S]()
 
     final class Seq[S <: Sys[S]] private[Resolver]() extends Resolver[S] {
-      private val sync = new AnyRef
-      private var map  = Map.empty[String, nc2.NetcdfFile]
+      private[this] val sync = new AnyRef
+
+      @volatile
+      private[this] var map = Map.empty[String, nc2.NetcdfFile]
 
       def += (file: nc2.NetcdfFile): Unit = sync.synchronized(map += file.getLocation -> file)
 

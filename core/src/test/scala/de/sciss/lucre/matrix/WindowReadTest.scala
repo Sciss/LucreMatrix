@@ -3,6 +3,7 @@ package de.sciss.lucre.matrix
 import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.stm.InMemory
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
@@ -86,6 +87,8 @@ object WindowReadTest {
         def run(name: String, win1: Array[Double], win2: Array[Double], dims: Array[Int]): Future[Unit] = {
           val rFut = system.step { implicit tx =>
             val vr = vrv()
+            implicit val ws     : WorkspaceHandle [S] = WorkspaceHandle.Implicits.dummy
+            implicit val context: GenContext      [S] = GenContext[S]
             vr.reader(-1)
           }
           rFut.map { reader =>

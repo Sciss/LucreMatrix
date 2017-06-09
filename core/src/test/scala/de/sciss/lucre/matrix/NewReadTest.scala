@@ -3,22 +3,28 @@ package de.sciss.lucre.matrix
 import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.{IntObj, StringObj}
+import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.stm.InMemory
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import ucar.nc2
 
 import scala.concurrent.Future
 import scala.util.Success
 
-object NewReadTest extends App {
-  val p = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
+object NewReadTest {
+  def main(args: Array[String]): Unit = NewReadTest
+
+  val p: File = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
   type S = InMemory
 
   initTypes()
 
-  val ncf = nc2.NetcdfFile.open(p.path)
-  implicit val resolver = DataSource.Resolver.seq[S](ncf)
+  val ncf               : nc2.NetcdfFile      = nc2.NetcdfFile.open(p.path)
+  implicit val system   : S                   = InMemory()
+  implicit val resolver : Resolver.Seq    [S] = Resolver.seq(ncf)
+  implicit val ws       : WorkspaceHandle [S] = WorkspaceHandle.Implicits.dummy
+  implicit val context  : GenContext      [S] = system.step { implicit tx => GenContext[S] }
 
-  val system = InMemory()
   import system.step
 
   val (dimTemp, redLatH, redLatVarH, redLatStH, redLatFromH, redLatToH, redLatStepH) = step { implicit tx =>

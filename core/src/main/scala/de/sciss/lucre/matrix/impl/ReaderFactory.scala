@@ -16,10 +16,13 @@ package de.sciss.lucre.matrix
 package impl
 
 import de.sciss.file._
+import de.sciss.fscape.Graph
+import de.sciss.fscape.lucre.FScape.Rendering
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.impl.ReduceImpl.{TransparentReader, rangeVecSer}
 import de.sciss.serial.DataOutput
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,7 +50,7 @@ object ReaderFactory {
     protected def tpeID: Int = TransparentType
 
     def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                              exec: ExecutionContext): Future[Reader] = {
+                              exec: ExecutionContext, context: GenContext[S]): Future[Reader] = {
       val net = resolver.resolve(file)
       import scala.collection.JavaConverters._
       val v = net.getVariables.asScala.find(_.getShortName == name).getOrElse(
@@ -71,7 +74,8 @@ object ReaderFactory {
 
     protected def tpeID: Int = CloudyType
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                              context: GenContext[S]): Future[Reader] = {
       source match {
         case const: ConstMatrixImpl.KeyImpl =>
           val r: Reader = new ConstMatrixImpl.ReducedReaderImpl(const.data, streamDim, section)
@@ -97,7 +101,8 @@ object ReaderFactory {
       ???
     }
 
-    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext): Future[Reader] = {
+    def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
+                              context: GenContext[S]): Future[Reader] = {
       /*
 
         what we'll do here:
@@ -106,6 +111,11 @@ object ReaderFactory {
         - flat-map it to a transparent reader for the output file
 
        */
+
+      val g = Graph {
+
+      }
+
       ???
     }
   }

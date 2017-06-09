@@ -17,24 +17,29 @@ package gui
 package impl
 
 import de.sciss.lucre.stm
+
 import scala.concurrent.ExecutionContext
-import scala.swing.{Insets, GridBagPanel, ScrollPane, Orientation, BoxPanel, Swing, Label, Component}
+import scala.swing.{BoxPanel, Component, GridBagPanel, Insets, Label, Orientation, ScrollPane, Swing}
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing.{View, deferTx}
+
 import scala.concurrent.stm.Ref
 import de.sciss.desktop.UndoManager
 import de.sciss.swingplus.Separator
+
 import scala.annotation.tailrec
 import de.sciss.lucre.stm.Disposable
-import scala.swing.GridBagPanel.{Fill, Anchor}
+
+import scala.swing.GridBagPanel.{Anchor, Fill}
 import de.sciss.model.impl.ModelImpl
+import de.sciss.synth.proc.GenContext
 
 object MatrixViewImpl {
   var DEBUG = false
 
   def apply[S <: Sys[S]](transferHandler: Option[MatrixView.TransferHandler[S]])
                         (implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
-                         exec: ExecutionContext, undoManager: UndoManager): MatrixView[S] = {
+                         exec: ExecutionContext, context: GenContext[S], undoManager: UndoManager): MatrixView[S] = {
     val res = new Impl[S](transferHandler)
     deferTx(res.guiInit())
     res
@@ -44,7 +49,7 @@ object MatrixViewImpl {
 
   private final class Impl[S <: Sys[S]](transferHandler: Option[MatrixView.TransferHandler[S]])
                                        (implicit cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
-                                        exec: ExecutionContext, undo: UndoManager)
+                                        exec: ExecutionContext, context: GenContext[S], undo: UndoManager)
     extends MatrixView[S] with ComponentHolder[Component] with ModelImpl[MatrixView.Update] {
 
     private val _matrixObs  = Ref(Option.empty[stm.Disposable[S#Tx]])

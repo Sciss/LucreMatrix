@@ -18,6 +18,7 @@ import de.sciss.lucre.stm
 import de.sciss.lucre.stm.InMemory
 import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.submin.Submin
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
@@ -29,7 +30,8 @@ object Demo extends SimpleSwingApplication {
   type S                                              = InMemory
   implicit val system   : S                           = InMemory()
   implicit val undo     : UndoManager                 = new UndoManagerImpl
-  implicit val resolver : DataSource.Resolver.Seq[S]  = DataSource.Resolver.empty
+  implicit val resolver : DataSource.Resolver.Seq [S] = DataSource.Resolver.empty
+  implicit val ws       : WorkspaceHandle         [S] = WorkspaceHandle.Implicits.dummy
 
   override def main(args: Array[String]): Unit = {
     try {
@@ -95,6 +97,8 @@ object Demo extends SimpleSwingApplication {
       Some(t)
     }
   }
+
+  lazy implicit val context: GenContext[S] = system.step { implicit tx => GenContext[S] }
 
   lazy val view: MatrixView[S] = system.step { implicit tx =>
     import ExecutionContext.Implicits.global

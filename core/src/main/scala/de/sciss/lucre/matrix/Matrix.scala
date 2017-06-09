@@ -20,6 +20,7 @@ import de.sciss.lucre.matrix.impl.{MatrixImpl => Impl}
 import de.sciss.lucre.stm.Obj
 import de.sciss.model.Change
 import de.sciss.serial.{DataInput, ImmutableSerializer, Serializer, Writable}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -150,7 +151,7 @@ object Matrix extends Obj.Type {
       * @param resolver   the resolver is used for matrices backed up by NetCDF files.
       */
     def reader[S <: Sys[S]]()(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                              exec: ExecutionContext): Future[Matrix.Reader]
+                              exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader]
   }
 
   // ---- serialization ----
@@ -229,10 +230,11 @@ trait Matrix[S <: Sys[S]] extends Obj[S] with Publisher[S, Matrix.Update[S]] {
   private def reduce[A](coll: Vec[A])(implicit tx: S#Tx): Vec[A] =
     (coll zip shape).collect { case (x, sz) if sz > 1 => x }
 
-  private[matrix] def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]]
+  private[matrix] def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                                   exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]]
 
   def reader(streamDim: Int)(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                             exec: ExecutionContext): Future[Matrix.Reader] =
+                             exec: ExecutionContext, context: GenContext[S]): Future[Matrix.Reader] =
     getKey(streamDim).reader()
 
   /** The key of a matrix is an immutable value that represents its current state,

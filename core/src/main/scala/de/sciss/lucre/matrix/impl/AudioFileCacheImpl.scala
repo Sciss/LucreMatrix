@@ -18,10 +18,10 @@ package impl
 import de.sciss.file._
 import de.sciss.filecache
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.stm
 import de.sciss.lucre.stm.TxnLike
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.stm.{TMap, atomic}
 import scala.concurrent.{Future, blocking}
@@ -131,7 +131,7 @@ object AudioFileCacheImpl {
       This stats file is a straight forward serialization of the `Stats` trait.
 
      */
-    private val cache = {
+    private[this] val cache = {
       val cfg2              = filecache.Config[CacheKey, CacheValue]()
       cfg2.capacity         = config.capacity
       cfg2.accept           = (_ /* key */, _ /* value */) => {
@@ -151,7 +151,7 @@ object AudioFileCacheImpl {
       }
     }
 
-    private val map = TMap.empty[Matrix.Key, Entry]
+    private[this] val map = TMap.empty[Matrix.Key, Entry]
 
     private def produceValue[S <: Sys[S]](reader: Matrix.Reader): CacheValue = {
       //      val v             = /* workspace. */ cursor.step { implicit tx => source.data() }
@@ -198,12 +198,12 @@ object AudioFileCacheImpl {
     }
 
     def acquire[S <: Sys[S]](key: Matrix.Key)
-                            (implicit tx: S#Tx, resolver: Resolver[S], cursor: stm.Cursor[S]): Future[Result] = {
+                            (implicit tx: S#Tx, resolver: Resolver[S], context: GenContext[S]): Future[Result] = {
       implicit val itx = tx.peer
       map.get(key).fold {
         val fut0 = cache.acquireWith(key) {
           import cache.executionContext
-          val readerFut = cursor.step { implicit tx => key.reader() }
+          val readerFut = context.cursor.step { implicit tx => key.reader() }
           readerFut.map { reader =>
             blocking {
               produceValue(reader)

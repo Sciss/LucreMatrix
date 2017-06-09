@@ -4,13 +4,14 @@ import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.language.implicitConversions
 
 object BasicSpec {
   implicit class FlattenNow[S <: Sys[S]](val m: Matrix[S]) extends AnyVal {
-    def flattenNow(implicit tx: S#Tx): Vec[Double] = {
+    def flattenNow(implicit tx: S#Tx, resolver: DataSource.Resolver[S], context: GenContext[S]): Vec[Double] = {
       import scala.concurrent.ExecutionContext.Implicits.global
       m.debugFlatten.value.get.get
     }
@@ -86,7 +87,7 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
     }
   }
 
-  ignore /* "Matrix Reductions" */ should "yield correct cell data" in { cursor =>
+  ignore /* "Matrix Reductions" */ should "yield correct cell data" in { implicit cursor =>
     cursor.step { implicit tx =>
       val m0 = Matrix.newConst3D("M", Vec(
         Vec(
@@ -100,6 +101,10 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
           Vec(21, 22, 23, 24)
         )
       ))
+
+      implicit val resolver : DataSource.Resolver [S] = DataSource.Resolver.empty
+      implicit val ws       : WorkspaceHandle     [S] = WorkspaceHandle.Implicits.dummy
+      implicit val context  : GenContext          [S] = GenContext[S]
 
       //      val b0 = Array.ofDim[Float](24, 1)
       //      m0.reader(-1).read(b0, 0, 24)

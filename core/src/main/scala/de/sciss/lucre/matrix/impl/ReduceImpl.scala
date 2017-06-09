@@ -26,6 +26,7 @@ import de.sciss.lucre.stm.impl.{ConstElemImpl, ElemSerializer}
 import de.sciss.lucre.stm.{Copy, Elem, NoSys}
 import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer, Serializer}
+import de.sciss.synth.proc.GenContext
 import ucar.{ma2, nc2}
 
 import scala.annotation.{switch, tailrec}
@@ -534,8 +535,8 @@ object ReduceImpl {
       }
     }
 
-    def debugFlatten(implicit tx: S#Tx, exec: ExecutionContext): Future[Vec[Double]] = {
-      implicit val resolver = DataSource.Resolver.empty[S]
+    def debugFlatten(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
+                     exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] = {
       val rFut = reader(-1)
       rFut.map { r =>
         val buf = Array.ofDim[Float](r.numChannels, r.numFrames.toInt)

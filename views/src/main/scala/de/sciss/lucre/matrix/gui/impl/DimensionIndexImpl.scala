@@ -21,6 +21,7 @@ import java.io.IOException
 import de.sciss.lucre.swing.defer
 import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.model.impl.ModelImpl
+import de.sciss.synth.proc.GenContext
 import ucar.nc2.time.{CalendarDateFormatter, CalendarPeriod}
 
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
@@ -29,7 +30,7 @@ import scala.util.Try
 
 object DimensionIndexImpl {
   def apply[S <: Sys[S]](dim: Matrix[S])(implicit tx: S#Tx, resolver: DataSource.Resolver[S],
-                                         exec: ExecutionContext): DimensionIndex[S] = {
+                                         exec: ExecutionContext, context: GenContext[S]): DimensionIndex[S] = {
     if (dim.rank != 1) throw new IllegalArgumentException(s"Matrix must be 1-dimensional: $dim")
     val sz  = dim.size.toInt
     val key = dim.getKey(0)

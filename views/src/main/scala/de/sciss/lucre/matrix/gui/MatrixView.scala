@@ -24,6 +24,7 @@ import de.sciss.lucre.matrix.gui.impl.{MatrixViewImpl => Impl}
 import de.sciss.lucre.stm
 import de.sciss.lucre.swing.View
 import de.sciss.model.Model
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.ExecutionContext
 import scala.swing.Component
@@ -31,7 +32,8 @@ import scala.swing.Component
 object MatrixView {
   def apply[S <: Sys[S]](transferHandler: Option[TransferHandler[S]] = None)
                         (implicit tx: S#Tx, cursor: stm.Cursor[S], resolver: DataSource.Resolver[S],
-                         exec: ExecutionContext, undoManager: UndoManager): MatrixView[S] = Impl[S](transferHandler)
+                         exec: ExecutionContext, context: GenContext[S],
+                         undoManager: UndoManager): MatrixView[S] = Impl[S](transferHandler)
 
   sealed trait Update
   case object Resized extends Update

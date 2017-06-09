@@ -9,6 +9,7 @@ import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
 import de.sciss.synth.io.AudioFile
+import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import org.scalatest.{Matchers, Outcome, fixture}
 import ucar.{ma2, nc2}
 
@@ -22,15 +23,19 @@ import scala.language.implicitConversions
  */
 class CacheSpec extends fixture.FlatSpec with Matchers {
   type S            = Durable
-  type FixtureParam = (Durable, AudioFileCache)
+  type FixtureParam = (Durable, AudioFileCache, GenContext[S])
 
   initTypes()
 
   def withFixture(test: OneArgTest): Outcome = {
-    val system  = Durable(BerkeleyDB.tmp())
-    val cache   = AudioFileCache()
+    implicit val system: S = Durable(BerkeleyDB.tmp())
+    val cache = AudioFileCache()
     try {
-      test((system, cache))
+      implicit val ws: WorkspaceHandle[S] = WorkspaceHandle.Implicits.dummy
+      val context = system.step { implicit tx =>
+        GenContext[S]
+      }
+      test((system, cache, context))
     }
     finally {
       system.close()
@@ -41,17 +46,20 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   implicit def mkStringConst(s: String)(implicit tx: S#Tx): StringObj.Const[S] = StringObj.newConst(s)
 
   "A Zeros Matrix" should "sing while you sell" in { args =>
-    implicit val (cursor, cache) = args
+    implicit val (cursor, cache, context) = args
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
       val _z = Matrix.zeros(13, 21)
       (-1 to 1).map(_z.getKey)
     }
 
-    implicit val resolver = DataSource.Resolver.empty[S]
+    implicit val resolver : DataSource.Resolver [S] = DataSource.Resolver.empty
+//    implicit val ws       : WorkspaceHandle     [S] = WorkspaceHandle.Implicits.dummy
 
     def testKey(key: Matrix.Key, numCh: Int, numFr: Int): Unit = {
-      val fut   = cursor.step { implicit tx => cache.acquire(key) }
+      val fut   = cursor.step { implicit tx =>
+        cache.acquire(key)
+      }
       val value = Await.result(fut, Duration.Inf)
 
       assert(value.spec.numChannels === numCh)
@@ -129,8 +137,8 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val f   = createData()
     val ncf = nc2.NetcdfFile.open(f.path)
 
-    implicit val (cursor, cache) = args
-    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+    implicit val (cursor, cache, context) = args
+    implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq(ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
       val loc = ArtifactLocation.newConst[S](f.parent)
@@ -173,7 +181,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val f   = createData()
     val ncf = nc2.NetcdfFile.open(f.path)
 
-    implicit val (cursor, cache) = args
+    implicit val (cursor, cache, context) = args
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
 
     val Seq(km, k0, k1) = cursor.step { implicit tx =>
