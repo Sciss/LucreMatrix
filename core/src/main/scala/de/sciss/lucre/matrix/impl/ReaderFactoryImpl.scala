@@ -257,7 +257,8 @@ object ReaderFactoryImpl {
         val cntTrunc= ResizeWindow(count, size = winSz, start = winSz - 1)
         val mOut    = sumTrunc / cntTrunc
         val specIn  = mIn.spec
-        val specOut = dims.foldLeft(specIn)(_ drop _) // specIn.drop(dim1).drop(dim2)
+        ??? // XXX TODO --- we need to add unit-less dimensions of size 1 instead of dropping them
+        val specOut = dims.foldLeft(specIn)(_ drop _)
 //        MkMatrix ("out", specOut, mOut)
         MatrixOut("out", specOut, mOut)
       }
