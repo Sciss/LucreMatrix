@@ -143,6 +143,11 @@ object Matrix {
       override def productPrefix: String  = s"Matrix$$Op$$Append"
       override def toString               = s"Append($dim)"
     }
+
+    final case class Reduce(dim: Dim) extends Op {
+      override def productPrefix: String  = s"Matrix$$Op$$Reduce"
+      override def toString               = s"Reduce($dim)"
+    }
   }
   sealed trait Op
 
@@ -223,6 +228,8 @@ object Matrix {
     def drop    (dim: Dim    ): Spec = copy(ops = ops :+ Op.Drop    (dim))
     def moveLast(dim: Dim    ): Spec = copy(ops = ops :+ Op.MoveLast(dim))
     def append  (dim: Dim.Def): Spec = copy(ops = ops :+ Op.Append  (dim))
+    /** Like `drop` but keeps the dimension at size 1 */
+    def reduce  (dim: Dim    ): Spec = copy(ops = ops :+ Op.Reduce  (dim))
 
     private def unCapitalize(s: String): String =
       if (s.isEmpty || s.charAt(0).isLower) s

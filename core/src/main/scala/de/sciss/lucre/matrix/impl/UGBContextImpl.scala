@@ -172,6 +172,12 @@ trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
         val values  = valuesC.map(_.doubleValue)
         val dim     = Matrix.Spec.DimConst(name = dimDef.name, units = dimDef.units, valuesC = values)
         specIn.copy(dimensions = dims0 :+ dim)
+
+      case (specIn, Matrix.Op.Reduce(dimRef)) =>
+        val dimIdx    = resolveDimIdx(specIn, dimRef)
+        val dimIn     = specIn.dimensions(dimIdx)
+        val dimOut    = Matrix.Spec.DimConst(name = dimIn.name, units = "", valuesC = Vector(0.0))
+        specIn.copy(dimensions = specIn.dimensions.updated(dimIdx, dimOut))
     }
 
     spec

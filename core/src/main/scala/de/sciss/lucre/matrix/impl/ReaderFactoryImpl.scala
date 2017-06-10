@@ -257,8 +257,8 @@ object ReaderFactoryImpl {
         val cntTrunc= ResizeWindow(count, size = winSz, start = winSz - 1)
         val mOut    = sumTrunc / cntTrunc
         val specIn  = mIn.spec
-        ??? // XXX TODO --- we need to add unit-less dimensions of size 1 instead of dropping them
-        val specOut = dims.foldLeft(specIn)(_ drop _)
+//        val specOut = dims.foldLeft(specIn)(_ drop _)
+        val specOut = dims.foldLeft(specIn)(_ reduce _)
 //        MkMatrix ("out", specOut, mOut)
         MatrixOut("out", specOut, mOut)
       }
@@ -276,9 +276,7 @@ object ReaderFactoryImpl {
               control.runExpanded(res.graph)
               val fut = control.status
               fut.map { _ =>
-                val resources   = ugbContext.resources
-                val data        = Map.empty[String, Array[Byte]]
-                new CacheValue(resources, data)
+                new CacheValue(ugbContext.resources, Map.empty)
               }
             } catch {
               case NonFatal(ex) =>
@@ -287,7 +285,7 @@ object ReaderFactoryImpl {
           }
 
           fut.flatMap { cv =>
-            val ncFile  = cv.resources.head
+            val ncFile :: Nil= cv.resources
             val tKey    = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
             val tFact   = new Transparent[S](tKey)
             cursor.step { implicit tx =>
