@@ -7,10 +7,13 @@ import java.awt.{FileDialog, Toolkit}
 import javax.swing.KeyStroke
 import javax.swing.TransferHandler.TransferSupport
 
+import at.iem.sysson.WorkspaceResolver
 import de.sciss.desktop
 import de.sciss.desktop.UndoManager
 import de.sciss.desktop.impl.UndoManagerImpl
 import de.sciss.file._
+import de.sciss.filecache.Limit
+import de.sciss.fscape.lucre.Cache
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
@@ -19,19 +22,18 @@ import de.sciss.lucre.stm.InMemory
 import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.submin.Submin
 import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
-import ucar.nc2.NetcdfFile
 
 import scala.concurrent.ExecutionContext
 import scala.swing.{Action, CheckBox, Frame, MainFrame, Menu, MenuBar, MenuItem, SimpleSwingApplication}
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 object Demo extends SimpleSwingApplication {
   type S                                              = InMemory
   implicit val system   : S                           = InMemory()
   implicit val undo     : UndoManager                 = new UndoManagerImpl
-  implicit val resolver : DataSource.Resolver.Seq [S] = DataSource.Resolver.empty
-  implicit val ws       : WorkspaceHandle         [S] = WorkspaceHandle.Implicits.dummy
+  implicit val ws       : WorkspaceHandle     [S]     = WorkspaceHandle.Implicits.dummy
+  implicit val resolver : DataSource.Resolver [S]     = WorkspaceResolver[S]
 
   override def main(args: Array[String]): Unit = {
     try {
@@ -39,6 +41,7 @@ object Demo extends SimpleSwingApplication {
     } catch {
       case NonFatal(_) =>
     }
+    Cache.init(file(sys.props("java.io.tmpdir")), Limit(1))
     super.main(args)
   }
 
@@ -47,8 +50,8 @@ object Demo extends SimpleSwingApplication {
     dlg.setVisible(true)
     if (dlg.getFile != null) {
       val f   = new File(dlg.getDirectory, dlg.getFile)
-      val net = NetcdfFile.open(f.path).setImmutable()
-      resolver += net
+//      val net = NetcdfFile.open(f.path).setImmutable()
+//      resolver += net
       val (dsH, names)  = system.step { implicit tx =>
         val loc = ArtifactLocation.newConst[S](f.parent)
         val art = Artifact(loc, f)

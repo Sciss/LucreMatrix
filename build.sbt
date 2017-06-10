@@ -12,7 +12,7 @@ lazy val netCDFVersion      = "4.6.10"
 lazy val audioFileVersion   = "1.4.6"
 lazy val fileCacheVersion   = "0.3.4"
 lazy val lucreVersion       = "3.4.0"
-lazy val fscapeVersion      = "2.7.0"
+lazy val fscapeVersion      = "2.7.1-SNAPSHOT"
 
 // ---- core/test dependencies ----
 

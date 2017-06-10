@@ -12,8 +12,13 @@ import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ContextImpl[S <: Sys[S]]
-  extends UGenGraphBuilder.Context[S] /* UGenGraphBuilderContextImpl[S] */ {
+trait UGBContextBase[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
+  def requestInput[Res](req: Input {type Value = Res}, io: IO[S] with UGenGraphBuilder)
+                       (implicit tx: S#Tx): Res =
+    throw new IllegalStateException(s"Unsupported input request $req")
+}
+
+trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
 
   // ---- abstract ----
 
@@ -31,6 +36,20 @@ trait ContextImpl[S <: Sys[S]]
 
   implicit protected final def cursor    : stm.Cursor[S]       = context.cursor
   implicit protected final def workspace : WorkspaceHandle[S]  = context.workspaceHandle
+
+  abstract override def requestInput[Res](req: Input {type Value = Res}, io: IO[S] with UGenGraphBuilder)
+                                         (implicit tx: S#Tx): Res = req match {
+    case Matrix.ValueSeq    (vr)       => requestMatrixValueSeq   (vr)
+    case Matrix.ValueWindow (vr, dims) => requestMatrixValueWindow(vr, dims)
+    case i: Dim.Size                   => requestDimInfo   (i)
+    case i: Dim.SuccSize               => requestDimInfo   (i)
+    case i: Matrix.Size                => requestMatrixInfo(i)
+    case i: Matrix.Rank                => requestMatrixInfo(i)
+    case i: Matrix.Spec                => requestVarSpec   (i, io)
+    //    case i: UserValue                  => requestUserValue (i)
+
+    case _ => super.requestInput(req, io)
+  }
 
   private def requestDim(dim: Dim)(implicit tx: S#Tx): (LMatrix[S], Int) = {
 //    val f       = fscape
@@ -217,17 +236,4 @@ trait ContextImpl[S <: Sys[S]]
 //    UserValue.Value(valOpt)
 //  }
 
-  override def requestInput[Res](req: Input {type Value = Res}, io: IO[S] with UGenGraphBuilder)
-                                (implicit tx: S#Tx): Res = req match {
-    case Matrix.ValueSeq    (vr)       => requestMatrixValueSeq   (vr)
-    case Matrix.ValueWindow (vr, dims) => requestMatrixValueWindow(vr, dims)
-    case i: Dim.Size                   => requestDimInfo   (i)
-    case i: Dim.SuccSize               => requestDimInfo   (i)
-    case i: Matrix.Size                => requestMatrixInfo(i)
-    case i: Matrix.Rank                => requestMatrixInfo(i)
-    case i: Matrix.Spec                => requestVarSpec   (i, io)
-//    case i: UserValue                  => requestUserValue (i)
-
-    case _ => ??? // RRR super.requestInput(req, io)
-  }
 }

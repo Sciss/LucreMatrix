@@ -431,11 +431,7 @@ object ReduceImpl {
         inF match {
           // group several averaging operations into one offline program
           case t: ReaderFactoryImpl.Average[S] =>
-            val avgDimName  = in0.dimensions.apply(dimIdx).name
-            val inKeyT      = t.key
-            val sectionNew  = t.section.updated(dimIdx, 0 to 0)
-            val newKey      = t.key.copy(section = sectionNew, avgDims = inKeyT.avgDims :+ avgDimName)
-            new ReaderFactoryImpl.Average[S](t.inH, newKey)
+            t.reduceAvg(dimIdx)
 
           case t: ReaderFactoryImpl.HasSection[S] =>
             val rangeOld = t.section(dimIdx)
@@ -449,7 +445,7 @@ object ReduceImpl {
               val avgDimName  = in0.dimensions.apply(dimIdx).name
               val newKey      = ReaderFactoryImpl.AverageKey(inKey, streamDim = streamDim, section = sectionOut,
                 avgDims = Vector(avgDimName))
-              new ReaderFactoryImpl.Average[S](inH, newKey)
+              new ReaderFactoryImpl.Average[S](inH, in0.name, newKey)
             }
 
           case _ =>

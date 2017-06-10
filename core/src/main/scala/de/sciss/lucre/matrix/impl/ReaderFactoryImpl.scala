@@ -15,7 +15,12 @@
 package de.sciss.lucre.matrix
 package impl
 
+import at.iem.sysson.fscape.graph
 import de.sciss.file._
+import de.sciss.fscape.lucre.{Cache, UGenGraphBuilder => UGB}
+import de.sciss.fscape.lucre.impl.RenderingImpl
+import de.sciss.fscape.lucre.impl.RenderingImpl.CacheValue
+import de.sciss.fscape.stream.Control
 import de.sciss.fscape.{GE, Graph}
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
@@ -25,6 +30,7 @@ import de.sciss.serial.DataOutput
 import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 object ReaderFactoryImpl {
   final val TransparentType = 0
@@ -56,6 +62,9 @@ object ReaderFactoryImpl {
     }
   }
 
+  /** @param file       the NetCDF file
+    * @param name       the variable name
+    */
   final case class TransparentKey(file: File, name: String, streamDim: Int, section: Vec[Range])
     extends KeyHasSection {
 
@@ -162,13 +171,59 @@ object ReaderFactoryImpl {
     }
   }
 
-  final class Average[S <: Sys[S]](val inH: stm.Source[S#Tx, Matrix[S]], val key: AverageKey)
+  private final class AvgUGBContext[S <: Sys[S]](avg: Average[S])(implicit protected val context: GenContext[S],
+                                                                  protected val executionContext: ExecutionContext)
+    extends UGBContextBase[S] with UGBContextImpl[S] {
+    
+    private[this] var fOut = Option.empty[File]
+    
+    def resources: List[File] = fOut.toList
+
+    protected def findMatrix(vr: graph.Matrix)(implicit tx: S#Tx): Matrix[S] = {
+      if (vr.name != "in") sys.error(s"Unknown matrix ${vr.name}")
+      avg.input
+    }
+
+    protected def requestDim(vrName: String, dimNameL: String)(implicit tx: S#Tx): Option[(Matrix[S], Int)] =
+      if (vrName != "in") None else {
+        val mat     = avg.input
+        val dimIdx  = mat.dimensions.indexWhere(_.name == dimNameL)
+        if (dimIdx < 0) None else Some(mat -> dimIdx)
+      }
+
+    override def requestInput[Res](req: UGB.Input { type Value = Res }, 
+                                   io: UGB.IO[S] with UGB)(implicit tx: S#Tx): Res = 
+      req match {
+        case UGB.Input.Attribute("out") =>
+          if (fOut.isEmpty) {
+            val res = Cache.createTempFile()
+            fOut = Some(res)
+          }
+          UGB.Input.Attribute.Value(fOut)
+          
+        case _ => super.requestInput(req, io)
+      } 
+  }
+
+  final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], name: String, val key: AverageKey)
     extends HasSection[S] {
 
-    def reduce(dimIdx: Int, range: Range): HasSection[S] = {
-      import key.{copy, source, streamDim}
-      val newKey = copy(source = source, streamDim = streamDim, section = section.updated(dimIdx, range))
-      new Average[S](inH, newKey)
+    def input(implicit tx: S#Tx): Matrix[S] = inH()
+
+    def reduce(dimIdx: Int, range: Range): HasSection[S] = reduceAvgOpt(dimIdx, range, None)
+
+    def reduceAvg(dimIdx: Int)(implicit tx: S#Tx): Average[S] = {
+      val in0         = inH()
+      val avgDimName  = in0.dimensions.apply(dimIdx).name
+      reduceAvgOpt(dimIdx, 0 to 0, Some(avgDimName))
+    }
+
+    private def reduceAvgOpt(dimIdx: Int, range: Range, avgDimName: Option[String]): Average[S] = {
+      import key.{copy, source, streamDim, avgDims}
+      val newDims = avgDims ++ avgDimName
+      val newKey  = copy(source = source, streamDim = streamDim,
+        section = section.updated(dimIdx, range), avgDims = newDims)
+      new Average[S](inH, name = name, key = newKey)
     }
 
     def section: Vec[Range] = key.section
@@ -203,10 +258,45 @@ object ReaderFactoryImpl {
         val mOut    = sumTrunc / cntTrunc
         val specIn  = mIn.spec
         val specOut = dims.foldLeft(specIn)(_ drop _) // specIn.drop(dim1).drop(dim2)
-        MkMatrix("out", specOut, mOut)
+//        MkMatrix ("out", specOut, mOut)
+        MatrixOut("out", specOut, mOut)
       }
 
-      ??? // RRR
+      val ugbContext  = new AvgUGBContext(this)
+      val ctlConfig   = Control.Config()
+      ctlConfig.executionContext = exec
+      implicit val control: Control = Control(ctlConfig)
+      import context.{cursor, workspaceHandle}
+      val uState = UGB.build(ugbContext, g)
+      uState match {
+        case res: UGB.Complete[S] =>
+          val fut: Future[CacheValue] = RenderingImpl.acquire[S](res.structure) {
+            try {
+              control.runExpanded(res.graph)
+              val fut = control.status
+              fut.map { _ =>
+                val resources   = ugbContext.resources
+                val data        = Map.empty[String, Array[Byte]]
+                new CacheValue(resources, data)
+              }
+            } catch {
+              case NonFatal(ex) =>
+                Future.failed(ex)
+            }
+          }
+
+          fut.flatMap { cv =>
+            val ncFile  = cv.resources.head
+            val tKey    = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
+            val tFact   = new Transparent[S](tKey)
+            cursor.step { implicit tx =>
+              tFact.reader()
+            }
+          }
+
+        case res: UGB.Incomplete[S] =>
+          Future.failed(new Exception(res.rejectedInputs.mkString("Missing inputs: ", ", ", "")))
+      }
     }
   }
 }
