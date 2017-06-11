@@ -217,7 +217,7 @@ object ReaderFactoryImpl {
   final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], name: String, val key: AverageKey)
     extends HasSection[S] { factory =>
 
-    if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} new($name, $key)")
+    if (DEBUG) debugPrint(s"new($name, $key)")
 
     def size: Long = key.size
 
@@ -240,6 +240,9 @@ object ReaderFactoryImpl {
     }
 
     def section: Vec[Range] = key.section
+
+    private def debugPrint(what: String): Unit =
+      println(s"--RF-- avg${factory.hashCode().toHexString} $what")
 
     def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
                  context: GenContext[S]): Future[Reader] = {
@@ -283,22 +286,24 @@ object ReaderFactoryImpl {
       import context.{cursor, workspaceHandle}
       val uState = UGB.build(ugbContext, g)
 
-      if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} reader(); uState = $uState")
+      if (DEBUG) debugPrint(s"reader(); uState = $uState")
 
       uState match {
         case res: UGB.Complete[S] =>
-          val fut: Future[CacheValue] = RenderingImpl.acquire[S](res.structure) {
+          val cacheKey = res.structure
+          if (DEBUG) debugPrint(s"cacheKey = $cacheKey")
+          val fut: Future[CacheValue] = RenderingImpl.acquire[S](cacheKey) {
             try {
-              if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded")
+              if (DEBUG) debugPrint("runExpanded")
               control.runExpanded(res.graph)
               val fut = control.status
               fut.map { _ =>
-                if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded cache: ${ugbContext.resources}")
+                if (DEBUG) debugPrint(s"runExpanded cache: ${ugbContext.resources}")
                 new CacheValue(ugbContext.resources, Map.empty)
               }
             } catch {
               case NonFatal(ex) =>
-                if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded failed: $ex")
+                if (DEBUG) debugPrint(s"runExpanded failed: $ex")
                 Future.failed(ex)
             }
           }
@@ -306,7 +311,7 @@ object ReaderFactoryImpl {
           fut.flatMap { cv =>
             val ncFile :: Nil = cv.resources
             val tKey    = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
-            if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} tKey $tKey")
+            if (DEBUG) debugPrint(s"tKey $tKey")
             val tFact   = new Transparent[S](tKey)
             cursor.step { implicit tx =>
               tFact.reader()

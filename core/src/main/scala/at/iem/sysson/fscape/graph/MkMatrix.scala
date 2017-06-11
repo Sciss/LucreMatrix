@@ -76,10 +76,10 @@ final case class MkMatrix(key: String, spec: Matrix.Spec, in: GE)
   }
 
   protected def makeUGens(implicit b: UGenGraph.Builder): UGenInLike = {
-    val ub          = UGenGraphBuilder.get(b)
-    val refOpt      = ub.requestOutput(this)
-    val specVal     = ub.requestInput(spec)
-    val ref         = refOpt.getOrElse(sys.error(s"Missing output $key"))
+    val ub      = UGenGraphBuilder.get(b)
+    val refOpt  = ub.requestOutput(this)
+    val specVal = ub.requestInput(spec)
+    val ref     = refOpt.getOrElse(sys.error(s"Missing output $key"))
     MkMatrix.WithRef(spec = specVal, in = in, ref = ref)
   }
 }
