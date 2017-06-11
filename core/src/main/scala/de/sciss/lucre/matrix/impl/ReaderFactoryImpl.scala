@@ -31,6 +31,7 @@ import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.stm.Txn
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.control.NonFatal
 
 object ReaderFactoryImpl {
   final val TransparentType = 0
@@ -319,14 +320,17 @@ object ReaderFactoryImpl {
       // to provide a future that we can flatMap?
       rendering.reactNow { implicit tx => {
         case Rendering.Completed =>
-          val renderingRes = rendering.result.get
-          val fut: Future[Reader] = renderingRes.fold[Future[Reader]](ex => Future.failed(ex), { _ =>
-            val ncFile :: Nil = ugb.cacheFiles // cv.resources
+          val fut: Future[Reader] = try {
+            val cv = rendering.cacheResult.get.get
+            val ncFile :: Nil = cv.resources // ugb.cacheFiles
             val tKey = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
             if (DEBUG) debugPrint(s"tKey $tKey")
             val tFact = new Transparent[S](tKey)
             tFact.reader()
-          })
+          } catch {
+            case NonFatal(ex) =>
+              Future.failed(ex)
+          }
           tx.afterCommit(promise.completeWith(fut))
 
         case _ =>
