@@ -52,14 +52,14 @@ object MatrixViewImpl {
                                         exec: ExecutionContext, context: GenContext[S], undo: UndoManager)
     extends MatrixView[S] with ComponentHolder[Component] with ModelImpl[MatrixView.Update] {
 
-    private val _matrixObs  = Ref(Option.empty[stm.Disposable[S#Tx]])
-    private val _matrix     = Ref(Option.empty[stm.Source[S#Tx, Matrix    [S]]])
-    private val _matrixVar  = Ref(Option.empty[stm.Source[S#Tx, Matrix.Var[S]]])
-    private val dimViews    = Ref(Vec.empty[DimensionView[S]])
-    private var editable    = false
+    private[this] val _matrixObs  = Ref(Option.empty[stm.Disposable[S#Tx]])
+    private[this] val _matrix     = Ref(Option.empty[stm.Source[S#Tx, Matrix    [S]]])
+    private[this] val _matrixVar  = Ref(Option.empty[stm.Source[S#Tx, Matrix.Var[S]]])
+    private[this] val dimViews    = Ref(Vec.empty[DimensionView[S]])
+    private[this] var editable    = false
 
     // private lazy val p = new BoxPanel(Orientation.Vertical)
-    private lazy val p = new GridBagPanel
+    private[this] lazy val p = new GridBagPanel
 
     def matrix(implicit tx: S#Tx): Option[Matrix[S]] = _matrix.get(tx.peer).map(_.apply())
 
@@ -196,9 +196,9 @@ object MatrixViewImpl {
       }
     }
 
-    private lazy val ggName = new Label("<none>")
+    private[this] lazy val ggName = new Label("<none>")
 
-    private lazy val topPane: Component = {
+    private[this] lazy val topPane: Component = {
       val p       = new BoxPanel(Orientation.Vertical)
       p.contents += ggName
       val sep     = Separator()
@@ -207,7 +207,7 @@ object MatrixViewImpl {
       p
     }
 
-    private val _nameVisible = Ref(initialValue = true)
+    private[this] val _nameVisible = Ref(initialValue = true)
     def nameVisible(implicit tx: S#Tx): Boolean = _nameVisible.get(tx.peer)
     def nameVisible_=(value: Boolean)(implicit tx: S#Tx): Unit = {
       val old = _nameVisible.swap(value)(tx.peer)
@@ -216,7 +216,7 @@ object MatrixViewImpl {
       }
     }
 
-    private val _rowHeaders = Ref(Vec.empty[View[S]])
+    private[this] val _rowHeaders = Ref(Vec.empty[View[S]])
     def rowHeaders(implicit tx: S#Tx): Vec[View[S]] = _rowHeaders.get(tx.peer)
 
     def rowHeaders_=(views: Vec[View[S]])(implicit tx: S#Tx): Unit = {

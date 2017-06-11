@@ -114,11 +114,11 @@ object DimensionView {
       editOpt.foreach(undo.add)
     }
 
-    private lazy val addAction = new Action(null) {
+    private[this] lazy val addAction = new Action(null) {
       icon = PlusIcon
       def apply(): Unit = performAdd()
     }
-    private lazy val ggAdd = new Button(addAction)
+    private[this] lazy val ggAdd = new Button(addAction)
 
     def guiInit(redIsEmpty0: Boolean, redIsLeaf0: Boolean): Unit = {
       val lb    = new Label(name)

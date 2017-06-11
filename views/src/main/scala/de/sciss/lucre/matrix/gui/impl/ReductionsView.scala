@@ -38,7 +38,7 @@ object ReductionsView {
   private final class Impl[S <: Sys[S]](val dimName: String)
     extends ReductionsView[S] with ComponentHolder[BoxPanel] with ModelImpl[ReductionsView.Update] {
 
-    private val children = Ref(Vec.empty[ReductionView[S]])
+    private[this] val children = Ref(Vec.empty[ReductionView[S]])
 
     def guiInit(): Unit = {
       component = new BoxPanel(Orientation.Horizontal)
