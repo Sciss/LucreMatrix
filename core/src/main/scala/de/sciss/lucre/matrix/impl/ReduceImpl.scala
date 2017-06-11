@@ -44,11 +44,9 @@ object ReduceImpl {
   private val anySer = new Ser[NoSys]
 
   def readIdentifiedOp[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] = {
-    val targets = Targets.read(in, access)
-
-    def readNode()(implicit tx: S#Tx): Op[S] = {
+    def readNode(targets: Targets[S]): Op[S] = {
       val tpe   = in.readInt()
-      require(tpe == Op.typeID, s"Unexpected type id (found $tpe, expected ${Op.typeID})")
+      if (tpe != Op.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeID})")
       val opID  = in.readInt()
       (opID: @switch) match {
         case Op.Apply.opID =>
@@ -74,33 +72,41 @@ object ReduceImpl {
       }
     }
 
-    def readIdentifiedOpVar()(implicit tx: S#Tx): Op.Var[S] = {
+    def readConst(): Op[S] = {
+      val cookie = in.readByte()
+      if (cookie != 1) sys.error(s"Unexpected cookie (found $cookie, expected 1)")
+      val tpe   = in.readInt()
+      if (tpe != Op.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeID})")
+      val opID  = in.readInt()
+      (opID: @switch) match {
+        case Op.Average.opID =>
+          new OpAverageImpl[S]
+
+        case _ => sys.error(s"Unsupported operator id $opID")
+      }
+    }
+
+    def readIdentifiedOpVar(targets: Targets[S]): Op.Var[S] = {
       val ref = tx.readVar[Op[S]](targets.id, in)
       new OpVarImpl[S](targets, ref)
     }
 
     (in.readByte(): @switch) match {
-      case 0      => readIdentifiedOpVar()
-      case 1      => readNode()
-      case other  => sys.error(s"Unsupported cookie $other")
+      case 0 =>
+        val targets = Targets.readIdentified(in, access)
+        (in.readByte(): @switch) match {
+          case 0      => readIdentifiedOpVar(targets)
+          case 1      => readNode           (targets)
+          case other  => sys.error(s"Unsupported cookie $other")
+        }
+
+      case 3 => readConst()
+
+      case other => sys.error(s"Unsupported cookie $other")
     }
   }
 
   private final class Ser[S <: Sys[S]] extends Serializer[S#Tx, S#Acc, Reduce[S]] {
-
-//    def read(in: DataInput, access: S#Acc, targets: evt.Targets[S])(implicit tx: S#Tx): Reduce[S] = {
-//      val cookie = in.readByte() // 'node'
-//      if (cookie != 1) sys.error(s"Unexpected cookie (found $cookie, expected 1")
-//      val tpe     = in.readInt()  // 'type'
-//      if (tpe != Matrix.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
-//      val opID  = in.readInt()    // 'op'
-//      if (opID != Reduce.opID) sys.error(s"Unexpected operator id (found $opID, expected ${Reduce.opID})")
-//      readIdentified[S](in, access, targets)
-//    }
-//
-//    def readConstant(in: DataInput)(implicit tx: S#Tx): Reduce[S] =
-//      sys.error("Unsupported constant reduce matrix")
-
     def read(in: DataInput, access: S#Acc)(implicit tx: S#Tx): Reduce[S] =
       Matrix.read(in, access) match {
         case r: Reduce[S] => r
@@ -398,8 +404,8 @@ object ReduceImpl {
     def size(in: Int)(implicit tx: S#Tx): Int = math.min(in, 1)
 
     protected def writeData(out: DataOutput): Unit = {
-      out writeByte 1 // cookie
-      out writeInt Op.typeID
+      out writeByte 1           // cookie XXX TODO --- what was the purpose of this ceremony again?
+      out writeInt Op.typeID    //        XXX TODO --- what was the purpose of this ceremony again?
       out writeInt Op.Average.opID
     }
 
