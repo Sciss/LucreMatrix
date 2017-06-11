@@ -54,3 +54,88 @@ Analysis:
   And then this means we can reuse most of the existing things
   in place, including `graph.Matrix` and `graph.MatrixOut`.
 
+--------
+
+# Problems
+
+the rt code builds multiple readers, which means multiple instances of RF.Avg are created.
+(this should only be a slight performance issue, but not a real problem, because rendering
+will be cached, or not?)
+
+`requestVarSpec` ends up with a longitude reader --- why?
+
+das kommt wiederum von `Matrix(blobs).play(Dim(Var("anom"),time).play(UserValue$GE(control,UserValue(speed,6.0))))` ?
+
+- ok, so the multiple invocations are unfortunate but correct
+
+It seems though that the FScape graph is prematurely terminated (for the full 7200 matrix).
+Perhaps it's a problem of two graphs running on the same akka actor system?
+
+Or the patch didn't play nicely with the matrix of size 1? In any case, can we shortcut
+`prepareDimensionReader` for avg when the dimension equals the avg dimension?
+
+-------------
+
+log:
+
+- four 'new' calls: 3x temp, 1x longitude
+- caching seems to work to some degree, as only
+  two times the streaming is actually performed, and
+  in fact two output files are generated
+- so there are two possibilities: the "Output was not provided"
+  refers to the two rendered instances, or to the two caches
+- the exception would be thrown from the blob-detection offline
+  graph?
+- note: the exception is only thrown once but printed twice
+
+
+    --RF-- avg6c763ab1 new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]),-1,Vector(Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181),Vector(Longitude)))
+    --RF-- avg6c763ab1 reader(); uState = Complete(accepted: [AttributeKey(out), Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [])
+    --RF-- avg6e8fb317 new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]),-1,Vector(Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181),Vector(Longitude)))
+    --RF-- avg5054e04 new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]),-1,Vector(Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181),Vector(Longitude)))
+    --RF-- avg7ce858b9 new(Longitude, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Longitude, streamDim = 0, section = [0 until 12]),0,Vector(Range 0 until 1),Vector(Longitude)))
+    --RF-- avg7ce858b9 reader(); uState = Complete(accepted: [AttributeKey(out), Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [])
+    --RF-- avg6c763ab1 runExpanded
+    --RF-- avg7ce858b9 runExpanded
+    --RF-- avg7ce858b9 runExpanded cache: List(/home/hhrutz/mellite/cache/fscape8287189673420720522.bin)
+    --RF-- avg7ce858b9 tKey Reduce.Key.Transparent(fscape8287189673420720522, Longitude, streamDim = 0, section = [0 until 1])
+    --RF-- avg6c763ab1 runExpanded cache: List(/home/hhrutz/mellite/cache/fscape1697324117346701235.bin)
+    --RF-- avg6c763ab1 tKey Reduce.Key.Transparent(fscape1697324117346701235, Temperature, streamDim = -1, section = [0 until 180][0 until 1][0 until 1][0 until 181])
+    total-blobs: 33.0
+    mOut.size: 7200
+    java.lang.IllegalStateException: Output was not provided
+        at de.sciss.fscape.lucre.UGenGraphBuilder$OutputRefImpl.writer(UGenGraphBuilder.scala:524)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$2(RenderingImpl.scala:105)
+        at scala.collection.immutable.List.foreach(List.scala:389)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$1(RenderingImpl.scala:102)
+        at scala.util.Success.$anonfun$map$1(Try.scala:251)
+        at scala.util.Success.map(Try.scala:209)
+        at scala.concurrent.Future.$anonfun$map$1(Future.scala:287)
+        at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:29)
+        at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:29)
+        at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:60)
+        at scala.concurrent.impl.ExecutionContextImpl$AdaptedForkJoinTask.exec(ExecutionContextImpl.scala:140)
+        at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:289)
+        at java.util.concurrent.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:1056)
+        at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1692)
+        at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:157)
+    java.lang.IllegalStateException: Output was not provided
+        at de.sciss.fscape.lucre.UGenGraphBuilder$OutputRefImpl.writer(UGenGraphBuilder.scala:524)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$2(RenderingImpl.scala:105)
+        at scala.collection.immutable.List.foreach(List.scala:389)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$1(RenderingImpl.scala:102)
+        at scala.util.Success.$anonfun$map$1(Try.scala:251)
+        at scala.util.Success.map(Try.scala:209)
+        at scala.concurrent.Future.$anonfun$map$1(Future.scala:287)
+        at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:29)
+        at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:29)
+        at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:60)
+        at scala.concurrent.impl.ExecutionContextImpl$AdaptedForkJoinTask.exec(ExecutionContextImpl.scala:140)
+        at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:289)
+        at java.util.concurrent.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:1056)
+        at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1692)
+        at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:157)
+
+-----
+
+Ok, next. NPE in MatrixOut.AbstractLogic -> onComplete(Success) after writing vars apparently.

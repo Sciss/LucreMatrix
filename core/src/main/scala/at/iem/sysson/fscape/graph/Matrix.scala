@@ -231,6 +231,8 @@ object Matrix {
     /** Like `drop` but keeps the dimension at size 1 */
     def reduce  (dim: Dim    ): Spec = copy(ops = ops :+ Op.Reduce  (dim))
 
+    def size: GE = SpecSize(this)
+
     private def unCapitalize(s: String): String =
       if (s.isEmpty || s.charAt(0).isLower) s
       else {
@@ -268,6 +270,22 @@ object Matrix {
     def variable: Matrix
 
     final def key: Key  = this
+  }
+
+  final case class SpecSize(spec: Spec) extends GE.Lazy {
+    type Key    = Spec
+    type Value  = Spec.Value
+
+    override def productPrefix: String  = s"Matrix$$SpecSize"
+    override def toString               = s"$spec.size"
+
+//    def variable: Matrix = spec.variable
+
+    protected def makeUGens(implicit b: UGenGraph.Builder): UGenInLike = {
+      val ub    = UGB.get(b)
+      val value = ub.requestInput(spec)
+      ConstantL(value.size)
+    }
   }
 
   final case class Size(variable: Matrix) extends InfoGE {

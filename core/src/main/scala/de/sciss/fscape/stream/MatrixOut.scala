@@ -95,20 +95,34 @@ object MatrixOut {
       val callback = getAsyncCallback[Try[Vec[Vec[Double]]]] {
         case Success(dimsData) =>
           writer = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf3, file.path, null)
-          val varDims = new util.ArrayList[nc2.Dimension](rank)
+          val varDims  = new util.ArrayList[nc2.Dimension](rank)
+          val varName  = spec.name
+          var varIsDim = false
           val dimsVars: Vec[nc2.Variable] = spec.dimensions.map { dimSpec =>
             val dim   = writer.addDimension(null, dimSpec.name, dimSpec.size)
             val dimL  = new util.ArrayList[nc2.Dimension](1)
             dimL.add(dim)
             varDims.add(dim)
-            val dimVar = writer.addVariable(null, dimSpec.name, DataType.DOUBLE, dimL)
+            val dimName = dimSpec.name
+            if (dimName == varName) varIsDim = true
+
+            val dimVar  = writer.addVariable(null, dimSpec.name, DataType.DOUBLE, dimL)
             if (!dimSpec.units.isEmpty)
               dimVar.addAttribute(new nc2.Attribute(CDM.UNITS, dimSpec.units))
 
             dimVar
           }
 
-          outVar = writer.addVariable(null, spec.name, DataType.DOUBLE, varDims)
+          outVar = if (varIsDim) {
+            writer.findVariable(varName)
+          } else {
+            writer.addVariable(null, varName, DataType.DOUBLE, varDims)
+          }
+
+          if (outVar == null) {
+            throw new IllegalStateException(s"Trying to define variable $varName twice")
+          }
+
           if (!spec.units.isEmpty)
             outVar.addAttribute(new nc2.Attribute(CDM.UNITS, spec.units))
 
@@ -120,7 +134,7 @@ object MatrixOut {
             writer.write(dimVar, arr)
           }
 
-          if (isAvailable(shape.in) && isAvailable(shape.out)) process()
+          if (isAvailable(shape.in ) && isAvailable(shape.out)) process()
 
         case Failure(ex) =>
           failStage(ex)

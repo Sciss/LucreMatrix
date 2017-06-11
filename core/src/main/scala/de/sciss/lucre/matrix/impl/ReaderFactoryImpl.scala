@@ -37,6 +37,8 @@ object ReaderFactoryImpl {
   final val CloudyType      = 1
   final val AverageType     = 2
 
+  var DEBUG = false
+
   trait HasSection[S <: Sys[S]] extends Matrix.ReaderFactory[S] {
     def section: Vec[Range]
 
@@ -213,7 +215,9 @@ object ReaderFactoryImpl {
   }
 
   final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], name: String, val key: AverageKey)
-    extends HasSection[S] {
+    extends HasSection[S] { factory =>
+
+    if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} new($name, $key)")
 
     def size: Long = key.size
 
@@ -278,24 +282,31 @@ object ReaderFactoryImpl {
       implicit val control: Control = Control(ctlConfig)
       import context.{cursor, workspaceHandle}
       val uState = UGB.build(ugbContext, g)
+
+      if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} reader(); uState = $uState")
+
       uState match {
         case res: UGB.Complete[S] =>
           val fut: Future[CacheValue] = RenderingImpl.acquire[S](res.structure) {
             try {
+              if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded")
               control.runExpanded(res.graph)
               val fut = control.status
               fut.map { _ =>
+                if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded cache: ${ugbContext.resources}")
                 new CacheValue(ugbContext.resources, Map.empty)
               }
             } catch {
               case NonFatal(ex) =>
+                if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} runExpanded failed: $ex")
                 Future.failed(ex)
             }
           }
 
           fut.flatMap { cv =>
-            val ncFile :: Nil= cv.resources
+            val ncFile :: Nil = cv.resources
             val tKey    = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
+            if (DEBUG) println(s"--RF-- avg${factory.hashCode().toHexString} tKey $tKey")
             val tFact   = new Transparent[S](tKey)
             cursor.step { implicit tx =>
               tFact.reader()
