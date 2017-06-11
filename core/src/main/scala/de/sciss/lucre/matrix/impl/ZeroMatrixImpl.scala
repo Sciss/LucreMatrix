@@ -87,6 +87,10 @@ object ZeroMatrixImpl {
   private final case class KeyImpl(shapeConst: Vec[Int], streamDim: Int)
     extends impl.KeyImpl {
 
+    def shape : Vec[Int]  = shapeConst
+    def rank  : Int       = shape.size
+    def size  : Long      = (1L /: shape)(_ * _)
+
     protected def opID: Int = ZeroMatrixImpl.opID
 
     override def toString = s"ZeroMatrix.Key(shape = ${shapeConst.mkString("[","][","]")}, streamDim = $streamDim)"
@@ -99,6 +103,8 @@ object ZeroMatrixImpl {
 
   private final class ReaderFactoryImpl[S <: Sys[S]](val key: KeyImpl)
     extends Matrix.ReaderFactory[S] {
+
+    def size: Long = key.size
 
     override def toString = s"ZeroMatrix.ReaderFactory($key)"
 

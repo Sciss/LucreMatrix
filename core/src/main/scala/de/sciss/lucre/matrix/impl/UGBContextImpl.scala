@@ -131,7 +131,7 @@ trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
           buf.toIndexedSeq
         }
         val dim   = dimsIn(dimIdx)
-        val szL   = dim.size
+        val szL   = dimRF.size // dim.size
         val sz    = if (szL <= 0x7FFFFFFF) szL.toInt else sys.error(s"Integer overflow: $szL")
         Matrix.Spec.DimRead(dim.name, dim.units, sz, dimRF.key, valuesF)
       }

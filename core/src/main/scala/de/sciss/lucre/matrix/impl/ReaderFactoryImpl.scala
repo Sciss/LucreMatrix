@@ -48,6 +48,10 @@ object ReaderFactoryImpl {
 
     def section: Vec[Range]
 
+    final def shape : Vec[Int]  = section.map(_.size)
+    final def rank  : Int       = section.size
+    final def size  : Long      = (1L /: section)(_ * _.size)
+
     protected def tpeID: Int
 
     protected def writeFactoryData(out: DataOutput): Unit
@@ -94,6 +98,8 @@ object ReaderFactoryImpl {
 
     override def toString = s"Reduce.ReaderFactory($key)"
 
+    def size: Long = key.size
+
     def reduce(dimIdx: Int, range: Range): HasSection[S] = {
       import key.{copy, file, name, streamDim}
       val newKey = copy(file = file, name = name, streamDim = streamDim, section = section.updated(dimIdx, range))
@@ -133,7 +139,8 @@ object ReaderFactoryImpl {
 
     protected def tpeID: Int = CloudyType
 
-    def section: Vec[Range] = key.section
+    def section : Vec[Range]  = key.section
+    def size    : Long        = key.size
 
     def reduce(dimIdx: Int, range: Range): HasSection[S] = {
       import key.{copy, source}
@@ -207,6 +214,8 @@ object ReaderFactoryImpl {
 
   final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], name: String, val key: AverageKey)
     extends HasSection[S] {
+
+    def size: Long = key.size
 
     def input(implicit tx: S#Tx): Matrix[S] = inH()
 

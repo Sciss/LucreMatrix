@@ -178,6 +178,8 @@ object ConstMatrixImpl {
 
     def key: Matrix.Key = this
 
+    def size: Long = data.size
+
     def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
                  context: GenContext[S]): Future[Reader] =
       Future.successful(new ReaderImpl(this))
@@ -201,6 +203,8 @@ object ConstMatrixImpl {
   }
 
   final case class Data(name: String, units: String, shape: Vec[Int], flatData: Vec[Double]) {
+    def size: Int = flatData.size
+
     def write(out: DataOutput): Unit = {
       out.writeUTF(name)
       out.writeUTF(units)

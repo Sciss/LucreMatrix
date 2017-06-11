@@ -160,7 +160,11 @@ object Matrix extends Obj.Type {
     implicit def serializer: ImmutableSerializer[Key] = impl.KeyImpl.serializer
   }
   trait ReaderFactory[S <: Sys[S]] {
-     def key: Key
+    def key: Key
+
+//    def rank : Int
+    def size : Long
+//    def shape: Vec[Int]
 
     /** Creates a reader instance that can the be used to retrieve the actual matrix data.
       *
