@@ -139,3 +139,71 @@ log:
 -----
 
 Ok, next. NPE in MatrixOut.AbstractLogic -> onComplete(Success) after writing vars apparently.
+
+---
+
+blank cache
+    
+    --RF-- avg15baf19c new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][18 to 18][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg15baf19c requestOutput(avg-out)
+    --RF-- avg15baf19c reader(); uState = Complete(accepted: [Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [avg-out])
+    --RF-- avg12e23c19 new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][18 to 18][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg472bf641 new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][18 to 18][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg691480e0 new(Longitude, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Longitude, streamDim = 0, section = [0 until 12]), streamDim = 0, section = [Range 0 until 1], avgDims = [Longitude]))
+    --RF-- avg691480e0 requestOutput(avg-out)
+    --RF-- avg691480e0 reader(); uState = Complete(accepted: [Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [avg-out])
+    --RF-- avg691480e0 tKey Reduce.Key.Transparent(fscape1057418049092315810, Longitude, streamDim = 0, section = [0 until 1])
+    --RF-- avg15baf19c tKey Reduce.Key.Transparent(fscape6682111626858504412, Temperature, streamDim = -1, section = [0 until 180][0 until 1][0 until 1][0 until 181])
+    total-blobs: 33.0
+    mOut.size: 7200
+
+change space (2.5N to 2.5S) -- notice how tKey for Longitude is (correctly) missing (cached).
+    
+    --RF-- avg70c64c0e new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg70c64c0e requestOutput(avg-out)
+    --RF-- avg70c64c0e reader(); uState = Complete(accepted: [Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [avg-out])
+    --RF-- avg621d85e new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg56f464fa new(Temperature, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Temperature, streamDim = -1, section = [0 until 180][0 until 12][17 to 17][180 to 360]), streamDim = -1, section = [Range 0 until 180, Range 0 until 1, Range 0 until 1, Range 0 until 181], avgDims = [Longitude]))
+    --RF-- avg9356f3f new(Longitude, AverageKey(Reduce.Key.Transparent(5x30-climatology_2001-05-01_2016-05-01_ta_anom, Longitude, streamDim = 0, section = [0 until 12]), streamDim = 0, section = [Range 0 until 1], avgDims = [Longitude]))
+    --RF-- avg9356f3f requestOutput(avg-out)
+    --RF-- avg9356f3f reader(); uState = Complete(accepted: [Dim(Matrix(in),Longitude).size, Matrix(in), Matrix(in).spec.reduce(Dim(Matrix(in),Longitude))], outputs: [avg-out])
+    --RF-- avg70c64c0e tKey Reduce.Key.Transparent(fscape8912670812128998722, Temperature, streamDim = -1, section = [0 until 180][0 until 1][0 until 1][0 until 181])
+    total-blobs: 24.0
+    mOut.size: 7200
+    java.lang.IllegalStateException: Output out was not provided
+        at de.sciss.fscape.lucre.impl.AbstractOutputRef.writer(AbstractOutputRef.scala:40)
+        at de.sciss.fscape.lucre.impl.AbstractOutputRef.writer$(AbstractOutputRef.scala:38)
+        at de.sciss.fscape.lucre.UGenGraphBuilder$OutputRefImpl.writer(UGenGraphBuilder.scala:403)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$2(RenderingImpl.scala:112)
+        at scala.collection.immutable.List.foreach(List.scala:389)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$1(RenderingImpl.scala:109)
+        at scala.util.Success.$anonfun$map$1(Try.scala:251)
+        at scala.util.Success.map(Try.scala:209)
+        at scala.concurrent.Future.$anonfun$map$1(Future.scala:287)
+        at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:29)
+        at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:29)
+        at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:60)
+        at scala.concurrent.impl.ExecutionContextImpl$AdaptedForkJoinTask.exec(ExecutionContextImpl.scala:140)
+        at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:289)
+        at java.util.concurrent.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:1056)
+        at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1692)
+        at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:157)
+    java.lang.IllegalStateException: Output out was not provided
+        at de.sciss.fscape.lucre.impl.AbstractOutputRef.writer(AbstractOutputRef.scala:40)
+        at de.sciss.fscape.lucre.impl.AbstractOutputRef.writer$(AbstractOutputRef.scala:38)
+        at de.sciss.fscape.lucre.UGenGraphBuilder$OutputRefImpl.writer(UGenGraphBuilder.scala:403)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$2(RenderingImpl.scala:112)
+        at scala.collection.immutable.List.foreach(List.scala:389)
+        at de.sciss.fscape.lucre.impl.RenderingImpl$.$anonfun$withState$1(RenderingImpl.scala:109)
+        at scala.util.Success.$anonfun$map$1(Try.scala:251)
+        at scala.util.Success.map(Try.scala:209)
+        at scala.concurrent.Future.$anonfun$map$1(Future.scala:287)
+        at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:29)
+        at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:29)
+        at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:60)
+        at scala.concurrent.impl.ExecutionContextImpl$AdaptedForkJoinTask.exec(ExecutionContextImpl.scala:140)
+        at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:289)
+        at java.util.concurrent.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:1056)
+        at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1692)
+        at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:157)
+    

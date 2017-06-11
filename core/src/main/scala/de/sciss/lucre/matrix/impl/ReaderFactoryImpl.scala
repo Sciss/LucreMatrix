@@ -17,20 +17,20 @@ package impl
 
 import at.iem.sysson.fscape.graph
 import de.sciss.file._
-import de.sciss.fscape.lucre.{Cache, UGenGraphBuilder => UGB}
-import de.sciss.fscape.lucre.impl.RenderingImpl
-import de.sciss.fscape.lucre.impl.RenderingImpl.CacheValue
+import de.sciss.fscape.lucre.FScape.{Output, Rendering}
+import de.sciss.fscape.lucre.impl.{AbstractOutputRef, AbstractUGenGraphBuilder, RenderingImpl}
+import de.sciss.fscape.lucre.{UGenGraphBuilder => UGB}
 import de.sciss.fscape.stream.Control
 import de.sciss.fscape.{GE, Graph}
 import de.sciss.lucre.matrix.DataSource.Resolver
 import de.sciss.lucre.matrix.Matrix.Reader
 import de.sciss.lucre.matrix.impl.ReduceImpl.{TransparentReader, rangeVecSer}
 import de.sciss.lucre.stm
-import de.sciss.serial.DataOutput
+import de.sciss.serial.{DataInput, DataOutput}
 import de.sciss.synth.proc.GenContext
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
+import scala.concurrent.stm.Txn
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object ReaderFactoryImpl {
   final val TransparentType = 0
@@ -169,6 +169,12 @@ object ReaderFactoryImpl {
 
     protected def tpeID: Int = AverageType
 
+    override def toString: String = {
+      val sectionS = section.mkString("section = [", ", ", "]")
+      val avgDimsS = avgDims.mkString("avgDims = [", ", ", "]")
+      s"$productPrefix($source, streamDim = $streamDim, $sectionS, $avgDimsS)"
+    }
+
     protected def writeFactoryData(out: DataOutput): Unit = {
       source.write(out)
       out.writeShort(streamDim)
@@ -180,13 +186,14 @@ object ReaderFactoryImpl {
     }
   }
 
-  private final class AvgUGBContext[S <: Sys[S]](avg: Average[S])(implicit protected val gen: GenContext[S],
-                                                                  protected val executionContext: ExecutionContext)
-    extends UGBContextBase[S] with UGBContextImpl[S] {
+  private final class AvgUGB[S <: Sys[S]](avg: Average[S])(implicit protected val gen: GenContext[S],
+                                                           protected val executionContext: ExecutionContext)
+    extends UGBContextBase[S] with UGBContextImpl[S] with AbstractUGenGraphBuilder[S] with AbstractOutputRef[S] {
     
-    private[this] var fOut = Option.empty[File]
-    
-    def resources: List[File] = fOut.toList
+//    private[this] var fOut = Option.empty[File]
+    private[this] var rOut = Option.empty[Output.Reader]
+
+    protected def context: UGB.Context[S] = this
 
     protected def findMatrix(vr: graph.Matrix)(implicit tx: S#Tx): Matrix[S] = {
       if (vr.name != "in") sys.error(s"Unknown matrix ${vr.name}")
@@ -200,18 +207,29 @@ object ReaderFactoryImpl {
         if (dimIdx < 0) None else Some(mat -> dimIdx)
       }
 
-    override def requestInput[Res](req: UGB.Input { type Value = Res }, 
-                                   io: UGB.IO[S] with UGB)(implicit tx: S#Tx): Res = 
-      req match {
-        case UGB.Input.Attribute("out") =>
-          if (fOut.isEmpty) {
-            val res = Cache.createTempFile()
-            fOut = Some(res)
-          }
-          UGB.Input.Attribute.Value(fOut)
-          
-        case _ => super.requestInput(req, io)
-      } 
+    protected def requestOutputImpl(reader: Output.Reader): Option[UGB.OutputResult[S]] =
+      if (reader.key != "avg-out" || rOut.isDefined) None else {
+        if (DEBUG) avg.debugPrint(s"requestOutput(${reader.key})")
+        rOut = Some(reader)
+        Some(this)
+      }
+
+//    override def requestInput[Res](req: UGB.Input { type Value = Res },
+//                                   io: UGB.IO[S] with UGB)(implicit tx: S#Tx): Res =
+//      req match {
+//        case UGB.Input.Attribute("avg-out") =>
+//          if (fOut.isEmpty) {
+//            val res = Cache.createTempFile()
+//            fOut = Some(res)
+//          }
+//          UGB.Input.Attribute.Value(fOut)
+//
+//        case _ => super.requestInput(req, io)
+//      }
+
+    def reader: Output.Reader = rOut.getOrElse(sys.error("requestOutput was not called"))
+
+    def updateValue(in: DataInput)(implicit tx: S#Tx): Unit = ()
   }
 
   final class Average[S <: Sys[S]](inH: stm.Source[S#Tx, Matrix[S]], name: String, val key: AverageKey)
@@ -232,7 +250,7 @@ object ReaderFactoryImpl {
     }
 
     private def reduceAvgOpt(dimIdx: Int, range: Range, avgDimName: Option[String]): Average[S] = {
-      import key.{copy, source, streamDim, avgDims}
+      import key.{avgDims, copy, source, streamDim}
       val newDims = avgDims ++ avgDimName
       val newKey  = copy(source = source, streamDim = streamDim,
         section = section.updated(dimIdx, range), avgDims = newDims)
@@ -241,8 +259,11 @@ object ReaderFactoryImpl {
 
     def section: Vec[Range] = key.section
 
-    private def debugPrint(what: String): Unit =
-      println(s"--RF-- avg${factory.hashCode().toHexString} $what")
+    def debugPrint(what: String): Unit = {
+      val s = s"--RF-- avg${factory.hashCode().toHexString} $what"
+      val txnOpt = Txn.findCurrent
+      txnOpt.fold[Unit](println(s)) { implicit itx => Txn.afterCommit(_ => println(s)) }
+    }
 
     def reader()(implicit tx: S#Tx, resolver: Resolver[S], exec: ExecutionContext,
                  context: GenContext[S]): Future[Reader] = {
@@ -275,52 +296,43 @@ object ReaderFactoryImpl {
         val specIn  = mIn.spec
 //        val specOut = dims.foldLeft(specIn)(_ drop _)
         val specOut = dims.foldLeft(specIn)(_ reduce _)
-//        MkMatrix ("out", specOut, mOut)
-        MatrixOut("out", specOut, mOut)
+        MkMatrix ("avg-out", specOut, mOut)
+//        MatrixOut("avg-out", specOut, mOut)
       }
 
-      val ugbContext  = new AvgUGBContext(this)
+      val ugb         = new AvgUGB(this)
       val ctlConfig   = Control.Config()
       ctlConfig.executionContext = exec
       implicit val control: Control = Control(ctlConfig)
-      import context.{cursor, workspaceHandle}
-      val uState = UGB.build(ugbContext, g)
+      import context.cursor
+      val uState      = ugb.tryBuild(g) // UGB.build(ugb, g)
 
       if (DEBUG) debugPrint(s"reader(); uState = $uState")
 
-      uState match {
-        case res: UGB.Complete[S] =>
-          val cacheKey = res.structure
-          if (DEBUG) debugPrint(s"cacheKey = $cacheKey")
-          val fut: Future[CacheValue] = RenderingImpl.acquire[S](cacheKey) {
-            try {
-              if (DEBUG) debugPrint("runExpanded")
-              control.runExpanded(res.graph)
-              val fut = control.status
-              fut.map { _ =>
-                if (DEBUG) debugPrint(s"runExpanded cache: ${ugbContext.resources}")
-                new CacheValue(ugbContext.resources, Map.empty)
-              }
-            } catch {
-              case NonFatal(ex) =>
-                if (DEBUG) debugPrint(s"runExpanded failed: $ex")
-                Future.failed(ex)
-            }
-          }
+      val rendering = RenderingImpl.withState[S](uState, force = true)
+      // XXX TODO --- we observed many retries of the transaction.
+      // That may point to a conflict with the execution context and
+      // the mapping of the future. Should we enforce SoundProcesses.executionContext?
+      val promise = Promise[Reader]()
 
-          fut.flatMap { cv =>
-            val ncFile :: Nil = cv.resources
-            val tKey    = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
+      // XXX TODO --- this is quite ugly and tricky; should we force Rendering
+      // to provide a future that we can flatMap?
+      rendering.reactNow { implicit tx => {
+        case Rendering.Completed =>
+          val renderingRes = rendering.result.get
+          val fut: Future[Reader] = renderingRes.fold[Future[Reader]](ex => Future.failed(ex), { _ =>
+            val ncFile :: Nil = ugb.cacheFiles // cv.resources
+            val tKey = TransparentKey(file = ncFile, name = name, streamDim = key.streamDim, section = key.section)
             if (DEBUG) debugPrint(s"tKey $tKey")
-            val tFact   = new Transparent[S](tKey)
-            cursor.step { implicit tx =>
-              tFact.reader()
-            }
-          }
+            val tFact = new Transparent[S](tKey)
+            tFact.reader()
+          })
+          tx.afterCommit(promise.completeWith(fut))
 
-        case res: UGB.Incomplete[S] =>
-          Future.failed(new Exception(res.rejectedInputs.mkString("Missing inputs: ", ", ", "")))
-      }
+        case _ =>
+      }}
+
+      promise.future
     }
   }
 }
