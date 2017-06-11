@@ -22,7 +22,7 @@ trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
 
   // ---- abstract ----
 
-  implicit protected def genContext: GenContext[S]
+  implicit protected def gen: GenContext[S]
 
   implicit protected def executionContext: ExecutionContext
 
@@ -34,8 +34,8 @@ trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
 
   // ---- impl ----
 
-  implicit protected final def cursor    : stm.Cursor[S]       = genContext.cursor
-  implicit protected final def workspace : WorkspaceHandle[S]  = genContext.workspaceHandle
+  implicit protected final def cursor    : stm.Cursor[S]       = gen.cursor
+  implicit protected final def workspace : WorkspaceHandle[S]  = gen.workspaceHandle
 
   abstract override def requestInput[Res](req: Input {type Value = Res}, io: IO[S] with UGenGraphBuilder)
                                          (implicit tx: S#Tx): Res = req match {

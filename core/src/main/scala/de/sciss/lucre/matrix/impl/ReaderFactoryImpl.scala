@@ -171,7 +171,7 @@ object ReaderFactoryImpl {
     }
   }
 
-  private final class AvgUGBContext[S <: Sys[S]](avg: Average[S])(implicit protected val genContext: GenContext[S],
+  private final class AvgUGBContext[S <: Sys[S]](avg: Average[S])(implicit protected val gen: GenContext[S],
                                                                   protected val executionContext: ExecutionContext)
     extends UGBContextBase[S] with UGBContextImpl[S] {
     
