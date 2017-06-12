@@ -19,7 +19,7 @@ import at.iem.sysson.fscape.graph
 import de.sciss.file._
 import de.sciss.fscape.lucre.FScape.{Output, Rendering}
 import de.sciss.fscape.lucre.impl.{AbstractOutputRef, AbstractUGenGraphBuilder, RenderingImpl}
-import de.sciss.fscape.lucre.{UGenGraphBuilder => UGB}
+import de.sciss.fscape.lucre.{FScape, UGenGraphBuilder => UGB}
 import de.sciss.fscape.stream.Control
 import de.sciss.fscape.{GE, Graph}
 import de.sciss.lucre.matrix.DataSource.Resolver
@@ -302,7 +302,7 @@ object ReaderFactoryImpl {
       }
 
       val ugb         = new AvgUGB(this)
-      val ctlConfig   = Control.Config()
+      val ctlConfig   = FScape.defaultConfig.toBuilder // Control.Config()
       ctlConfig.executionContext = exec
       implicit val control: Control = Control(ctlConfig)
       import context.cursor
