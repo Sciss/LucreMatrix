@@ -2,6 +2,7 @@ package de.sciss.lucre.matrix
 
 import java.{util => ju}
 
+import at.iem.sysson.WorkspaceResolver
 import de.sciss.file._
 import de.sciss.filecache.Limit
 import de.sciss.fscape.lucre.Cache
@@ -25,7 +26,7 @@ import scala.language.implicitConversions
  */
 class CacheSpec extends fixture.FlatSpec with Matchers {
   type S            = Durable
-  type FixtureParam = (Durable, AudioFileCache, GenContext[S])
+  type FixtureParam = (AudioFileCache, GenContext[S])
 
   initTypes()
   Cache.init(File.createTemp(directory = true), Limit())
@@ -38,7 +39,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       val context = system.step { implicit tx =>
         GenContext[S]
       }
-      test((system, cache, context))
+      test((cache, context))
     }
     finally {
       system.close()
@@ -48,8 +49,9 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   implicit def mkIntConst   (i: Int   )(implicit tx: S#Tx): IntObj   .Const[S] = IntObj   .newConst(i)
   implicit def mkStringConst(s: String)(implicit tx: S#Tx): StringObj.Const[S] = StringObj.newConst(s)
 
-  "A Zeros Matrix" should "sing while you sell" in { args =>
-    implicit val (cursor, cache, context) = args
+  "A Zeros Matrix" should "sing while you sell." in { args =>
+    implicit val (cache, context) = args
+    import context.cursor
 
     val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val _z = Matrix.zeros(13, 21)
@@ -131,7 +133,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       val A = new ma2.ArrayFloat /*  ArrayDouble */ .D1(shape(0))
       val ima = A.getIndex
       for (i <- 0 until shape(0)) {
-        A.setFloat /* .setDouble */ (ima.set(i), (i * 30).toFloat)
+        A.setFloat /* .setDouble */ (ima.set(i), (i * 15).toFloat)
       }
       val origin = new Array[Int](1)
       writer.write(v, origin, A)
@@ -156,12 +158,13 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     f
   }
 
-  "A NetCDF Matrix" should "sing while you sell" in { args =>
+  "A NetCDF Matrix" should "sing while you sell.." in { args =>
     val f   = createData()
     val ncf = nc2.NetcdfFile.open(f.path)
 
-    implicit val (cursor, cache, context) = args
+    implicit val (cache, context) = args
     implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq(ncf)
+    import context.cursor
 
     val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val loc = ArtifactLocation.newConst[S](f.parent)
@@ -200,12 +203,13 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     showLog = false
   }
 
-  "A Reduced NetCDF Matrix" should "sing while you sell" in { args =>
+  "A Reduced NetCDF Matrix" should "sing while you sell..." in { args =>
     val f   = createData()
     val ncf = nc2.NetcdfFile.open(f.path)
 
-    implicit val (cursor, cache, context) = args
+    implicit val (cache, context) = args
     implicit val resolver = DataSource.Resolver.seq[S](ncf)
+    import context.cursor
 
     val Seq(fm, f0, f1) = cursor.step { implicit tx =>
       val loc = ArtifactLocation.newConst[S](f.parent)
@@ -252,10 +256,11 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
 
   "A 1D NetCDF Matrix" should "be reducible through averaging" in { args =>
     val f   = createData()
-    val ncf = nc2.NetcdfFile.open(f.path)
+    // val ncf = nc2.NetcdfFile.open(f.path)
 
-    implicit val (cursor, cache, context) = args
-    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+    implicit val (cache, context) = args
+    import context.{cursor, workspaceHandle}
+    implicit val resolver = WorkspaceResolver[S] // .Resolver.seq[S](ncf)
 
     import scala.concurrent.ExecutionContext.Implicits._
 
@@ -276,7 +281,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val buf = new Array[Double](1)
     value.readDouble1D(buf, 0, 1)
     val avg       = buf(0)
-    val expected  = (0 until 12).map(_ * 30f).sum / 12
+    val expected  = (0 until 21).map(_ * 15f).sum / 21
 
     assert(avg === expected)
   }

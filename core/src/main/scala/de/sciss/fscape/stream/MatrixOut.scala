@@ -92,6 +92,12 @@ object MatrixOut {
       val dimsFutT = spec.dimensions.map(_.values)
       val dimsFut: Future[Vec[Vec[Double]]] = Future.sequence(dimsFutT)
 
+      // in order for the asynchronous wait to work,
+      // we must make sure to _not_ call `pull` immediately,
+      // otherwise the outside graph might terminate
+      // prematurely. we have to call `pull` after the future has
+      // completed.
+
       val callback = getAsyncCallback[Try[Vec[Vec[Double]]]] {
         case Success(dimsData) =>
           writer = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf3, file.path, null)
@@ -134,13 +140,15 @@ object MatrixOut {
             writer.write(dimVar, arr)
           }
 
-          if (isAvailable(shape.in ) && isAvailable(shape.out)) process()
+//          if (isAvailable(shape.in ) && isAvailable(shape.out)) process()
+          pull(shape.in)
 
         case Failure(ex) =>
           failStage(ex)
       }
 
-      pull(shape.in)
+      // NOT:
+//      pull(shape.in)
 
       dimsFut.onComplete(callback.invoke)
     }
