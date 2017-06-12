@@ -3,6 +3,8 @@ package de.sciss.lucre.matrix
 import java.{util => ju}
 
 import de.sciss.file._
+import de.sciss.filecache.Limit
+import de.sciss.fscape.lucre.Cache
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.{IntObj, StringObj}
 import de.sciss.lucre.matrix.Implicits._
@@ -13,7 +15,7 @@ import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
 import org.scalatest.{Matchers, Outcome, fixture}
 import ucar.{ma2, nc2}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
 
@@ -26,6 +28,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   type FixtureParam = (Durable, AudioFileCache, GenContext[S])
 
   initTypes()
+  Cache.init(File.createTemp(directory = true), Limit())
 
   def withFixture(test: OneArgTest): Outcome = {
     implicit val system: S = Durable(BerkeleyDB.tmp())
@@ -89,14 +92,14 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val writer    = nc2.NetcdfFileWriter.createNew(nc2.NetcdfFileWriter.Version.netcdf3, location, null)
     val latDim    = writer.addDimension(null, "lat", 13 /*  64 */)
     val lonDim    = writer.addDimension(null, "lon", 21 /* 128 */)
-    val dims      = new ju.ArrayList[nc2.Dimension]()
-    dims.add(latDim)
-    dims.add(lonDim)
+    val dimsTemp  = new ju.ArrayList[nc2.Dimension]()
+    dimsTemp.add(latDim)
+    dimsTemp.add(lonDim)
     // use float instead of double, because sysson plot in previous version restricted to float
-    val t         = writer.addVariable(null, "temperature", ma2.DataType.FLOAT /* DOUBLE */, dims)
-    t.addAttribute(new nc2.Attribute("units", "K"))
+    val vrTemp = writer.addVariable(null, "temperature", ma2.DataType.FLOAT /* DOUBLE */, dimsTemp)
+    vrTemp.addAttribute(new nc2.Attribute("units", "K"))
     val data      = ma2.Array.factory(classOf[Int], Array(3), Array(1, 2, 3))
-    t.addAttribute(new nc2.Attribute("scale", data))
+    vrTemp.addAttribute(new nc2.Attribute("scale", data))
     // add a string-valued variable: char svar(80)
     /* val sVarLen = */ writer.addDimension(null, "svar_len", 80)
     writer.addVariable(null, "svar", ma2.DataType.CHAR, "svar_len")
@@ -113,21 +116,41 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     writer.addGroupAttribute(null, new nc2.Attribute("versionS", 2.toShort))
     writer.addGroupAttribute(null, new nc2.Attribute("versionB", 3.toByte))
 
+    val dimsLon = new ju.ArrayList[nc2.Dimension]()
+    dimsLon.add(lonDim)
+    val vrLon = writer.addVariable(null, "lon", ma2.DataType.FLOAT /* DOUBLE */, dimsLon)
+    vrLon.addAttribute(new nc2.Attribute("units", "degrees east"))
+
     // create the file
     writer.create()
 
-    // write data to variable
-    val v = writer.findVariable("temperature")
-    val shape = v.getShape
-    val A = new ma2.ArrayFloat /*  ArrayDouble */ .D2(shape(0), shape(1))
-    val ima = A.getIndex
-    for (i <- 0 until shape(0)) {
-      for (j <- 0 until shape(1)) {
-        A.setFloat /* .setDouble */ (ima.set(i, j), (i * 100 + j).toFloat /* .toDouble */)
+    // write data to variable lon
+    {
+      val v = writer.findVariable("lon")
+      val shape = v.getShape
+      val A = new ma2.ArrayFloat /*  ArrayDouble */ .D1(shape(0))
+      val ima = A.getIndex
+      for (i <- 0 until shape(0)) {
+        A.setFloat /* .setDouble */ (ima.set(i), (i * 30).toFloat)
       }
+      val origin = new Array[Int](1)
+      writer.write(v, origin, A)
     }
-    val origin = new Array[Int](2)
-    writer.write(v, origin, A)
+
+    // write data to variable temperature
+    {
+      val v = writer.findVariable("temperature")
+      val shape = v.getShape
+      val A = new ma2.ArrayFloat /*  ArrayDouble */ .D2(shape(0), shape(1))
+      val ima = A.getIndex
+      for (i <- 0 until shape(0)) {
+        for (j <- 0 until shape(1)) {
+          A.setFloat /* .setDouble */ (ima.set(i, j), (i * 100 + j).toFloat /* .toDouble */)
+        }
+      }
+      val origin = new Array[Int](2)
+      writer.write(v, origin, A)
+    }
 
     writer.close()
     f
@@ -224,5 +247,37 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
       testFactory(f1, numCh = 6    , numFr = 5, data = d1)
     }
     showLog = false
+  }
+
+
+  "A 1D NetCDF Matrix" should "be reducible through averaging" in { args =>
+    val f   = createData()
+    val ncf = nc2.NetcdfFile.open(f.path)
+
+    implicit val (cursor, cache, context) = args
+    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+
+    import scala.concurrent.ExecutionContext.Implicits._
+
+    val futReader: Future[Matrix.Reader] = cursor.step { implicit tx =>
+      val loc = ArtifactLocation.newConst[S](f.parent)
+      val art = Artifact(loc, f)
+      val ds  = DataSource(art)
+      val v   = ds.variables.find(_.name == "lon").get
+      val _z  = Reduce[S](v , Dimension.Selection.Name("lon"), Reduce.Op.Average[S])
+      _z.reader(-1)
+    }
+
+    val value = Await.result(futReader, Duration.Inf)
+
+    assert(value.numChannels === 1)
+    assert(value.numFrames   === 1)
+
+    val buf = new Array[Double](1)
+    value.readDouble1D(buf, 0, 1)
+    val avg       = buf(0)
+    val expected  = (0 until 12).map(_ * 30f).sum / 12
+
+    assert(avg === expected)
   }
 }
