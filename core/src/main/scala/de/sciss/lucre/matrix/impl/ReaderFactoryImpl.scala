@@ -15,7 +15,6 @@
 package de.sciss.lucre.matrix
 package impl
 
-import akka.stream.ActorMaterializer
 import at.iem.sysson.fscape.graph
 import de.sciss.file._
 import de.sciss.fscape.gui.SimpleGUI
@@ -322,9 +321,13 @@ object ReaderFactoryImpl {
       }
 
       val ugb         = new AvgUGB(this, nameIn = nameIn, nameOut = nameOut)
-      val ctlConfig   = FScape.defaultConfig.toBuilder // Control.Config()
-      ctlConfig.executionContext = exec
-      ctlConfig.materializer = ActorMaterializer()(ctlConfig.actorSystem)
+      val cfgDefault  = FScape.defaultConfig
+      val ctlConfig   = if (exec == cfgDefault.executionContext) cfgDefault else {
+        val b = cfgDefault.toBuilder
+        b.executionContext = exec
+        b.build
+      }
+//      ctlConfig.materializer = ActorMaterializer()(ctlConfig.actorSystem)
       implicit val control: Control = Control(ctlConfig)
       import context.cursor
       val uState      = ugb.tryBuild(g) // UGB.build(ugb, g)

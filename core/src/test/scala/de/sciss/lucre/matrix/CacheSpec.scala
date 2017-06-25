@@ -9,15 +9,15 @@ import de.sciss.fscape.lucre.Cache
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.{IntObj, StringObj}
 import de.sciss.lucre.matrix.Implicits._
-import de.sciss.lucre.stm.Durable
 import de.sciss.lucre.stm.store.BerkeleyDB
+import de.sciss.lucre.stm.{Disposable, Durable, TxnLike}
 import de.sciss.synth.io.AudioFile
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.synth.proc.{Folder, GenContext, WorkspaceHandle}
 import org.scalatest.{Matchers, Outcome, fixture}
 import ucar.{ma2, nc2}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
 
 /*
@@ -31,11 +31,21 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   initTypes()
   Cache.init(File.createTemp(directory = true), Limit())
 
+  // XXX TODO --- this should be an option in WorkspaceHandle.Implicits
+  // we must have fresh instances because of caching
+  private class DummyImpl[S <: Sys[S]] extends WorkspaceHandle[S] {
+    def addDependent   (dep: Disposable[S#Tx])(implicit tx: TxnLike): Unit = ()
+    def removeDependent(dep: Disposable[S#Tx])(implicit tx: TxnLike): Unit = ()
+
+    def root(implicit tx: S#Tx): Folder[S] =
+      throw new UnsupportedOperationException("No root folder on a dummy workspace handle")
+  }
+
   def withFixture(test: OneArgTest): Outcome = {
     implicit val system: S = Durable(BerkeleyDB.tmp())
     val cache = AudioFileCache()
     try {
-      implicit val ws: WorkspaceHandle[S] = WorkspaceHandle.Implicits.dummy
+      implicit val ws: WorkspaceHandle[S] = new DummyImpl // WorkspaceHandle.Implicits.dummy
       val context = system.step { implicit tx =>
         GenContext[S]
       }

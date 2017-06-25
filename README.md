@@ -19,7 +19,7 @@ Add the following dependency:
 
     "at.iem" %% "lucrematrix" % v
 
-The current stable version `v` is `"1.3.0"`.
+The current stable version `v` is `"1.4.0"`.
 
 The last version based on NetCDF 4.3.22 supporting Java 6 is:
 

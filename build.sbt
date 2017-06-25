@@ -1,7 +1,7 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.4.0-SNAPSHOT"
+lazy val projectVersion     = "1.4.0"
 lazy val mimaVersion        = "1.4.0"
 
 lazy val scalaMainVersion   = "2.12.2"
@@ -11,8 +11,8 @@ lazy val scalaMainVersion   = "2.12.2"
 lazy val netCDFVersion      = "4.6.10"
 lazy val audioFileVersion   = "1.4.6"
 lazy val fileCacheVersion   = "0.3.4"
-lazy val lucreVersion       = "3.4.0"
-lazy val fscapeVersion      = "2.7.1-SNAPSHOT"
+lazy val lucreVersion       = "3.4.1"
+lazy val fscapeVersion      = "2.7.1"
 
 // ---- core/test dependencies ----
 
@@ -32,7 +32,7 @@ lazy val commonSettings = Seq(
   version            := projectVersion,
   organization       := "at.iem",
   scalaVersion       := scalaMainVersion,
-  crossScalaVersions := Seq(scalaMainVersion, "2.11.11", "2.10.6"),
+  crossScalaVersions := Seq(scalaMainVersion, "2.11.11"),
   homepage           := Some(url(s"https://github.com/iem-projects/$baseName")),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
   scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture", "-Xlint"),
