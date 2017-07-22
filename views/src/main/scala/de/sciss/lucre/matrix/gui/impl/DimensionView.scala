@@ -24,6 +24,7 @@ import de.sciss.lucre.swing.impl.ComponentHolder
 import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.swingplus.PopupMenu
 
+import scala.annotation.tailrec
 import scala.swing.{Action, BoxPanel, Button, Component, Label, MenuItem, Orientation}
 
 object DimensionView {
@@ -48,25 +49,53 @@ object DimensionView {
         val vr    = varH()
         val prev  = vr()
         val dim   = Dimension.Selection.Name[S](StringObj.newConst(name))
-        val op    = opV match {
+
+        // The readers are currently not optimising the order of reductions,
+        // and they are broken when averaging is followed by other reductions
+        // such as slicing (in another dimension). Therefore, what we do here
+        // is ensure that `Op.Average` always remains at the outmost layer.
+
+        def insert(op: Reduce.Op[S]): Matrix[S] = {
+          @tailrec
+          def loop(prepend: Matrix[S], append: List[(Dimension.Selection[S], Reduce.Op[S])]): Matrix[S] =
+            prepend match {
+              case Reduce(pp, dimP, opp: Reduce.Op.Average[S]) =>
+                loop(prepend = pp, append = (dimP, opp) :: append)
+              case _ =>
+                val mid = Reduce(prepend, dim, op)
+                (mid /: append) { case (res, (dimA, opa)) =>
+                  Reduce(res, dimA, opa)
+                }
+            }
+
+          loop(prepend = prev, append = Nil)
+        }
+
+        val newRed: Matrix[S] = opV match {
           case ReduceOpEnum.Apply =>
-            Reduce.Op.Apply[S](IntObj.newVar(IntObj.newConst(0)))
+            val op = Reduce.Op.Apply[S](IntObj.newVar(IntObj.newConst(0)))
+            insert(op)
+
           case ReduceOpEnum.Slice =>
             val toVal = prev.dimensions.find(_.name == name).map(_.size.toInt - 1).getOrElse(0)
-            Reduce.Op.Slice[S](
+            val op = Reduce.Op.Slice[S](
               from = IntObj.newVar(IntObj.newConst(0)),
               to   = IntObj.newVar(IntObj.newConst(toVal /* Int.MaxValue - 1 */))
             )
+            insert(op)
+
           case ReduceOpEnum.Stride =>
-            Reduce.Op.Stride[S](
+            val op = Reduce.Op.Stride[S](
               // from = IntObj.newVar(IntObj.newConst(0)),
               // to   = IntObj.newVar(IntObj.newConst(Int.MaxValue - 1)),
               step = IntObj.newVar(IntObj.newConst(1))
             )
+            insert(op)
+
           case ReduceOpEnum.Average =>
-            Reduce.Op.Average[S]
+            val op = Reduce.Op.Average[S]
+            Reduce(prev, dim, op)
         }
-        val newRed = Reduce(prev, dim, op)
         EditVar[S, Matrix[S], Matrix.Var[S]](s"Add ${opV.name} to $name", vr, newRed)
       }
       undo.add(edit)

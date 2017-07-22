@@ -33,11 +33,13 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
 
   // XXX TODO --- this should be an option in WorkspaceHandle.Implicits
   // we must have fresh instances because of caching
-  private class DummyImpl[S <: Sys[S]] extends WorkspaceHandle[S] {
-    def addDependent   (dep: Disposable[S#Tx])(implicit tx: TxnLike): Unit = ()
-    def removeDependent(dep: Disposable[S#Tx])(implicit tx: TxnLike): Unit = ()
+  private class DummyImpl[T <: Sys[T]] extends WorkspaceHandle[T] {
+    def addDependent   (dep: Disposable[T#Tx])(implicit tx: TxnLike): Unit = ()
+    def removeDependent(dep: Disposable[T#Tx])(implicit tx: TxnLike): Unit = ()
 
-    def root(implicit tx: S#Tx): Folder[S] =
+    def dependents(implicit tx: TxnLike): Iterable[Disposable[T#Tx]] = Nil
+
+    def root(implicit tx: T#Tx): Folder[T] =
       throw new UnsupportedOperationException("No root folder on a dummy workspace handle")
   }
 
