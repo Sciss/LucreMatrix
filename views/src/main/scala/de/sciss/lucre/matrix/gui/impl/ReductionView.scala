@@ -227,7 +227,7 @@ object ReductionView {
     def dispose()(implicit tx: S#Tx): Unit = peer.dispose()
   }
 
-  private final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Option[Range])
+  final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Option[Range])
     extends View[S] with ComponentHolder[TextField] {
 
     private[this] var observer: Disposable[S#Tx]  = _
