@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *

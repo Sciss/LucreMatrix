@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -21,12 +21,12 @@ import scala.annotation.switch
 
 object KeyImpl {
   def read(in: DataInput): Matrix.Key = {
-    val opID = in.readInt()
-    (opID: @switch) match {
-      case Reduce         .opID => ReduceImpl     .readIdentifiedKey(in)
-      case ConstMatrixImpl.opID => ConstMatrixImpl.readIdentifiedKey(in)
-      case ZeroMatrixImpl .opID => ZeroMatrixImpl .readIdentifiedKey(in)
-      case _                    => sys.error(s"Unexpected matrix key type $opID")
+    val opId = in.readInt()
+    (opId: @switch) match {
+      case Reduce         .`opId` => ReduceImpl     .readIdentifiedKey(in)
+      case ConstMatrixImpl.`opId` => ConstMatrixImpl.readIdentifiedKey(in)
+      case ZeroMatrixImpl .`opId` => ZeroMatrixImpl .readIdentifiedKey(in)
+      case _                      => sys.error(s"Unexpected matrix key type $opId")
     }
   }
 
@@ -38,10 +38,10 @@ object KeyImpl {
 }
 trait KeyImpl extends Matrix.Key {
   // protected def streamDim: Int
-  protected def opID: Int
+  protected def opId: Int
 
   final def write(out: DataOutput): Unit = {
-    out.writeInt(opID)
+    out.writeInt(opId)
     // out.writeInt(streamDim)
     writeData(out)
   }

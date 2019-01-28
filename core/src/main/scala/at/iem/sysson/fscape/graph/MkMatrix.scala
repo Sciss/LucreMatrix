@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -17,7 +17,7 @@ package fscape.graph
 
 import de.sciss.file._
 import de.sciss.fscape.UGen.Aux
-import de.sciss.fscape.UGenSource.{outputs, unwrap, expand}
+import de.sciss.fscape.UGenSource.{expand, outputs, unwrap}
 import de.sciss.fscape.lucre.FScape.Output
 import de.sciss.fscape.lucre.UGenGraphBuilder
 import de.sciss.fscape.lucre.UGenGraphBuilder.OutputRef
@@ -25,9 +25,8 @@ import de.sciss.fscape.stream.{StreamIn, StreamOut, Builder => SBuilder}
 import de.sciss.fscape.{GE, UGen, UGenGraph, UGenIn, UGenInLike, UGenSource, stream}
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.matrix.{DataSource, Matrix => LMatrix}
-import de.sciss.lucre.stm.{Obj, Sys}
+import de.sciss.lucre.stm.{Obj, Sys, Workspace}
 import de.sciss.serial.DataInput
-import de.sciss.synth.proc.WorkspaceHandle
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 
@@ -66,7 +65,7 @@ final case class MkMatrix(key: String, spec: Matrix.Spec, in: GE)
 
   def tpe: Obj.Type = LMatrix
 
-  def readOutput[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx, workspace: WorkspaceHandle[S]): Obj[S] = {
+  def readOutput[S <: Sys[S]](in: DataInput)(implicit tx: S#Tx, workspace: Workspace[S]): Obj[S] = {
     val f   = file(in.readUTF())
     val loc = ArtifactLocation.newConst[S](f.parent)
     val art = Artifact(loc, Artifact.Child(f.name))

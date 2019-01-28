@@ -199,5 +199,7 @@ object DimensionView {
   }
 }
 trait DimensionView[S <: Sys[S]] extends View[S] {
+  type C = Component
+
   def reductions: ReductionsView[S]
 }

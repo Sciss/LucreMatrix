@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -23,7 +23,7 @@ import de.sciss.lucre.{event => evt}
 import de.sciss.serial.{DataInput, Serializer}
 
 object Reduce {
-  final val opID = 2
+  final val opId = 2
 
   def apply[S <: Sys[S]](in : Matrix[S], dim: Dimension.Selection[S], op: Op[S])(implicit tx: S#Tx): Reduce[S] =
     Impl(in, dim, op)
@@ -42,7 +42,7 @@ object Reduce {
   object Op extends Elem.Type {
     // ---- Elem.Type ----
 
-    final val typeID = 0x30002
+    final val typeId = 0x30002
 
     def readIdentifiedObj[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] =
       Impl.readIdentifiedOp(in, access)
@@ -63,7 +63,7 @@ object Reduce {
     trait Var[S <: Sys[S]] extends Op[S] with matrix.Var[S, Op[S]]
 
     object Apply {
-      final val opID = 0
+      final val opId = 0
 
       def apply[S <: Sys[S]](index: IntObj[S])(implicit tx: S#Tx): Apply[S] = Impl.applyOpApply(index)
     }
@@ -73,7 +73,7 @@ object Reduce {
     }
 
     object Slice {
-      final val opID = 1
+      final val opId = 1
 
       /** Creates a new slice operation.
         *
@@ -90,7 +90,7 @@ object Reduce {
     }
 
     object Stride {
-      final val opID = 3
+      final val opId = 3
 
       def apply[S <: Sys[S]](/* from: IntObj[S], to: IntObj[S], */ step: IntObj[S])(implicit tx: S#Tx): Stride[S] =
         Impl.applyOpStride(/* from = from, to = to, */ step = step)
@@ -103,7 +103,7 @@ object Reduce {
     }
 
     object Average {
-      final val opID = 4
+      final val opId = 4
 
       def apply[S <: Sys[S]](implicit tx: S#Tx): Average[S] = Impl.applyOpAverage
     }

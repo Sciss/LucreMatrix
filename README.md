@@ -3,11 +3,13 @@
 [![Build Status](https://travis-ci.org/iem-projects/LucreMatrix.svg?branch=master)](https://travis-ci.org/iem-projects/LucreMatrix)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/at.iem/lucrematrix_2.11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/at.iem/lucrematrix_2.11)
 
-Part of sonification platform [SysSon](http://sysson.kug.ac.at/). (C)opyright 2014&ndash;2017 Institute of Electronic Music and Acoustics. (C)opyright 2014&ndash;2015 by Hanns Holger Rutz. All rights reserved. Published under the GNU Lesser General Public License v2.1+.
+Part of sonification platform [SysSon](http://sysson.kug.ac.at/). (C)opyright 2014&ndash;2017 Institute of Electronic 
+Music and Acoustics. (C)opyright 2014&ndash;2019 by Hanns Holger Rutz. All rights reserved. Published under the GNU 
+Lesser General Public License v2.1+.
 
 ## Building
 
-Builds with sbt 0.13 against Scala 2.12, 2.11. We now use NetCDF-4 v4.6.x which requires Java 7 (Java 6 is no longer supported).
+Builds with sbt against Scala 2.12, 2.11. We now use NetCDF-4 v4.6.x which requires Java 7 (Java 6 is no longer supported).
 
 You need to add the following resolver for the NetCDF library dependency to be found:
 
@@ -17,9 +19,9 @@ You need to add the following resolver for the NetCDF library dependency to be f
 
 Add the following dependency:
 
-    "at.iem" %% "lucrematrix" % v
+    "de.sciss" %% "lucrematrix" % v
 
-The current stable version `v` is `"1.5.1"`.
+The current stable version `v` is `"1.6.0"`.
 
 The last version based on NetCDF 4.3.22 supporting Java 6 is:
 

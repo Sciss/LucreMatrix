@@ -8,7 +8,7 @@ import de.sciss.lucre.stm.store.BerkeleyDB
 
 object NetCDFSerialTest extends App {
   type S = Durable
-  implicit val system = Durable(BerkeleyDB.tmp())
+  implicit val system: S = Durable(BerkeleyDB.tmp())
 
   initTypes()
 
@@ -18,20 +18,20 @@ object NetCDFSerialTest extends App {
   try {
     val net = ucar.nc2.NetcdfFile.open(f.path)
     try {
-      implicit val resolver = DataSource.Resolver.seq[S](net)
+      implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq[S](net)
 
       val dsv = system.step { implicit tx =>
         val loc = ArtifactLocation.newConst[S](f.parent)
         val art = Artifact(loc, f)
         val ds  = DataSource(art)
-        val id  = tx.newID()
+        val id  = tx.newId()
         tx.newVar[DataSource[S]](id, ds)
       }
 
       val vrv = system.step { implicit tx =>
         val ds  = dsv()
         val vr  = ds.variables.head
-        val id  = tx.newID()
+        val id  = tx.newId()
         tx.newVar[Matrix[S]](id, vr)
       }
 
@@ -42,7 +42,7 @@ object NetCDFSerialTest extends App {
 
       val mvv = system.step { implicit tx =>
         val mv = Matrix.Var(vrv())
-        val id = tx.newID()
+        val id = tx.newId()
         tx.newVar[Matrix[S]](id, mv)
       }
 

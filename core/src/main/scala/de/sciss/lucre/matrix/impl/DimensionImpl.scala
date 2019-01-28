@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -55,18 +55,18 @@ object DimensionImpl {
 
     def readNode()(implicit tx: S#Tx): Selection[S] = {
       val tpe = in.readInt()
-      require(tpe == Selection.typeID, s"Unexpected type (found $tpe, expected ${Selection.typeID}")
-      val opID = in.readInt()
-      (opID: @switch) match {
-        case Selection.Index.opID =>
+      require(tpe == Selection.typeId, s"Unexpected type (found $tpe, expected ${Selection.typeId}")
+      val opId = in.readInt()
+      (opId: @switch) match {
+        case Selection.Index.`opId` =>
           val ex = IntObj.read(in, access)
           new SelIndexImpl[S](targets, ex)
 
-        case Selection.Name .opID =>
+        case Selection.Name .`opId` =>
           val ex = StringObj.read(in, access)
           new SelNameImpl[S](targets, ex)
 
-        case _ => sys.error(s"Unknown operation id $opID")
+        case _ => sys.error(s"Unknown operation id $opId")
       }
     }
 
@@ -129,13 +129,13 @@ object DimensionImpl {
 
     self: Selection[S] =>
 
-    protected def opID: Int
+    protected def opId: Int
     protected def _1: Expr[S, T1]
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
-      out writeInt Selection.typeID
-      out writeInt opID
+      out writeInt Selection.typeId
+      out writeInt opId
       _1 write out
     }
 
@@ -182,7 +182,7 @@ object DimensionImpl {
 
     protected def _1: IntObj[S] = expr
 
-    protected def opID: Int = Selection.Index.opID
+    protected def opId: Int = Selection.Index.opId
   }
 
   private final class SelNameImpl[S <: Sys[S]](protected val targets: evt.Targets[S],
@@ -208,6 +208,6 @@ object DimensionImpl {
 
     protected def _1: StringObj[S] = expr
 
-    protected def opID: Int = Selection.Name.opID
+    protected def opId: Int = Selection.Name.opId
   }
 }

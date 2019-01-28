@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -38,12 +38,12 @@ object MatrixImpl {
 
         def readNode(): Matrix[S] /* with evt.Node[S] */ = {
           val tpe   = in.readInt()
-          if (tpe != Matrix.typeID) sys.error(s"Unexpected type (found $tpe, expected ${Matrix.typeID})")
-          val opID  = in.readInt()
-          (opID: @switch) match {
-            case Reduce.opID              => Reduce             .readIdentified        (in, access, targets)
-//            case DataSource.Variable.opID => impl.DataSourceImpl.readIdentifiedVariable(in, access, targets)
-            case _                        => sys.error(s"Unknown operator id $opID")
+          if (tpe != Matrix.typeId) sys.error(s"Unexpected type (found $tpe, expected ${Matrix.typeId})")
+          val opId  = in.readInt()
+          (opId: @switch) match {
+            case Reduce.`opId`              => Reduce             .readIdentified        (in, access, targets)
+//            case DataSource.Variable.opId => impl.DataSourceImpl.readIdentifiedVariable(in, access, targets)
+            case _                        => sys.error(s"Unknown operator id $opId")
           }
         }
 
@@ -55,13 +55,13 @@ object MatrixImpl {
         }
 
       case 3 =>
-        val id    = tx.readID(in, access)
-        val opID  = in.readInt()
-        (opID: @switch) match {
-          case impl.ZeroMatrixImpl .opID => impl.ZeroMatrixImpl .readIdentified(id, in)
-          case impl.ConstMatrixImpl.opID => impl.ConstMatrixImpl.readIdentified(id, in)
-          case DataSource.Variable .opID => impl.DataSourceImpl .readIdentifiedVariable(in, access, id /* targets */)
-          case _                         => sys.error(s"Unexpected operator $opID")
+        val id    = tx.readId(in, access)
+        val opId  = in.readInt()
+        (opId: @switch) match {
+          case impl.ZeroMatrixImpl .`opId` => impl.ZeroMatrixImpl .readIdentified(id, in)
+          case impl.ConstMatrixImpl.`opId` => impl.ConstMatrixImpl.readIdentified(id, in)
+          case DataSource.Variable .`opId` => impl.DataSourceImpl .readIdentifiedVariable(in, access, id /* targets */)
+          case _                         => sys.error(s"Unexpected operator $opId")
         }
 
       case other => sys.error(s"Unexpected cookie $other")

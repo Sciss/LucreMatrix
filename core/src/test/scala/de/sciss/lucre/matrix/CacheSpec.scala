@@ -10,9 +10,9 @@ import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.{IntObj, StringObj}
 import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm.store.BerkeleyDB
-import de.sciss.lucre.stm.{Disposable, Durable, TxnLike}
+import de.sciss.lucre.stm.{Durable, Workspace}
 import de.sciss.synth.io.AudioFile
-import de.sciss.synth.proc.{Folder, GenContext, WorkspaceHandle}
+import de.sciss.synth.proc.GenContext
 import org.scalatest.{Matchers, Outcome, fixture}
 import ucar.{ma2, nc2}
 
@@ -31,23 +31,11 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
   initTypes()
   Cache.init(File.createTemp(directory = true), Limit())
 
-  // XXX TODO --- this should be an option in WorkspaceHandle.Implicits
-  // we must have fresh instances because of caching
-  private class DummyImpl[T <: Sys[T]] extends WorkspaceHandle[T] {
-    def addDependent   (dep: Disposable[T#Tx])(implicit tx: TxnLike): Unit = ()
-    def removeDependent(dep: Disposable[T#Tx])(implicit tx: TxnLike): Unit = ()
-
-    def dependents(implicit tx: TxnLike): Iterable[Disposable[T#Tx]] = Nil
-
-    def root(implicit tx: T#Tx): Folder[T] =
-      throw new UnsupportedOperationException("No root folder on a dummy workspace handle")
-  }
-
   def withFixture(test: OneArgTest): Outcome = {
     implicit val system: S = Durable(BerkeleyDB.tmp())
     val cache = AudioFileCache()
     try {
-      implicit val ws: WorkspaceHandle[S] = new DummyImpl // WorkspaceHandle.Implicits.dummy
+      implicit val ws: Workspace[S] = Workspace.Implicits.dummy[S]
       val context = system.step { implicit tx =>
         GenContext[S]
       }
@@ -271,7 +259,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     // val ncf = nc2.NetcdfFile.open(f.path)
 
     implicit val (cache, context) = args
-    import context.{cursor, workspaceHandle}
+    import context.{cursor, workspace}
     implicit val resolver = WorkspaceResolver[S] // .Resolver.seq[S](ncf)
 
     import scala.concurrent.ExecutionContext.Implicits._

@@ -2,8 +2,8 @@ package de.sciss.lucre.matrix
 
 import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
-import de.sciss.lucre.stm.InMemory
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.lucre.stm.{InMemory, Workspace}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
@@ -22,13 +22,13 @@ object WindowReadTest {
     try {
       val net = ucar.nc2.NetcdfFile.open(f.path)
       try {
-        implicit val resolver = DataSource.Resolver.seq[S](net)
+        implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq[S](net)
 
         val dsv = system.step { implicit tx =>
           val loc = ArtifactLocation.newConst[S](f.parent)
           val art = Artifact(loc, f)
           val ds  = DataSource(art)
-          val id  = tx.newID()
+          val id  = tx.newId()
           tx.newVar[DataSource[S]](id, ds)
         }
 
@@ -42,7 +42,7 @@ object WindowReadTest {
           val r4        = Reduce(r3, Dimension.Selection.Name[S]("Altitude" ), Reduce.Op.Slice[S](100, 104))
           assert(r4.shape == Vector(7, 1, 2, 5))
           // r4.reader(-1)
-          val id = tx.newID()
+          val id = tx.newId()
           tx.newVar[Matrix[S]](id, r4)
         }
 
@@ -87,7 +87,7 @@ object WindowReadTest {
         def run(name: String, win1: Array[Double], win2: Array[Double], dims: Array[Int]): Future[Unit] = {
           val rFut = system.step { implicit tx =>
             val vr = vrv()
-            implicit val ws     : WorkspaceHandle [S] = WorkspaceHandle.Implicits.dummy
+            implicit val ws     : Workspace       [S] = Workspace.Implicits.dummy
             implicit val context: GenContext      [S] = GenContext[S]
             vr.reader(-1)
           }

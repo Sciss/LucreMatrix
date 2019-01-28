@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -21,7 +21,7 @@ import de.sciss.serial.DataOutput
 trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
   // ---- abstract ----
 
-  protected def opID: Int
+  protected def opId: Int
 
   protected def writeData1(out: DataOutput): Unit
 
@@ -44,7 +44,7 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S,
     }
 
   final protected def writeData(out: DataOutput): Unit = {
-    out.writeInt(opID)  // type
+    out.writeInt(opId)  // type
     writeData1(out)
   }
 

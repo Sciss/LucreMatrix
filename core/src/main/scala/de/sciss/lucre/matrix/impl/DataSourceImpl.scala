@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -47,7 +47,7 @@ object DataSourceImpl {
     val file    = artifact.value
     val netFile = resolver.resolve(file)
 
-    val id      = tx.newID()
+    val id      = tx.newId()
     val varRef  = tx.newVar[List[Variable[S]]](id, Nil)
     val ds      = new Impl[S](id, artifact, varRef)
 
@@ -73,7 +73,7 @@ object DataSourceImpl {
                                       netMap: mutable.Map[String, nc2.Variable],
                                       matMap: mutable.Map[String, Variable[S]])(implicit tx: S#Tx): Variable[S] = {
     // val targets   = evt.Targets[S]
-    val id        = tx.newID()
+    val id        = tx.newId()
     // val sourceRef = tx.newVar(id, source)
     val parents   = parentsLoop(net.getParentGroup, Nil)
     val name      = net.getShortName
@@ -141,13 +141,13 @@ object DataSourceImpl {
 //    val cookie = in.readByte() // 'node'
 //    require (cookie == 1, s"Unexpected cookie (found $cookie, expected 1")
 //    val tpe     = in.readInt()  // 'type'
-//    require (tpe == Matrix.typeID, s"Unexpected type id (found $tpe, expected ${Matrix.typeID}")
-//    val opID  = in.readInt()    // 'op'
-//    require (opID == Variable.opID, s"Unexpected operator id (found $opID, expected ${Variable.opID}")
+//    require (tpe == Matrix.typeId, s"Unexpected type id (found $tpe, expected ${Matrix.typeId}")
+//    val opId  = in.readInt()    // 'op'
+//    require (opId == Variable.opId, s"Unexpected operator id (found $opId, expected ${Variable.opId}")
 //    readIdentifiedVariable(in, access, targets)
 //  }
 
-  def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, id: S#ID)
+  def readIdentifiedVariable[S <: Sys[S]](in: DataInput, access: S#Acc, id: S#Id)
                                          (implicit tx: S#Tx): Variable[S] /* with evt.Node[S] */ = {
     val source      = DataSource.read(in, access)
     val parents     = parentsSer.read(in)
@@ -166,7 +166,7 @@ object DataSourceImpl {
   def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): DataSource[S] = {
     val cookie = in.readByte()
     if (cookie != 3) sys.error(s"Unexpected cookie, expected 3, found $cookie")
-    val id      = tx.readID(in, access)
+    val id      = tx.readId(in, access)
     val magic   = in.readLong()
     if (magic != SOURCE_COOKIE)
       sys.error(s"Unexpected cookie (found ${magic.toHexString}, expected ${SOURCE_COOKIE.toHexString})")
@@ -213,7 +213,7 @@ object DataSourceImpl {
   private def mkDimsSer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Vec[Matrix[S]]] =
     Serializer.indexedSeq[S#Tx, S#Acc, Matrix[S]]
 
-  private final class VariableImpl[S <: Sys[S]](val id: S#ID,
+  private final class VariableImpl[S <: Sys[S]](val id: S#Id,
                                                 val source: DataSource[S],
                                                 val parents: List[String],
                                                 protected val nameConst: String,
@@ -225,7 +225,7 @@ object DataSourceImpl {
 //    def dimConst: Vec[Matrix[S]] = _dimConst
 
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      val idOut       = txOut.newID()
+      val idOut       = txOut.newId()
       val sourceOut   = context(source)
       val dimOut      = dimConst.map(context(_))
       val res         = new VariableImpl(idOut, sourceOut, parents, nameConst, unitsConst, /* Vector.empty */ dimOut)
@@ -247,7 +247,7 @@ object DataSourceImpl {
     protected def disposeData()(implicit tx: S#Tx): Unit = dimConst.foreach(_.dispose())
   }
 
-  private final class DimensionImpl[S <: Sys[S]](val id: S#ID,
+  private final class DimensionImpl[S <: Sys[S]](val id: S#Id,
                                                  val source: DataSource[S],
                                                  val parents: List[String],
                                                  protected val nameConst: String,
@@ -256,7 +256,7 @@ object DataSourceImpl {
     extends VariableImplLike[S] with evt.impl.ConstObjImpl[S, Matrix.Update[S]] {
 
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      val idOut     = txOut.newID()
+      val idOut     = txOut.newId()
       val sourceOut = context(source)
       new DimensionImpl(idOut, sourceOut, parents, nameConst = nameConst, unitsConst = unitsConst, sizeConst = sizeConst)
     }
@@ -308,7 +308,7 @@ object DataSourceImpl {
     final protected def writeData(out: DataOutput): Unit = {
 //      out writeByte 1   // cookie
 //      out writeInt Matrix.typeID
-      out writeInt Variable.opID
+      out writeInt Variable.opId
       source    .write(out)
       parentsSer.write(parents, out)
       out       .writeUTF(nameConst)
@@ -326,7 +326,7 @@ object DataSourceImpl {
     }
   }
 
-  private final class Impl[S <: Sys[S]](val id: S#ID, val artifact: Artifact[S], protected val varRef: S#Var[List[Variable[S]]])
+  private final class Impl[S <: Sys[S]](val id: S#Id, val artifact: Artifact[S], protected val varRef: S#Var[List[Variable[S]]])
     extends DataSource[S] /* with Mutable.Impl[S] */ { self =>
 
     // ---- abstract ----
@@ -342,7 +342,7 @@ object DataSourceImpl {
     def changed: EventLike[S, Any] = evt.Dummy[S, Any]
 
     def write(out: DataOutput): Unit = {
-      out.writeInt(tpe.typeID)
+      out.writeInt(tpe.typeId)
       out.writeByte(3)
       id.write(out)
       writeData(out)
@@ -354,7 +354,7 @@ object DataSourceImpl {
     }
 
     def copy[Out <: Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] = {
-      val idOut       = txOut.newID()
+      val idOut       = txOut.newId()
       val artifactOut = context(self.artifact)
       val varRefOut   = txOut.newVar(idOut, List.empty[Variable[Out]])
       val res         = new Impl[Out](idOut, artifactOut, varRefOut)

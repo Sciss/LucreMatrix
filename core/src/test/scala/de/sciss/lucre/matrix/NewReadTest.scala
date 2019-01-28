@@ -4,8 +4,8 @@ import de.sciss.file._
 import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.{IntObj, StringObj}
 import de.sciss.lucre.matrix.DataSource.Resolver
-import de.sciss.lucre.stm.InMemory
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.lucre.stm.{InMemory, Workspace}
+import de.sciss.synth.proc.GenContext
 import ucar.nc2
 
 import scala.concurrent.Future
@@ -22,7 +22,7 @@ object NewReadTest {
   val ncf               : nc2.NetcdfFile      = nc2.NetcdfFile.open(p.path)
   implicit val system   : S                   = InMemory()
   implicit val resolver : Resolver.Seq    [S] = Resolver.seq(ncf)
-  implicit val ws       : WorkspaceHandle [S] = WorkspaceHandle.Implicits.dummy
+  implicit val ws       : Workspace       [S] = Workspace.Implicits.dummy
   implicit val context  : GenContext      [S] = system.step { implicit tx => GenContext[S] }
 
   import system.step

@@ -55,5 +55,7 @@ trait MatrixView[S <: Sys[S]] extends View[S] with Model[MatrixView.Update] {
   def rowHeaders(implicit tx: S#Tx): Vec[View[S]]
   def rowHeaders_=(views: Vec[View[S]])(implicit tx: S#Tx): Unit
 
+  type C = Component
+
   def component: Component
 }

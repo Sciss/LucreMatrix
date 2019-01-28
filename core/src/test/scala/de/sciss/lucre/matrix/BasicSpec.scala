@@ -2,9 +2,9 @@ package de.sciss.lucre.matrix
 
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
-import de.sciss.lucre.stm.Durable
+import de.sciss.lucre.stm.{Durable, Workspace}
 import de.sciss.lucre.stm.store.BerkeleyDB
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.synth.proc.GenContext
 import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.language.implicitConversions
@@ -103,7 +103,7 @@ class BasicSpec extends fixture.FlatSpec with Matchers {
       ))
 
       implicit val resolver : DataSource.Resolver [S] = DataSource.Resolver.empty
-      implicit val ws       : WorkspaceHandle     [S] = WorkspaceHandle.Implicits.dummy
+      implicit val ws       : Workspace           [S] = Workspace.Implicits.dummy
       implicit val context  : GenContext          [S] = GenContext[S]
 
       //      val b0 = Array.ofDim[Float](24, 1)

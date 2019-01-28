@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -64,7 +64,7 @@ object ReaderFactoryImpl {
 
     // ---- impl ----
 
-    protected def opID: Int = Reduce.opID
+    protected def opId: Int = Reduce.opId
 
     final protected def writeData(out: DataOutput): Unit = {
       out.writeShort(tpeID)
@@ -374,16 +374,16 @@ object ReaderFactoryImpl {
 //sealed trait ReaderFactoryImpl extends impl.KeyImpl {
 //  // ---- abstract ----
 //
-//  protected def tpeID: Int
+//  protected def tpeId: Int
 //
 //  protected def writeFactoryData(out: DataOutput): Unit
 //
 //  // ---- impl ----
 //
-//  protected def opID: Int = Reduce.opID
+//  protected def opId: Int = Reduce.opId
 //
 //  final protected def writeData(out: DataOutput): Unit = {
-//    out.writeShort(tpeID)
+//    out.writeShort(tpeId)
 //    writeFactoryData(out)
 //  }
 //}

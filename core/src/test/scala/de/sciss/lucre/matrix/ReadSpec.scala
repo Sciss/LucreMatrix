@@ -4,8 +4,8 @@ import java.{util => ju}
 
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
-import de.sciss.lucre.stm.InMemory
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.lucre.stm.{InMemory, Workspace}
+import de.sciss.synth.proc.GenContext
 import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.language.implicitConversions
@@ -23,7 +23,7 @@ class ReadSpec extends fixture.FlatSpec with Matchers {
   def withFixture(test: OneArgTest): Outcome = {
     implicit val system: S = InMemory()
     try {
-      implicit val ws: WorkspaceHandle[S] = WorkspaceHandle.Implicits.dummy
+      implicit val ws: Workspace[S] = Workspace.Implicits.dummy
       val context = system.step { implicit tx => GenContext[S] }
       test((system, context))
     }

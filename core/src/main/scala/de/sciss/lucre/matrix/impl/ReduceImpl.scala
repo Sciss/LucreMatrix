@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -46,14 +46,14 @@ object ReduceImpl {
   def readIdentifiedOp[S <: stm.Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Op[S] = {
     def readNode(targets: Targets[S]): Op[S] = {
       val tpe   = in.readInt()
-      if (tpe != Op.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeID})")
-      val opID  = in.readInt()
-      (opID: @switch) match {
-        case Op.Apply.opID =>
+      if (tpe != Op.typeId) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeId})")
+      val opId  = in.readInt()
+      (opId: @switch) match {
+        case Op.Apply.`opId` =>
           val index = IntObj.read(in, access)
           new OpApplyImpl[S](targets, index)
 
-        case Op.Slice.opID =>
+        case Op.Slice.`opId` =>
           val from  = IntObj.read(in, access)
           val to    = IntObj.read(in, access)
           new OpSliceImpl[S](targets, from, to)
@@ -64,11 +64,11 @@ object ReduceImpl {
           val step  = IntObj.read(in, access)
           new OpStrideImpl[S](targets, /* from = from, to = to, */ step = step)
 
-        case Op.Stride.opID =>
+        case Op.Stride.`opId` =>
           val step  = IntObj.read(in, access)
           new OpStrideImpl[S](targets, step = step)
 
-        case _ => sys.error(s"Unsupported operator id $opID")
+        case _ => sys.error(s"Unsupported operator id $opId")
       }
     }
 
@@ -76,13 +76,13 @@ object ReduceImpl {
       val cookie = in.readByte()
       if (cookie != 1) sys.error(s"Unexpected cookie (found $cookie, expected 1)")
       val tpe   = in.readInt()
-      if (tpe != Op.typeID) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeID})")
-      val opID  = in.readInt()
-      (opID: @switch) match {
-        case Op.Average.opID =>
+      if (tpe != Op.typeId) sys.error(s"Unexpected type id (found $tpe, expected ${Op.typeId})")
+      val opId  = in.readInt()
+      (opId: @switch) match {
+        case Op.Average.`opId` =>
           new OpAverageImpl[S]
 
-        case _ => sys.error(s"Unsupported operator id $opID")
+        case _ => sys.error(s"Unsupported operator id $opId")
       }
     }
 
@@ -211,7 +211,7 @@ object ReduceImpl {
 
     final protected def writeData(out: DataOutput): Unit = {
       out writeByte 1 // cookie
-      out writeInt Op.typeID
+      out writeInt Op.typeId
       writeOpData(out)
     }
 
@@ -245,7 +245,7 @@ object ReduceImpl {
     protected def writeOpData(out: DataOutput): Unit = {
       // out writeByte 1 // cookie
       // out writeInt Op.typeID
-      out writeInt Op.Apply.opID
+      out writeInt Op.Apply.opId
       index write out
     }
 
@@ -296,7 +296,7 @@ object ReduceImpl {
     protected def writeOpData(out: DataOutput): Unit = {
       // out writeByte 1   // cookie
       // out writeInt Op.typeID
-      out writeInt Op.Slice.opID
+      out writeInt Op.Slice.opId
       from  write out
       to    write out
     }
@@ -360,7 +360,7 @@ object ReduceImpl {
     protected def writeOpData(out: DataOutput): Unit = {
       // out writeByte 1   // cookie
       // out writeInt Op.typeID
-      out writeInt Op.Stride.opID
+      out writeInt Op.Stride.opId
       // from  write out
       // to    write out
       step  write out
@@ -405,8 +405,8 @@ object ReduceImpl {
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1           // cookie XXX TODO --- what was the purpose of this ceremony again?
-      out writeInt Op.typeID    //        XXX TODO --- what was the purpose of this ceremony again?
-      out writeInt Op.Average.opID
+      out writeInt Op.typeId    //        XXX TODO --- what was the purpose of this ceremony again?
+      out writeInt Op.Average.opId
     }
 
     def changed: EventLike[S, Op.Update[S]] = evt.Dummy.apply
@@ -693,8 +693,8 @@ object ReduceImpl {
 
     protected def writeData(out: DataOutput): Unit = {
       out writeByte 1   // cookie
-      out writeInt Matrix.typeID
-      out writeInt Reduce.opID
+      out writeInt Matrix.typeId
+      out writeInt Reduce.opId
       in  write out
       dim write out
       op  write out

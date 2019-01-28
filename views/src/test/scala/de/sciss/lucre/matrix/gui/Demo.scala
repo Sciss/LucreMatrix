@@ -4,9 +4,9 @@ package gui
 import java.awt.datatransfer.Transferable
 import java.awt.event.KeyEvent
 import java.awt.{FileDialog, Toolkit}
+
 import javax.swing.KeyStroke
 import javax.swing.TransferHandler.TransferSupport
-
 import at.iem.sysson.WorkspaceResolver
 import de.sciss.desktop
 import de.sciss.desktop.UndoManager
@@ -18,13 +18,13 @@ import de.sciss.lucre.artifact.{Artifact, ArtifactLocation}
 import de.sciss.lucre.expr.IntObj
 import de.sciss.lucre.matrix.Implicits._
 import de.sciss.lucre.stm
-import de.sciss.lucre.stm.InMemory
+import de.sciss.lucre.stm.{InMemory, Workspace}
 import de.sciss.lucre.swing.{View, deferTx}
 import de.sciss.submin.Submin
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.synth.proc.GenContext
 
 import scala.concurrent.ExecutionContext
-import scala.swing.{Action, CheckBox, Frame, MainFrame, Menu, MenuBar, MenuItem, SimpleSwingApplication}
+import scala.swing.{Action, CheckBox, Component, Frame, MainFrame, Menu, MenuBar, MenuItem, SimpleSwingApplication}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -32,7 +32,7 @@ object Demo extends SimpleSwingApplication {
   type S                                              = InMemory
   implicit val system   : S                           = InMemory()
   implicit val undo     : UndoManager                 = new UndoManagerImpl
-  implicit val ws       : WorkspaceHandle     [S]     = WorkspaceHandle.Implicits.dummy
+  implicit val ws       : Workspace           [S]     = Workspace.Implicits.dummy
   implicit val resolver : DataSource.Resolver [S]     = WorkspaceResolver[S]
 
   override def main(args: Array[String]): Unit = {
@@ -110,7 +110,7 @@ object Demo extends SimpleSwingApplication {
     val m0        = Matrix.Var[S](c)
     m0.changed.react { implicit tx => u => println(s"Observed: $u") }
     m.matrix      = Some(m0)
-    m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S](new CheckBox()))
+    m.rowHeaders  = Vec.fill(m0.rank)(View.wrap[S, Component](new CheckBox()))
     m
   }
 

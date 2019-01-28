@@ -1,41 +1,36 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.5.1"
-lazy val mimaVersion        = "1.5.0"
+lazy val projectVersion     = "1.6.0"
+lazy val mimaVersion        = "1.6.0"
 
-lazy val scalaMainVersion   = "2.12.2"
+lazy val scalaMainVersion   = "2.12.8"
 
-// ---- core dependencies ----
-
-lazy val netCDFVersion      = "4.6.10"
-lazy val audioFileVersion   = "1.4.6"
-lazy val fileCacheVersion   = "0.3.4"
-lazy val lucreVersion       = "3.4.1"
-lazy val fscapeVersion      = "2.8.0"
-
-// ---- core/test dependencies ----
-
-lazy val scalaTestVersion   = "3.0.3"
-
-// ---- views dependencies ----
-
-lazy val lucreSwingVersion  = "1.6.0"
-
-// ---- views/test dependencies ----
-
-lazy val subminVersion      = "0.2.1"
-
-// ----
+lazy val deps = new {
+  val core = new {
+    val audioFile   = "1.4.7"
+    val fileCache   = "0.5.0"
+    val fscape      = "2.20.0"
+    val lucre       = "3.11.0"
+    val netCDF      = "4.6.12"
+  }
+  val views = new {
+    val lucreSwing  = "1.14.0"
+  }
+  val test = new {
+    val scalaTest   = "3.0.5"
+    val submin      = "0.2.4"
+  }
+}
 
 lazy val commonSettings = Seq(
   version            := projectVersion,
-  organization       := "at.iem",
+  organization       := "de.sciss",
   scalaVersion       := scalaMainVersion,
-  crossScalaVersions := Seq(scalaMainVersion, "2.11.11"),
-  homepage           := Some(url(s"https://github.com/iem-projects/$baseName")),
+  crossScalaVersions := Seq(scalaMainVersion, "2.11.12"),
+  homepage           := Some(url(s"https://git.iem.at/sciss/$baseName")),
   licenses           := Seq("LGPL v2.1+" -> url("https://www.gnu.org/licenses/lgpl-2.1.txt")),
-  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xfuture", "-Xlint"),
+  scalacOptions     ++= Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8", "-Xlint", "-Xsource:2.13"),
   resolvers         ++= Seq(
     "Oracle Repository" at "http://download.oracle.com/maven",                                          // required for sleepycat
      "Unidata Releases" at "https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases"   // required for NetCDF
@@ -53,8 +48,8 @@ lazy val commonSettings = Seq(
   pomIncludeRepository := { _ => false },
   pomExtra := { val n = baseName
     <scm>
-      <url>git@github.com:iem-projects/{n}.git</url>
-      <connection>scm:git:git@github.com:iem-projects/{n}.git</connection>
+      <url>git@git.iem.at:sciss/{n}.git</url>
+      <connection>scm:git:git@git.iem.at:sciss/{n}.git</connection>
     </scm>
       <developers>
         <developer>
@@ -66,31 +61,31 @@ lazy val commonSettings = Seq(
   }
 )
 
-lazy val root = Project(id = baseNameL, base = file(".")).
-  aggregate(core, views).
-  dependsOn(core, views).
-  settings(commonSettings).
-  settings(
+lazy val root = project.withId(baseNameL).in(file("."))
+  .aggregate(core, views)
+  .dependsOn(core, views)
+  .settings(commonSettings)
+  .settings(
     publishArtifact in (Compile, packageBin) := false, // there are no binaries
     publishArtifact in (Compile, packageDoc) := false, // there are no javadocs
     publishArtifact in (Compile, packageSrc) := false  // there are no sources
   )
 
-lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
-  settings(commonSettings).
-  settings(
+lazy val core = project.withId(s"$baseNameL-core").in(file("core"))
+  .settings(commonSettings)
+  .settings(
     name        := s"$baseName-core",
     description := "Operationalizing SysSon data matrices as reactive dataflow objects",
     libraryDependencies ++= Seq(
-      "de.sciss"      %% "lucre-expr"      % lucreVersion,
-      "edu.ucar"      %  "netcdf4"         % netCDFVersion,
-      "de.sciss"      %% "filecache-txn"   % fileCacheVersion,
-      "de.sciss"      %% "scalaaudiofile"  % audioFileVersion,
-      "de.sciss"      %% "fscape"          % fscapeVersion,         // asynchronous processing
-      "org.scalatest" %% "scalatest"       % scalaTestVersion % "test",
-      "de.sciss"      %% "lucre-bdb"       % lucreVersion     % "test"
+      "de.sciss"      %% "lucre-expr"      % deps.core.lucre,
+      "edu.ucar"      %  "netcdf4"         % deps.core.netCDF,
+      "de.sciss"      %% "filecache-txn"   % deps.core.fileCache,
+      "de.sciss"      %% "scalaaudiofile"  % deps.core.audioFile,
+      "de.sciss"      %% "fscape"          % deps.core.fscape,         // asynchronous processing
+      "org.scalatest" %% "scalatest"       % deps.test.scalaTest % Test,
+      "de.sciss"      %% "lucre-bdb"       % deps.core.lucre     % Test
     ),
-    mimaPreviousArtifacts := Set("at.iem" %% s"$baseNameL-core" % mimaVersion),
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-core" % mimaVersion),
     initialCommands in console :=
       """import de.sciss.lucre.matrix._
         |import Implicits._
@@ -102,15 +97,16 @@ lazy val core = Project(id = s"$baseNameL-core", base = file("core")).
         |""".stripMargin
   )
 
-lazy val views = Project(id = s"$baseNameL-views", base = file("views")).
-  dependsOn(core).
-  settings(commonSettings).
-  settings(
+lazy val views = project.withId(s"$baseNameL-views").in(file("views"))
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(
     name        := s"$baseName-views",
     description := "Swing views for LucreMatrix",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "lucreswing" % lucreSwingVersion,
-      "de.sciss" %  "submin"     % subminVersion  % "test"
+      "de.sciss" %% "lucreswing" % deps.views.lucreSwing,
+      "de.sciss" %  "submin"     % deps.test.submin % Test
     ),
-    mimaPreviousArtifacts := Set("at.iem" %% s"$baseNameL-views" % mimaVersion)
+    mimaPreviousArtifacts := Set("de.sciss" %% s"$baseNameL-views" % mimaVersion)
   )
+

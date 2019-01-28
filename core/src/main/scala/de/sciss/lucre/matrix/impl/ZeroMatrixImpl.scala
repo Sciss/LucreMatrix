@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -27,12 +27,12 @@ import de.sciss.synth.proc.GenContext
 import scala.concurrent.{ExecutionContext, Future}
 
 object ZeroMatrixImpl {
-  final val opID = 0
+  final val opId = 0
 
   def apply[S <: Sys[S]](shape: Vec[Int])(implicit tx: S#Tx): Matrix[S] =
-    new Impl[S](tx.newID(), shape)
+    new Impl[S](tx.newId(), shape)
 
-  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#Id, in: DataInput): Matrix[S] = {
     val shape = intVecSer.read(in)
     new Impl[S](id, shape)
   }
@@ -91,7 +91,7 @@ object ZeroMatrixImpl {
     def rank  : Int       = shape.size
     def size  : Long      = (1L /: shape)(_ * _)
 
-    protected def opID: Int = ZeroMatrixImpl.opID
+    protected def opId: Int = ZeroMatrixImpl.opId
 
     override def toString = s"ZeroMatrix.Key(shape = ${shapeConst.mkString("[","][","]")}, streamDim = $streamDim)"
 
@@ -115,20 +115,20 @@ object ZeroMatrixImpl {
     }
   }
 
-  private final class Impl[S <: Sys[S]](val id: S#ID, protected val shapeConst: Vec[Int])
+  private final class Impl[S <: Sys[S]](val id: S#Id, protected val shapeConst: Vec[Int])
     extends ConstImpl[S] {
 
     //    def reader(streamDim: Int)(implicit tx: S#Tx, resolver: Resolver[S]): Reader =
     //      new ReaderImpl(shapeConst, streamDim)
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
-      new Impl(txOut.newID(), shapeConst)
+      new Impl(txOut.newId(), shapeConst)
 
     protected def nameConst = s"zeros${shapeConst.mkString("[","][","]")}"
 
     protected def unitsConst = ""
 
-    protected def opID: Int = ZeroMatrixImpl.opID
+    protected def opId: Int = ZeroMatrixImpl.opId
 
     def prepareReader(streamDim: Int)(implicit tx: S#Tx): Matrix.ReaderFactory[S] =
       new ReaderFactoryImpl[S](KeyImpl(shapeConst, streamDim))

@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -25,7 +25,7 @@ object Dimension {
   object Selection extends Elem.Type {
     // ---- Elem.Type ----
 
-    final val typeID = 0x30003
+    final val typeId = 0x30003
 
     def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Elem[S] =
       Impl.readIdentifiedSelection(in, access)
@@ -38,7 +38,7 @@ object Dimension {
     implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Selection[S]] = Impl.selSerializer[S]
 
     object Index {
-      final val opID  = 0
+      final val opId  = 0
 
       def apply[S <: Sys[S]](expr: IntObj[S])(implicit tx: S#Tx): Index[S] = Impl.applySelIndex(expr)
     }
@@ -47,7 +47,7 @@ object Dimension {
     }
 
     object Name {
-      final val opID  = 1
+      final val opId  = 1
 
       def apply[S <: Sys[S]](expr: StringObj[S])(implicit tx: S#Tx): Name[S] = Impl.applySelName(expr)
     }

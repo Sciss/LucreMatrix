@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -25,7 +25,7 @@ import ucar.nc2
 object DataSource extends Obj.Type {
   // ---- Obj.Type ----
 
-  final val typeID = 0x30005
+  final val typeId = 0x30005
 
   def readIdentifiedObj[S <: Sys[S]](in: DataInput, access: S#Acc)(implicit tx: S#Tx): Obj[S] =
     Impl.readIdentifiedObj(in, access)
@@ -48,7 +48,7 @@ object DataSource extends Obj.Type {
     serializer[S].read(in, access)
 
   object Variable {
-    final val opID = 3
+    final val opId = 3
 
     implicit def serializer[S <: Sys[S]]: Serializer[S#Tx, S#Acc, Variable[S]] = Impl.varSerializer
 

@@ -99,6 +99,8 @@ object ReductionView {
         slidIdx.value = Some(exprIdx)
         val dndOpt    = transferHandler.map(DnDButton(_, exprIdx))
         val view: View[S] = new View[S] {
+          type C = Component
+
           lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
             contents += new Label("Index:")
             contents += slidIdx.component
@@ -133,6 +135,8 @@ object ReductionView {
         val dndLoOpt  = transferHandler.map(DnDButton(_, exprLo))
         val dndHiOpt  = transferHandler.map(DnDButton(_, exprHi))
         val view: View[S] = new View[S] {
+          type C = Component
+
           lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
             contents += new Label("Slice:")
             contents += viewSlice.component
@@ -185,6 +189,8 @@ object ReductionView {
         // viewStride.value   = Some(os.step)
         val dndOpt = transferHandler.map(DnDButton(_, exprStride))
         val view: View[S] = new View[S] {
+          type C = Component
+
           lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
             contents += new Label("Stride:")
             dndOpt.foreach(contents += _.component)
@@ -199,6 +205,8 @@ object ReductionView {
 
       case oa: Reduce.Op.Average[S] =>
         val view: View[S] = new View[S] {
+          type C = Component
+
           lazy val component: Component = new BoxPanel(Orientation.Horizontal) {
             contents += new Label("\u2192 Avg")
             contents += Swing.HStrut(4)
@@ -229,6 +237,8 @@ object ReductionView {
 
   final class UnitLabelImpl[S <: Sys[S]](dimIdxView: DimensionIndex[S], dimRange: Option[Range])
     extends View[S] with ComponentHolder[TextField] {
+
+    type C = TextField
 
     private[this] var observer: Disposable[S#Tx]  = _
     private[this] var value   : Int               = _
@@ -320,7 +330,7 @@ object ReductionView {
     val isVar   = IntObj.Var.unapply(expr).isDefined
     import IntObj.serializer
     val source  = tx.newHandle(expr)
-    View.wrap[S](new DnDButton(th, source = source, isVar = isVar))
+    View.wrap[S, Component](new DnDButton(th, source = source, isVar = isVar))
   }
 
   private final class DnDButton[S <: Sys[S]](th: MatrixView.TransferHandler[S], source: stm.Source[S#Tx, IntObj[S]],
@@ -451,6 +461,8 @@ object ReductionView {
   }
 }
 trait ReductionView[S <: Sys[S]] extends View[S] {
+  type C = Component
+
   def reduction(implicit tx: S#Tx): Reduce[S]
 
   /** Constant, may be called on any thread. */

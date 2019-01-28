@@ -3,7 +3,7 @@
  *  (LucreMatrix)
  *
  *  Copyright (c) 2014-2017 Institute of Electronic Music and Acoustics, Graz.
- *  Copyright (c) 2014-2017 by Hanns Holger Rutz.
+ *  Copyright (c) 2014-2019 by Hanns Holger Rutz.
  *
  *	This software is published under the GNU Lesser General Public License v2.1+
  *
@@ -26,12 +26,12 @@ import ucar.ma2
 import scala.concurrent.{ExecutionContext, Future}
 
 object ConstMatrixImpl {
-  final val opID = 1
+  final val opId = 1
 
   def apply1D[S <: Sys[S]](name: String, units: String, v: Vec[Double])(implicit tx: S#Tx): Matrix[S] = {
     val shape = Vec(v.size)
     val data  = Data(name, units, shape, v)
-    new Impl[S](tx.newID(), data)
+    new Impl[S](tx.newId(), data)
   }
 
   def apply2D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Double]])(implicit tx: S#Tx): Matrix[S] = {
@@ -40,7 +40,7 @@ object ConstMatrixImpl {
     require(v.forall(_.size == sz1), "In a 2D matrix, all row vectors must have equal length")
     val flat  = v.flatten
     val data  = Data(name, units, shape, flat)
-    new Impl[S](tx.newID(), data)
+    new Impl[S](tx.newId(), data)
   }
 
   def apply3D[S <: Sys[S]](name: String, units: String, v: Vec[Vec[Vec[Double]]])(implicit tx: S#Tx): Matrix[S] = {
@@ -53,10 +53,10 @@ object ConstMatrixImpl {
     }, "In a 3D matrix, all dimension slices must have equal length")
     val flat  = v.flatMap(_.flatten)
     val data  = Data(name, units, shape, flat)
-    new Impl[S](tx.newID(), data)
+    new Impl[S](tx.newId(), data)
   }
 
-  private[matrix] def readIdentified[S <: Sys[S]](id: S#ID, in: DataInput): Matrix[S] = {
+  private[matrix] def readIdentified[S <: Sys[S]](id: S#Id, in: DataInput): Matrix[S] = {
     val data = readData(in)
     new Impl[S](id, data)
   }
@@ -186,7 +186,7 @@ object ConstMatrixImpl {
 
     override def toString = s"$productPrefix($data, streamDim = $streamDim)"
 
-    protected def opID: Int = ConstMatrixImpl.opID
+    protected def opId: Int = ConstMatrixImpl.opId
 
     protected def writeData(out: DataOutput): Unit = {
       out.writeShort(streamDim)
@@ -216,7 +216,7 @@ object ConstMatrixImpl {
       s"$productPrefix@${hashCode().toHexString}($name, $units, shape = ${shape.mkString("[","][","]")})"
   }
 
-  private final class Impl[S <: Sys[S]](val id: S#ID, data: Data)
+  private final class Impl[S <: Sys[S]](val id: S#Id, data: Data)
     extends ConstImpl[S] {
 
     import data.flatData
@@ -228,7 +228,7 @@ object ConstMatrixImpl {
 //    def fillValue(implicit tx: S#Tx): Double = Double.NaN
 
     def copy[Out <: stm.Sys[Out]]()(implicit tx: S#Tx, txOut: Out#Tx, context: Copy[S, Out]): Elem[Out] =
-      new Impl(txOut.newID(), data)
+      new Impl(txOut.newId(), data)
 
     override def toString = s"$nameConst${shapeConst.mkString("[","][","]")}"
 
@@ -241,7 +241,7 @@ object ConstMatrixImpl {
                      exec: ExecutionContext, context: GenContext[S]): Future[Vec[Double]] =
       Future.successful(flatData)
 
-    protected def opID: Int = ConstMatrixImpl.opID
+    protected def opId: Int = ConstMatrixImpl.opId
 
     protected def writeData1(out: DataOutput): Unit = data.write(out)
   }

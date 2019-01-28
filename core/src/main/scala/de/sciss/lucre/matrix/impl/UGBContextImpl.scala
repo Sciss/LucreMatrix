@@ -6,8 +6,8 @@ import de.sciss.fscape.lucre.UGenGraphBuilder
 import de.sciss.fscape.lucre.UGenGraphBuilder.{IO, Input, MissingIn}
 import de.sciss.lucre.matrix.{DataSource, Matrix => LMatrix}
 import de.sciss.lucre.stm
-import de.sciss.lucre.stm.Sys
-import de.sciss.synth.proc.{GenContext, WorkspaceHandle}
+import de.sciss.lucre.stm.{Sys, Workspace}
+import de.sciss.synth.proc.GenContext
 
 import scala.collection.immutable.{IndexedSeq => Vec}
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,8 +34,8 @@ trait UGBContextImpl[S <: Sys[S]] extends UGenGraphBuilder.Context[S] {
 
   // ---- impl ----
 
-  implicit protected final def cursor    : stm.Cursor[S]       = gen.cursor
-  implicit protected final def workspace : WorkspaceHandle[S]  = gen.workspaceHandle
+  implicit protected final def cursor    : stm.Cursor[S]  = gen.cursor
+  implicit protected final def workspace : Workspace[S]   = gen.workspace
 
   abstract override def requestInput[Res](req: Input {type Value = Res}, io: IO[S] with UGenGraphBuilder)
                                          (implicit tx: S#Tx): Res = req match {
