@@ -21,7 +21,7 @@ Add the following dependency:
 
     "de.sciss" %% "lucrematrix" % v
 
-The current stable version `v` is `"1.6.0"`.
+The current stable version `v` is `"1.7.0"`.
 
 The last version based on NetCDF 4.3.22 supporting Java 6 is:
 

@@ -101,13 +101,13 @@ object DataSourceImpl {
         // val dimName = i.dim.name
         val rangeJ  = rangeArr.get(i)
         // val r       = i.range // guaranteed to be inclusive, therefore we can directly test for `end == size - 1`
-        val rStart  = rangeJ.first()
-        val rEnd    = rangeJ.last()
-        val rStep   = rangeJ.stride()
+        val rStart: Int = rangeJ.first  ()
+        val rEnd  : Int = rangeJ.last   ()
+        val rStep : Int = rangeJ.stride ()
         val full    = matMap.getOrElse(dimName, netMap.get(dimName).fold[Matrix[S]] {
           // dimension not found (perhaps not numeric)
           // we're creating a dummy matrix then.
-          MatrixFactoryImpl.newConst1D[S](dimName, Range.Double.inclusive(rStart, rEnd, rStep))
+          MatrixFactoryImpl.newConst1D[S](dimName, Range.Int.inclusive(rStart, rEnd, rStep).map(_.toDouble))
         } { net1 =>
           mkVariable(source, net1, netMap, matMap)
         })

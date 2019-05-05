@@ -21,7 +21,7 @@ import akka.stream.stage.{GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape}
 import at.iem.sysson.fscape.graph.Matrix
 import de.sciss.file._
-import de.sciss.fscape.stream.impl.{BlockingGraphStage, NodeImpl}
+import de.sciss.fscape.stream.impl.{BlockingGraphStage, NodeHasInitImpl, NodeImpl}
 import de.sciss.lucre.matrix.Vec
 import de.sciss.lucre.matrix.impl.ReaderImpl
 import ucar.ma2.DataType
@@ -34,7 +34,7 @@ import scala.util.{Failure, Success, Try}
 
 object MatrixOut {
   def apply(file: File, spec: Matrix.Spec.Value, in: OutD)(implicit b: Builder): OutL = {
-    val source  = new Stage(file, spec)
+    val source  = new Stage(b.layer, file, spec)
     val stage   = b.add(source)
     b.connect(in, stage.in)
     stage.out
@@ -44,25 +44,26 @@ object MatrixOut {
 
   private type Shape = FlowShape[BufD, BufL]
 
-  private final class Stage(file: File, spec: Matrix.Spec.Value)(implicit ctrl: Control)
+  private final class Stage(layer: Layer, file: File, spec: Matrix.Spec.Value)(implicit ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($file)") {
 
     val shape = FlowShape(InD(s"$name.in"), OutL(s"$name.out"))
 
     def createLogic(attr: Attributes): NodeImpl[Shape] =
-      new Logic(shape, file, spec)
+      new Logic(layer, shape, file, spec)
   }
 
-  private final class Logic(shape: Shape, protected val file: File, protected val spec: Matrix.Spec.Value)
+  private final class Logic(layer: Layer, shape: Shape, protected val file: File, protected val spec: Matrix.Spec.Value)
                            (implicit ctrl: Control)
-    extends NodeImpl(s"$name($file)", shape) with AbstractLogic
+    extends NodeImpl(s"$name($file)", layer, shape) with AbstractLogic
 
-  trait AbstractLogic extends Node with InHandler with OutHandler { logic: GraphStageLogic =>
+  trait AbstractLogic extends Node with NodeHasInitImpl with InHandler with OutHandler { logic: GraphStageLogic =>
     // ---- abstract ----
 
     protected def file : File
     protected def spec : Matrix.Spec.Value
-    protected def shape: Shape
+
+    def shape: Shape
 
     // ---- impl ----
 
@@ -85,7 +86,9 @@ object MatrixOut {
     final def onPull(): Unit = if (isAvailable(shape.in ) && writer != null) process()
     final def onPush(): Unit = if (isAvailable(shape.out) && writer != null) process()
 
-    override def preStart(): Unit = {
+    override protected def init(): Unit = {
+      super.init()
+
       val ctrl = control
       import ctrl.config.executionContext
 
@@ -141,7 +144,7 @@ object MatrixOut {
           }
 
 //          if (isAvailable(shape.in ) && isAvailable(shape.out)) process()
-          pull(shape.in)
+          if (!hasBeenPulled(shape.in)) tryPull(shape.in)
 
         case Failure(ex) =>
           failStage(ex)
@@ -195,7 +198,7 @@ object MatrixOut {
           off += 1
         }
 
-        bufOut.size = chunk   // IntelliJ highlight bug
+        bufOut.size = chunk
         push(shape.out, bufOut)
 
         framesRead = _framesRead

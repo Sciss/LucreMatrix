@@ -40,7 +40,7 @@ trait ConstImpl[S <: Sys[S]] extends MatrixRoot[S] with evt.impl.ConstObjImpl[S,
   final def dimensions(implicit tx: S#Tx): Vec[Matrix[S]] =
     shapeConst.zipWithIndex.map { case (sz, idx) =>
       val name = s"dim$idx"
-      MatrixFactoryImpl.newConst1D(name, Range.Double(0.0, sz, 1.0))
+      MatrixFactoryImpl.newConst1D(name, Vec.tabulate(sz)(_.toDouble))
     }
 
   final protected def writeData(out: DataOutput): Unit = {

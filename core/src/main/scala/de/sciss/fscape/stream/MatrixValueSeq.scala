@@ -23,7 +23,7 @@ import scala.concurrent.Future
 
 object MatrixValueSeq {
   def apply(matrix: Future[Matrix.Reader])(implicit b: Builder): OutD = {
-    val source  = new Stage(matrix)
+    val source  = new Stage(b.layer, matrix)
     val stage   = b.add(source)
     stage.out
   }
@@ -32,17 +32,17 @@ object MatrixValueSeq {
 
   private type Shape = SourceShape[BufD]
 
-  private final class Stage(matrix: Future[Matrix.Reader])(implicit ctrl: Control)
+  private final class Stage(layer: Layer, matrix: Future[Matrix.Reader])(implicit ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($matrix)") {
 
     val shape = SourceShape(OutD(s"$name.out"))
 
     def createLogic(attr: Attributes): NodeImpl[Shape] =
-      new Logic(shape, matrix)
+      new Logic(layer, shape, matrix)
   }
 
-  private final class Logic(shape: Shape, matrixF: Future[Matrix.Reader])(implicit ctrl: Control)
-    extends MatrixValueImpl(name, shape, matrixF) {
+  private final class Logic(layer: Layer, shape: Shape, matrixF: Future[Matrix.Reader])(implicit ctrl: Control)
+    extends MatrixValueImpl(name, layer, shape, matrixF) {
 
     private[this] val bufSize: Int = ctrl.blockSize
 

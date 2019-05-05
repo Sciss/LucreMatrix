@@ -23,7 +23,7 @@ import de.sciss.serial.{DataInput, DataOutput, ImmutableSerializer}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
 import de.sciss.synth.proc.GenContext
 
-import scala.concurrent.stm.{TMap, atomic}
+import scala.concurrent.stm.{InTxn, TMap, atomic}
 import scala.concurrent.{Future, blocking}
 import scala.util.control.NonFatal
 
@@ -199,7 +199,7 @@ object AudioFileCacheImpl {
 
     def acquire[S <: Sys[S]](factory: Matrix.ReaderFactory[S])
                             (implicit tx: S#Tx, resolver: Resolver[S], context: GenContext[S]): Future[Result] = {
-      implicit val itx = tx.peer
+      implicit val itx: InTxn = tx.peer
       val key = factory.key
       map.get(key).fold {
         val fut0 = cache.acquireWith(key) {
@@ -234,7 +234,7 @@ object AudioFileCacheImpl {
     }
 
     def release(key: Matrix.Key)(implicit tx: TxnLike): Unit = {
-      implicit val itx = tx.peer
+      implicit val itx: InTxn = tx.peer
       map.get(key).foreach { e0 =>
         val e1 = e0.dec
         if (e1.isEmpty) {

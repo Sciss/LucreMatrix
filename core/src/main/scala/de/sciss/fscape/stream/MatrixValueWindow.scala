@@ -24,7 +24,7 @@ import scala.concurrent.Future
 
 object MatrixValueWindow {
   def apply(matrix: Future[Matrix.Reader], winSize: Int, dims: ISeq[Int])(implicit b: Builder): OutD = {
-    val source  = new Stage(matrix, winSize = winSize, dims = dims.toArray)
+    val source  = new Stage(b.layer, matrix, winSize = winSize, dims = dims.toArray)
     val stage   = b.add(source)
     stage.out
   }
@@ -33,18 +33,19 @@ object MatrixValueWindow {
 
   private type Shape = SourceShape[BufD]
 
-  private final class Stage(matrix: Future[Matrix.Reader], winSize: Int, dims: Array[Int])(implicit ctrl: Control)
+  private final class Stage(layer: Layer, matrix: Future[Matrix.Reader], winSize: Int, dims: Array[Int])
+                           (implicit ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($matrix)") {
 
     val shape = SourceShape(OutD(s"$name.out"))
 
     def createLogic(attr: Attributes): NodeImpl[Shape] =
-      new Logic(shape, matrix, winSize = winSize, dims = dims)
+      new Logic(layer, shape, matrix, winSize = winSize, dims = dims)
   }
 
-  private final class Logic(shape: Shape, matrixF: Future[Matrix.Reader], winSize: Int, dims: Array[Int])
+  private final class Logic(layer: Layer, shape: Shape, matrixF: Future[Matrix.Reader], winSize: Int, dims: Array[Int])
                            (implicit ctrl: Control)
-    extends MatrixValueImpl(name, shape, matrixF) {
+    extends MatrixValueImpl(name, layer, shape, matrixF) {
 
     private[this] val bufSize: Int = ctrl.blockSize
     private[this] var winBuf = new Array[Double](winSize)

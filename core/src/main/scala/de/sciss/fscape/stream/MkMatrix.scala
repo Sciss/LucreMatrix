@@ -25,7 +25,7 @@ import de.sciss.serial.DataOutput
 
 object MkMatrix {
   def apply(ref: OutputRef, file: File, spec: Matrix.Spec.Value, in: OutD)(implicit b: Builder): OutL = {
-    val source  = new Stage(ref, file, spec)
+    val source  = new Stage(b.layer, ref, file, spec)
     val stage   = b.add(source)
     b.connect(in, stage.in)
     stage.out
@@ -35,18 +35,19 @@ object MkMatrix {
 
   private type Shape = FlowShape[BufD, BufL]
 
-  private final class Stage(ref: OutputRef, file: File, spec: Matrix.Spec.Value)(implicit protected val ctrl: Control)
+  private final class Stage(layer: Layer, ref: OutputRef, file: File, spec: Matrix.Spec.Value)
+                           (implicit protected val ctrl: Control)
     extends BlockingGraphStage[Shape](s"$name($file)") {
 
     val shape = FlowShape(InD(s"$name.in"), OutL(s"$name.out"))
 
     def createLogic(attr: Attributes): NodeImpl[Shape] =
-      new Logic(shape, ref, file, spec)
+      new Logic(layer, shape, ref, file, spec)
   }
 
-  private final class Logic(shape: Shape, ref: OutputRef, protected val file: File,
+  private final class Logic(layer: Layer, shape: Shape, ref: OutputRef, protected val file: File,
                             protected val spec: Matrix.Spec.Value)(implicit ctrl: Control)
-    extends NodeImpl(s"$name($file)", shape) with MatrixOut.AbstractLogic {
+    extends NodeImpl(s"$name($file)", layer, shape) with MatrixOut.AbstractLogic {
 
     override protected def stopped(): Unit = {
       super.stopped()

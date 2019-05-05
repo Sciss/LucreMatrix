@@ -16,8 +16,7 @@ package at.iem.sysson
 
 import de.sciss.file._
 import de.sciss.lucre.matrix.DataSource
-import de.sciss.lucre.stm.{Sys, Disposable}
-import de.sciss.synth.proc.Workspace
+import de.sciss.lucre.stm.{Disposable, Sys, Workspace}
 import ucar.nc2.NetcdfFile
 
 import scala.concurrent.stm.{InTxn, TMap, Txn}

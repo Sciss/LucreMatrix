@@ -1,25 +1,25 @@
 lazy val baseName           = "LucreMatrix"
 lazy val baseNameL          = baseName.toLowerCase
 
-lazy val projectVersion     = "1.6.0"
-lazy val mimaVersion        = "1.6.0"
+lazy val projectVersion     = "1.7.0-SNAPSHOT"
+lazy val mimaVersion        = "1.7.0"
 
 lazy val scalaMainVersion   = "2.12.8"
 
 lazy val deps = new {
   val core = new {
-    val audioFile   = "1.4.7"
-    val fileCache   = "0.5.0"
-    val fscape      = "2.20.0"
-    val lucre       = "3.11.0"
-    val netCDF      = "4.6.12"
+    val audioFile   = "1.5.3"
+    val fileCache   = "0.5.1"
+    val fscape      = "2.25.0"
+    val lucre       = "3.12.0"
+    val netCDF      = "4.6.13"
   }
   val views = new {
-    val lucreSwing  = "1.14.0"
+    val lucreSwing  = "1.16.0"
   }
   val test = new {
-    val scalaTest   = "3.0.5"
-    val submin      = "0.2.4"
+    val scalaTest   = "3.0.7"
+    val submin      = "0.2.5"
   }
 }
 
@@ -80,8 +80,8 @@ lazy val core = project.withId(s"$baseNameL-core").in(file("core"))
       "de.sciss"      %% "lucre-expr"      % deps.core.lucre,
       "edu.ucar"      %  "netcdf4"         % deps.core.netCDF,
       "de.sciss"      %% "filecache-txn"   % deps.core.fileCache,
-      "de.sciss"      %% "scalaaudiofile"  % deps.core.audioFile,
-      "de.sciss"      %% "fscape"          % deps.core.fscape,         // asynchronous processing
+      "de.sciss"      %% "audiofile"       % deps.core.audioFile,
+      "de.sciss"      %% "fscape-lucre"    % deps.core.fscape,         // asynchronous processing
       "org.scalatest" %% "scalatest"       % deps.test.scalaTest % Test,
       "de.sciss"      %% "lucre-bdb"       % deps.core.lucre     % Test
     ),

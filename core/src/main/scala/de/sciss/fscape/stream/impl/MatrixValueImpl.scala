@@ -23,15 +23,16 @@ import de.sciss.lucre.matrix.Matrix
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-abstract class MatrixValueImpl(name: String, shape: SourceShape[BufD], matrixF: Future[Matrix.Reader])
+abstract class MatrixValueImpl(name: String, layer: Layer, shape: SourceShape[BufD], matrixF: Future[Matrix.Reader])
                               (implicit ctrl: Control)
-  extends NodeImpl(s"$name(${matrixF.value})", shape) with OutHandler {
+  extends NodeImpl(s"$name(${matrixF.value})", layer, shape) with NodeHasInitImpl with OutHandler {
 
   private[this] var matrix: Matrix.Reader = _
 
   setHandler(shape.out, this)
 
-  override def preStart(): Unit =
+  override protected def init(): Unit = {
+    super.init()
     matrixF.value match {
       case Some(Success(m)) =>
         matrix = m
@@ -48,6 +49,7 @@ abstract class MatrixValueImpl(name: String, shape: SourceShape[BufD], matrixF: 
         import ctrl.config.executionContext
         matrixF.onComplete(callback.invoke)
     }
+  }
 
   def onPull(): Unit = {
     val m = matrix
