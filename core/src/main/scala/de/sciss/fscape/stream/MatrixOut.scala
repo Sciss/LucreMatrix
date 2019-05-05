@@ -33,6 +33,11 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 object MatrixOut {
+//  private def log(what: => String): Unit =
+//    println(s"[DEBUG] $what")
+
+  import de.sciss.fscape.{logStream => log}
+
   def apply(file: File, spec: Matrix.Spec.Value, in: OutD)(implicit b: Builder): OutL = {
     val source  = new Stage(b.layer, file, spec)
     val stage   = b.add(source)
@@ -74,6 +79,7 @@ object MatrixOut {
     private[this] val rank        = matShape.length
     private[this] val arrShape    = new Array[Int](rank)
     private[this] val origin      = new Array[Int](rank)
+    private[this] var outClosed   = false
 
     private[this] var writer: NetcdfFileWriter  = _
     private[this] var outVar: nc2.Variable      = _
@@ -83,8 +89,35 @@ object MatrixOut {
 
     protected final def isSuccess: Boolean  = _isSuccess
 
-    final def onPull(): Unit = if (isAvailable(shape.in ) && writer != null) process()
-    final def onPush(): Unit = if (isAvailable(shape.out) && writer != null) process()
+    final def onPull(): Unit =
+      if (isAvailable(shape.in) && writer != null) {
+        process()
+      }
+
+    final def onPush(): Unit =
+      if ((outClosed || isAvailable(shape.out)) && writer != null) {
+        process()
+      }
+
+    override def onUpstreamFinish(): Unit = {
+      val av = isAvailable(shape.in)
+      log(s"onUpstreamFinish() $av $this")
+      if (!av) {
+        super.onUpstreamFinish()
+      }
+    }
+
+    // ignore if frames-written observation stops
+    override def onDownstreamFinish(): Unit = {
+      log(s"onDownstreamFinish() $this")
+      outClosed = true
+      onPull()
+    }
+
+//    private def tryProcess(): Unit =
+//      if (isAvailable(shape.in) && isAvailable(shape.out) && writer != null) {
+//        process()
+//      }
 
     override protected def init(): Unit = {
       super.init()
@@ -103,6 +136,7 @@ object MatrixOut {
 
       val callback = getAsyncCallback[Try[Vec[Vec[Double]]]] {
         case Success(dimsData) =>
+          log(s"callback.success $this")
           writer = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf3, file.path, null)
           val varDims  = new util.ArrayList[nc2.Dimension](rank)
           val varName  = spec.name
@@ -143,10 +177,10 @@ object MatrixOut {
             writer.write(dimVar, arr)
           }
 
-//          if (isAvailable(shape.in ) && isAvailable(shape.out)) process()
-          if (!hasBeenPulled(shape.in)) tryPull(shape.in)
+          if (isAvailable(shape.in) && (outClosed || isAvailable(shape.out))) process()
 
         case Failure(ex) =>
+          log(s"callback.failure $this")
           failStage(ex)
       }
 
@@ -162,9 +196,7 @@ object MatrixOut {
     }
 
     private def process(): Unit = {
-      val bufOut  = control.borrowBufL()
       val bufIn   = grab(shape.in)
-      tryPull(shape.in)
       val chunk = math.min(bufIn.size, numFrames - framesRead).toInt
       if (chunk > 0) {
         var _framesRead = framesRead
@@ -190,24 +222,41 @@ object MatrixOut {
           off += len
         }
 
-        off = 0
-        val out = bufOut.buf
-        while (off < chunk) {
-          _framesRead += 1
-          out(off) = _framesRead
-          off += 1
-        }
+        if (outClosed) {
+          _framesRead += chunk
 
-        bufOut.size = chunk
-        push(shape.out, bufOut)
+        } else {
+          off = 0
+          val bufOut  = control.borrowBufL()
+          val out = bufOut.buf
+          while (off < chunk) {
+            _framesRead += 1
+            out(off) = _framesRead
+            off += 1
+          }
+
+          bufOut.size = chunk
+          push(shape.out, bufOut)
+        }
 
         framesRead = _framesRead
       }
+
+      bufIn.release()
+
       if (framesRead == numFrames) {
-        logStream(s"completeStage() $this")
+        log(s"completeStage() success $this")
         writer.close()
         _isSuccess = true
         completeStage()
+
+      } else {
+        if (isClosed(shape.in)) {
+          log(s"completeStage() closed $this")
+          completeStage()
+        } else {
+          pull(shape.in)
+        }
       }
     }
   }

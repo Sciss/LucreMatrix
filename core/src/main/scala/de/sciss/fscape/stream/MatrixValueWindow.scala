@@ -82,7 +82,7 @@ object MatrixValueWindow {
             bufOff = 0
           }
         }
-        bufOut.size = chunk   // IntelliJ highlight bug
+        bufOut.size = chunk
         framesRead += chunk
         push(shape.out, bufOut)
       }

@@ -15,6 +15,8 @@ object NewReadTest {
   def main(args: Array[String]): Unit = NewReadTest
 
   val p: File = userHome / "IEM" / "SysSon" / "Data" / "201211" / "RO_Data" / "ROdata__011995_to_122008__months.nc"
+  require (p.isFile)
+
   type S = InMemory
 
   initTypes()
@@ -45,7 +47,7 @@ object NewReadTest {
     val redLat    = Reduce(redAlt, Dimension.Selection.Name(StringObj.newConst("lat")), redLatVar)
 
     (dim, tx.newHandle(redLat), tx.newHandle(redLatVar), tx.newHandle(redLatSt: Reduce.Op[S]),
-      tx.newHandle(redLatFrom), tx.newHandle(redLatTo), tx.newHandle(redLatStep))
+      tx.newHandle(redLatFrom), tx.newHandle(redLatTo), tx.newHandle(redLatStep)) // IntelliJ highlight bug
   }
 
   def show(r: Matrix.Reader): Unit = {

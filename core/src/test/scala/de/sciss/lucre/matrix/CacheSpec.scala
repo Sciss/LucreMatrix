@@ -208,7 +208,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
     val ncf = nc2.NetcdfFile.open(f.path)
 
     implicit val (cache, context) = args
-    implicit val resolver = DataSource.Resolver.seq[S](ncf)
+    implicit val resolver: DataSource.Resolver[S] = DataSource.Resolver.seq[S](ncf)
     import context.cursor
 
     val Seq(fm, f0, f1) = cursor.step { implicit tx =>
@@ -260,7 +260,7 @@ class CacheSpec extends fixture.FlatSpec with Matchers {
 
     implicit val (cache, context) = args
     import context.{cursor, workspace}
-    implicit val resolver = WorkspaceResolver[S] // .Resolver.seq[S](ncf)
+    implicit val resolver: DataSource.Resolver[S] = WorkspaceResolver[S] // .Resolver.seq[S](ncf)
 
     import scala.concurrent.ExecutionContext.Implicits._
 

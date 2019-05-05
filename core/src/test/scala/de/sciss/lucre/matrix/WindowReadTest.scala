@@ -13,11 +13,12 @@ object WindowReadTest {
 
   def run(): Unit = {
     type S = InMemory
-    implicit val system = InMemory()
+    implicit val system: S = InMemory()
 
     initTypes()
 
     val f = userHome / "sysson" / "nc" / "5x30-climatology_2001-05-01_2016-05-01_ta_clean.nc"
+    require (f.isFile)
 
     try {
       val net = ucar.nc2.NetcdfFile.open(f.path)

@@ -12,8 +12,17 @@ object NetCDFSerialTest extends App {
 
   initTypes()
 
-  val f = userHome / "IEM" / "SysSon" / "Data" / "201211" / "gcm" / "New_Deutschlandradio_MPI_M" / "pr" /
-    "25_pr_Amon_MPI-ESM-LR_rcp45_r1i1p1_200601-230012.nc"
+  val f: File = {
+    val name = "25_pr_Amon_MPI-ESM-LR_rcp45_r1i1p1_200601-230012.nc"
+    val p0 = userHome / "IEM" / "SysSon" / "Data" / "201211" / "gcm" / "New_Deutschlandradio_MPI_M" / "pr"
+    val f0 = p0 / name
+    if (f0.isFile) f0 else {
+      val p1 = file("/data") / "IEM" / "SysSon" / "data"
+      val f1 = p1 / name
+      require (f1.isFile)
+      f1
+    }
+  }
 
   try {
     val net = ucar.nc2.NetcdfFile.open(f.path)
